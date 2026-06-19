@@ -3,6 +3,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   LabelList,
   ResponsiveContainer,
   Tooltip,
@@ -24,11 +25,15 @@ export interface SingleBarGraphTooltipProps {
 interface SingleBarGraphProps {
   barSize?: number;
   categoryKey: string;
+  categoryWidth?: number;
   className?: string;
   color?: string;
+  colorKey?: string;
   data: SingleBarGraphDatum[];
+  gridStroke?: string;
   hideNumericAxis?: boolean;
   labelKey?: string;
+  numericTickFormatter?: (value: number) => string | number;
   orientation?: "horizontal" | "vertical";
   renderTooltip?: (props: SingleBarGraphTooltipProps) => React.ReactNode;
   showTooltip?: boolean;
@@ -68,11 +73,15 @@ const DefaultTooltip = ({
 const SingleBarGraph: React.FC<SingleBarGraphProps> = ({
   barSize,
   categoryKey,
+  categoryWidth,
   className,
   color = "#df4336",
+  colorKey,
   data,
+  gridStroke,
   hideNumericAxis = true,
   labelKey,
+  numericTickFormatter,
   orientation = "vertical",
   renderTooltip,
   showTooltip = true,
@@ -101,7 +110,7 @@ const SingleBarGraph: React.FC<SingleBarGraphProps> = ({
         >
           <CartesianGrid
             horizontal={!isHorizontal}
-            stroke="rgba(107, 99, 117, 0.08)"
+            stroke={gridStroke ?? "rgba(107, 99, 117, 0.08)"}
             strokeDasharray="4 4"
             vertical={isHorizontal && !hideNumericAxis}
           />
@@ -113,6 +122,11 @@ const SingleBarGraph: React.FC<SingleBarGraphProps> = ({
                 hide={hideNumericAxis}
                 tick={{ fill: "var(--text)", fontSize: 12 }}
                 tickLine={false}
+                tickFormatter={(value) =>
+                  typeof value === "number" && numericTickFormatter
+                    ? numericTickFormatter(value)
+                    : value
+                }
                 type="number"
               />
               <YAxis
@@ -121,7 +135,7 @@ const SingleBarGraph: React.FC<SingleBarGraphProps> = ({
                 tick={{ fill: "var(--text)", fontSize: 12 }}
                 tickLine={false}
                 type="category"
-                width={88}
+                width={categoryWidth ?? 88}
               />
             </>
           ) : (
@@ -161,6 +175,21 @@ const SingleBarGraph: React.FC<SingleBarGraphProps> = ({
             fill={color}
             radius={isHorizontal ? [0, 8, 8, 0] : [8, 8, 0, 0]}
           >
+            {colorKey
+              ? data.map((entry, index) => {
+                  const fill =
+                    typeof entry[colorKey] === "string"
+                      ? entry[colorKey]
+                      : color;
+
+                  return (
+                    <Cell
+                      fill={fill}
+                      key={`${String(entry[categoryKey])}-${index}`}
+                    />
+                  );
+                })
+              : null}
             {showValueLabels && labelKey ? (
               <LabelList
                 dataKey={labelKey}

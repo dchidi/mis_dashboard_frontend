@@ -22,15 +22,34 @@ export interface AttritionGenderDatum {
   shareOfTotalAttrition: number;
 }
 
-export interface AttritionTrendDatum {
+export interface QuoteTrendDatum {
   [key: string]: string | number;
-  averageHeadcount: number;
-  femaleAttrition: number;
-  maleAttrition: number;
+  conversionRate: number;
   month: string;
-  retentionPercent: number;
-  totalAttrition: number;
-  turnoverRate: number;
+  previousYearConversionRate: number;
+  previousYearMonth: string;
+  previousYearTotalQuote: number;
+  previousYearTotalSales: number;
+  totalQuote: number;
+  totalSales: number;
+}
+
+export interface BrandContributionDatum {
+  [key: string]: string | number;
+  brand: string;
+  fill: string;
+  quoteCount: number;
+  share: number;
+  shareLabel: string;
+}
+
+export interface PetTypeMixDatum {
+  [key: string]: string | number;
+  fill: string;
+  petType: string;
+  quoteCount: number;
+  share: number;
+  shareLabel: string;
 }
 
 export interface AttritionDepartmentDatum {
@@ -134,70 +153,205 @@ export const genderAttritionData: AttritionGenderDatum[] = genderBaseData.map(
   }),
 );
 
-interface AttritionTrendBaseDatum {
-  averageHeadcount: number;
-  femaleAttrition: number;
-  maleAttrition: number;
+interface QuoteTrendBaseDatum {
   month: string;
-  totalAttrition: number;
+  previousYearMonth: string;
+  previousYearTotalQuote: number;
+  previousYearTotalSales: number;
+  totalQuote: number;
+  totalSales: number;
 }
 
-const trendBaseData: AttritionTrendBaseDatum[] = [
+const calculateConversionRate = (totalSales: number, totalQuote: number) =>
+  totalQuote === 0 ? 0 : Number(((totalSales / totalQuote) * 100).toFixed(1));
+
+const calculateShare = (value: number, total: number) =>
+  total === 0 ? 0 : Number(((value / total) * 100).toFixed(1));
+
+const trendBaseData: QuoteTrendBaseDatum[] = [
   {
     month: "Jan 25",
-    averageHeadcount: 585,
-    totalAttrition: 24,
-    maleAttrition: 13,
-    femaleAttrition: 11,
+    previousYearMonth: "Jan 24",
+    totalQuote: 585,
+    totalSales: 24,
+    previousYearTotalQuote: 548,
+    previousYearTotalSales: 20,
   },
   {
     month: "Feb 25",
-    averageHeadcount: 600,
-    totalAttrition: 18,
-    maleAttrition: 10,
-    femaleAttrition: 8,
+    previousYearMonth: "Feb 24",
+    totalQuote: 600,
+    totalSales: 18,
+    previousYearTotalQuote: 563,
+    previousYearTotalSales: 19,
   },
   {
     month: "Mar 25",
-    averageHeadcount: 600,
-    totalAttrition: 12,
-    maleAttrition: 7,
-    femaleAttrition: 5,
+    previousYearMonth: "Mar 24",
+    totalQuote: 600,
+    totalSales: 12,
+    previousYearTotalQuote: 571,
+    previousYearTotalSales: 14,
   },
   {
     month: "Apr 25",
-    averageHeadcount: 572,
-    totalAttrition: 16,
-    maleAttrition: 9,
-    femaleAttrition: 7,
+    previousYearMonth: "Apr 24",
+    totalQuote: 572,
+    totalSales: 16,
+    previousYearTotalQuote: 539,
+    previousYearTotalSales: 13,
   },
   {
     month: "May 25",
-    averageHeadcount: 590,
-    totalAttrition: 23,
-    maleAttrition: 12,
-    femaleAttrition: 11,
+    previousYearMonth: "May 24",
+    totalQuote: 590,
+    totalSales: 23,
+    previousYearTotalQuote: 554,
+    previousYearTotalSales: 20,
   },
   {
     month: "Jun 25",
-    averageHeadcount: 583,
-    totalAttrition: 14,
-    maleAttrition: 8,
-    femaleAttrition: 6,
+    previousYearMonth: "Jun 24",
+    totalQuote: 583,
+    totalSales: 14,
+    previousYearTotalQuote: 547,
+    previousYearTotalSales: 12,
   },
 ];
 
-export const trendData: AttritionTrendDatum[] = trendBaseData.map((entry) => {
-  const turnoverRate = Number(
-    ((entry.totalAttrition / entry.averageHeadcount) * 100).toFixed(1),
+export const trendData: QuoteTrendDatum[] = trendBaseData.map((entry) => {
+  const conversionRate = calculateConversionRate(
+    entry.totalSales,
+    entry.totalQuote,
+  );
+  const previousYearConversionRate = calculateConversionRate(
+    entry.previousYearTotalSales,
+    entry.previousYearTotalQuote,
   );
 
   return {
     ...entry,
-    turnoverRate,
-    retentionPercent: Number((100 - turnoverRate).toFixed(1)),
+    conversionRate,
+    previousYearConversionRate,
   };
 });
+
+const brandContributionBaseData = [
+  {
+    brand: "Petcover",
+    fill: "#d76853",
+    quoteCount: 186,
+  },
+  {
+    brand: "BPIS",
+    fill: "#e29a45",
+    quoteCount: 154,
+  },
+  {
+    brand: "CoveryMy",
+    fill: "#4e8df5",
+    quoteCount: 132,
+  },
+  {
+    brand: "BB Commercial",
+    fill: "#33b18b",
+    quoteCount: 108,
+  },
+  {
+    brand: "Exotic Direct",
+    fill: "#8a74e8",
+    quoteCount: 81,
+  },
+  {
+    brand: "Petcover Professional",
+    fill: "#d75f9b",
+    quoteCount: 64,
+  },
+];
+
+export const brandContributionTotalQuotes = brandContributionBaseData.reduce(
+  (sum, entry) => sum + entry.quoteCount,
+  0,
+);
+
+export const brandContributionData: BrandContributionDatum[] =
+  brandContributionBaseData.map((entry) => {
+    const share = calculateShare(entry.quoteCount, brandContributionTotalQuotes);
+
+    return {
+      ...entry,
+      share,
+      shareLabel: `${share}%`,
+    };
+  });
+
+export const topBrandContribution =
+  brandContributionData.reduce<BrandContributionDatum | null>(
+    (topEntry, entry) =>
+      !topEntry || entry.quoteCount > topEntry.quoteCount ? entry : topEntry,
+    null,
+  );
+
+const petTypeMixBaseData = [
+  {
+    petType: "Dogs",
+    fill: "#c05a52",
+    quoteCount: 214,
+  },
+  {
+    petType: "Cats",
+    fill: "#4e8df5",
+    quoteCount: 168,
+  },
+  {
+    petType: "Exotics",
+    fill: "#33b18b",
+    quoteCount: 97,
+  },
+  {
+    petType: "Horses",
+    fill: "#d7a13d",
+    quoteCount: 72,
+  },
+  {
+    petType: "Exotic Direct",
+    fill: "#8a74e8",
+    quoteCount: 64,
+  },
+  {
+    petType: "BB Commercial",
+    fill: "#d76853",
+    quoteCount: 48,
+  },
+  {
+    petType: "Petcover Professional",
+    fill: "#d75f9b",
+    quoteCount: 36,
+  },
+];
+
+export const petTypeMixTotalQuotes = petTypeMixBaseData.reduce(
+  (sum, entry) => sum + entry.quoteCount,
+  0,
+);
+
+export const petTypeMixData: PetTypeMixDatum[] = petTypeMixBaseData.map(
+  (entry) => {
+    const share = calculateShare(entry.quoteCount, petTypeMixTotalQuotes);
+
+    return {
+      ...entry,
+      share,
+      shareLabel: `${share}%`,
+    };
+  },
+);
+
+export const topPetTypeMix = petTypeMixData.reduce<PetTypeMixDatum | null>(
+  (topEntry, entry) =>
+    !topEntry || entry.quoteCount > topEntry.quoteCount ? entry : topEntry,
+  null,
+);
 
 export const departmentData: AttritionDepartmentDatum[] = [
   {

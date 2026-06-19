@@ -4,7 +4,7 @@ import {
   AttritionByGradeBand,
   AttritionByPotentialPredicators,
   AttritionSummary,
-  AttritionTrend,
+  QuoteTrend,
 } from "../components/features/Attrition";
 import DashboardLayout from "../components/layout/DashboardLayout/DashboardLayout";
 import { dashboardMenuItems } from "../config/dashboardMenu";
@@ -20,7 +20,7 @@ const renderChartView = () => (
     <AttritionByGender className={style.middleColumn} />
 
     <div className={style.rightColumn}>
-      <AttritionTrend className={style.section} />
+      <QuoteTrend className={style.section} />
       <div className={style.bottomRow}>
         <AttritionByDepartment className={style.section} />
         <AttritionByGradeBand className={style.section} />

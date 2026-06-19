@@ -1,0 +1,588 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: 100%;
+}
+
+.topline {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.outerTitle {
+  color: var(--text-h);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin: 0;
+}
+
+.signal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  text-align: right;
+}
+
+.signalLabel {
+  color: var(--text);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.signalValueRow {
+  align-items: center;
+  display: flex;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.signalIcon {
+  display: inline-block;
+  flex: 0 0 auto;
+  font-size: 1.15rem;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.signalDot {
+  border-radius: 999px;
+  display: inline-block;
+  flex: 0 0 auto;
+  height: 0.6rem;
+  width: 0.6rem;
+}
+
+.signalValue {
+  color: var(--text-h);
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+}
+
+.signalPositive .signalIcon,
+.signalPositive .signalValue {
+  color: #33b18b;
+}
+
+.signalNegative .signalIcon,
+.signalNegative .signalValue {
+  color: #ff8f7e;
+}
+
+.signalNeutral .signalIcon,
+.signalNeutral .signalValue {
+  color: #d7a13d;
+}
+
+.signalWarm .signalDot,
+.signalWarm .signalValue {
+  color: #d47558;
+}
+
+.signalWarm .signalDot {
+  background-color: #d47558;
+  box-shadow: 0 0 0 0.25rem rgba(212, 117, 88, 0.18);
+}
+
+.signalCool .signalDot,
+.signalCool .signalValue {
+  color: #4e8df5;
+}
+
+.signalCool .signalDot {
+  background-color: #4e8df5;
+  box-shadow: 0 0 0 0.25rem rgba(78, 141, 245, 0.16);
+}
+
+.tabList {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tabButton {
+  appearance: none;
+  background: rgba(107, 99, 117, 0.08);
+  border: 1px solid rgba(107, 99, 117, 0.12);
+  border-radius: 999px;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.2;
+  min-width: 0;
+  padding: 0.7rem 0.95rem;
+  text-align: center;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.tabButton:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+  border-color: rgba(107, 99, 117, 0.12);
+  color: var(--text-h);
+  transform: translateY(-1px);
+}
+
+.tabButtonActive {
+  background-color: rgba(255, 255, 255, 0.04);
+  border-color: rgba(107, 99, 117, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 20px rgba(8, 6, 13, 0.14);
+  color: var(--text-h);
+}
+
+.panelBody {
+  background:
+    linear-gradient(180deg, rgba(40, 42, 52, 0.24), rgba(28, 30, 39, 0.14)),
+    linear-gradient(180deg, rgba(107, 99, 117, 0.08), rgba(107, 99, 117, 0.04));
+  border: 1px solid rgba(107, 99, 117, 0.14);
+  border-radius: 1.1rem;
+  min-height: 25rem;
+  overflow: hidden;
+  padding: 1rem;
+  position: relative;
+}
+
+.panelContent {
+  animation: panelEnter 220ms ease;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: 100%;
+}
+
+.panelIntro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.panelTitle {
+  color: var(--text-h);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.subtitle {
+  color: var(--text);
+  font-size: 0.84rem;
+  line-height: 1.6;
+  max-width: 30rem;
+}
+
+.chart {
+  flex: 0 0 auto;
+  height: 14rem;
+  min-height: 14rem;
+  width: 100%;
+}
+
+.trendSeriesRow {
+  align-items: center;
+  display: flex;
+  gap: 0.8rem;
+  justify-content: flex-end;
+}
+
+.trendSeriesGroup {
+  align-items: center;
+  background: rgba(107, 99, 117, 0.08);
+  border: 1px solid rgba(107, 99, 117, 0.12);
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.24rem;
+}
+
+.trendSeriesButton {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.1rem;
+  width: 2.1rem;
+  padding: 0;
+  transition:
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.trendSeriesButton:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+  border-color: rgba(107, 99, 117, 0.12);
+  color: var(--text-h);
+  transform: translateY(-1px);
+}
+
+.trendSeriesButtonIcon {
+  font-size: 0.88rem;
+  line-height: 1;
+}
+
+.trendSeriesButtonActive {
+  background-color: rgba(255, 255, 255, 0.04);
+  border-color: rgba(107, 99, 117, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 20px rgba(8, 6, 13, 0.14);
+  color: var(--text-h);
+}
+
+.barChart {
+  height: 15rem;
+  min-height: 15rem;
+}
+
+.brandChart {
+  height: 16.5rem;
+  min-height: 16.5rem;
+}
+
+.alertPanel {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(107, 99, 117, 0.12);
+  border-radius: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0.85rem 0.9rem;
+}
+
+.alertPanelTitle {
+  color: var(--text-h);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.alertList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.alertItem {
+  align-items: flex-start;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.alertBadge {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 1rem;
+  justify-content: center;
+  margin-top: 0.12rem;
+  width: 1rem;
+}
+
+.alertBadgeDot {
+  background-color: currentColor;
+  border-radius: 999px;
+  display: inline-block;
+  height: 0.48rem;
+  width: 0.48rem;
+}
+
+.alertHigh {
+  background-color: rgba(255, 143, 126, 0.16);
+  box-shadow: 0 0 0 0.28rem rgba(255, 143, 126, 0.08);
+  color: #ff8f7e;
+}
+
+.alertMedium {
+  background-color: rgba(215, 161, 61, 0.16);
+  box-shadow: 0 0 0 0.28rem rgba(215, 161, 61, 0.08);
+  color: #d7a13d;
+}
+
+.alertLow {
+  background-color: rgba(78, 141, 245, 0.16);
+  box-shadow: 0 0 0 0.28rem rgba(78, 141, 245, 0.08);
+  color: #4e8df5;
+}
+
+.alertContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.alertEyebrow {
+  color: var(--text);
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.alertText {
+  color: var(--text-h);
+  font-size: 0.76rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.metricGrid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metricTile {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(107, 99, 117, 0.12);
+  border-radius: 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  min-width: 0;
+  padding: 0.72rem 0.82rem;
+}
+
+.metricLabel {
+  color: var(--text);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.metricValue {
+  color: var(--text-h);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.metricNote {
+  color: var(--text);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.mixLayout {
+  align-items: center;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+}
+
+.chartShell {
+  display: grid;
+  isolation: isolate;
+  place-items: center;
+  position: relative;
+}
+
+.donutChart {
+  height: 15rem;
+  position: relative;
+  width: 100%;
+  z-index: 2;
+}
+
+.centerStat {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.centerLabel {
+  color: var(--text);
+  font-size: 0.76rem;
+}
+
+.centerValue {
+  color: var(--text-h);
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.legendItem {
+  align-items: center;
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.legendSwatch {
+  border-radius: 999px;
+  display: inline-block;
+  height: 0.68rem;
+  width: 0.68rem;
+}
+
+.legendText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.legendName {
+  color: var(--text-h);
+  font-size: 0.86rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legendMeta {
+  color: var(--text);
+  font-size: 0.76rem;
+}
+
+.legendValue {
+  color: var(--text-h);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.tooltip {
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 14px 30px rgba(8, 6, 13, 0.16);
+  color: var(--text-h);
+  min-width: 12rem;
+  padding: 0.85rem 1rem;
+}
+
+.tooltipTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 0.6rem;
+}
+
+.tooltipRow {
+  align-items: baseline;
+  color: var(--text);
+  display: flex;
+  font-size: 0.9rem;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.tooltipRow strong {
+  color: var(--text-h);
+  font-weight: 700;
+}
+
+.tooltipDivider {
+  background-color: var(--border);
+  height: 1px;
+  margin: 0.65rem 0;
+}
+
+@keyframes panelEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 900px) {
+  .metricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mixLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .topline {
+    flex-direction: column;
+  }
+
+  .signal {
+    text-align: left;
+  }
+
+  .signalValueRow {
+    justify-content: flex-start;
+  }
+
+  .tabList {
+    grid-template-columns: 1fr;
+  }
+
+  .panelBody {
+    min-height: auto;
+    padding: 0.9rem;
+  }
+
+  .trendSeriesRow {
+    justify-content: flex-start;
+  }
+
+  .trendSeriesGroup {
+    width: auto;
+  }
+
+  .chart,
+  .barChart,
+  .donutChart {
+    height: 12.5rem;
+    min-height: 12.5rem;
+  }
+
+  .metricGrid {
+    grid-template-columns: 1fr;
+  }
+}
