@@ -1,0 +1,53 @@
+.root {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 2.5fr);
+  min-width: 0;
+  padding: 10px;
+  width: 100%;
+}
+
+.leftColumn,
+.rightColumn,
+.bottomRow {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.leftColumn,
+.rightColumn {
+  flex-direction: column;
+}
+
+.section {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.middleColumn {
+  min-height: 70vh;
+  min-width: 0;
+  width: 100%;
+}
+
+.bottomRow > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+@media (max-width: 920px) {
+  .root {
+    gap: 16px;
+    grid-template-columns: 1fr;
+  }
+
+  .bottomRow {
+    flex-direction: column;
+  }
+
+  .middleColumn,
+  .section {
+    min-height: auto;
+  }
+}

@@ -2,30 +2,22 @@ import { useState } from "react";
 import dayjs from "dayjs";
 import { DatePickerInput } from "@mantine/dates";
 import { useMediaQuery } from "@mantine/hooks";
-import { FaChartSimple, FaTableCellsLarge } from "react-icons/fa6";
 import { RiDownloadCloud2Line } from "react-icons/ri";
 import { SlCalender } from "react-icons/sl";
 import style from "./DashboardLayout.module.css";
 import Menu, { type DashboardMenuItem } from "../../ui/menu/Menu";
 
-export type DashboardViewMode = "chart" | "table";
-
 interface DashboardLayoutProps {
-  children:
-    | React.ReactNode
-    | ((props: { viewMode: DashboardViewMode }) => React.ReactNode);
+  children: React.ReactNode;
   menuItems?: DashboardMenuItem[];
-  showViewToggle?: boolean;
   title?: string;
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   children,
   menuItems,
-  showViewToggle = true,
   title,
 }) => {
-  const [viewMode, setViewMode] = useState<DashboardViewMode>("chart");
   const isMobile = useMediaQuery("(max-width: 640px)") ?? false;
   const [reportingPeriod, setReportingPeriod] = useState<
     [string | null, string | null]
@@ -33,9 +25,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     dayjs().startOf("month").format("YYYY-MM-DD"),
     dayjs().format("YYYY-MM-DD"),
   ]);
-
-  const content =
-    typeof children === "function" ? children({ viewMode }) : children;
 
   return (
     <div className={style.root}>
@@ -114,41 +103,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           >
             <RiDownloadCloud2Line />
           </button>
-
-          {showViewToggle ? (
-            <div
-              aria-label="Switch dashboard view"
-              className={style.viewToggle}
-              role="tablist"
-            >
-              <button
-                aria-label="Show chart view"
-                aria-selected={viewMode === "chart"}
-                className={`${style.toggleButton} ${
-                  viewMode === "chart" ? style.toggleButtonActive : ""
-                }`}
-                onClick={() => setViewMode("chart")}
-                role="tab"
-                title="Chart view"
-                type="button"
-              >
-                <FaChartSimple aria-hidden="true" />
-              </button>
-              <button
-                aria-label="Show table view"
-                aria-selected={viewMode === "table"}
-                className={`${style.toggleButton} ${
-                  viewMode === "table" ? style.toggleButtonActive : ""
-                }`}
-                onClick={() => setViewMode("table")}
-                role="tab"
-                title="Table view"
-                type="button"
-              >
-                <FaTableCellsLarge aria-hidden="true" />
-              </button>
-            </div>
-          ) : null}
         </div>
       </div>
 
@@ -156,11 +110,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         <div className={style.row}>
           <Menu items={menuItems} />
           <div className={`${style.content} ${style.contentWithMenu}`}>
-            {content}
+            {children}
           </div>
         </div>
       ) : (
-        <div className={style.content}>{content}</div>
+        <div className={style.content}>{children}</div>
       )}
     </div>
   );

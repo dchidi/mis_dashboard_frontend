@@ -1,7 +1,7 @@
 import Card from "../components/ui/card/Card";
 import DashboardLayout from "../components/layout/DashboardLayout/DashboardLayout";
 import { dashboardMenuItems } from "../config/dashboardMenu";
-import style from "./FeaturePlaceholderDashboard.module.css";
+import style from "./page_css/FeaturePlaceholderDashboard.module.css";
 
 interface FeaturePlaceholderDashboardProps {
   description: string;
@@ -14,11 +14,7 @@ const FeaturePlaceholderDashboard: React.FC<
   FeaturePlaceholderDashboardProps
 > = ({ description, focusAreas, note, title }) => {
   return (
-    <DashboardLayout
-      menuItems={dashboardMenuItems}
-      showViewToggle={false}
-      title={title}
-    >
+    <DashboardLayout menuItems={dashboardMenuItems} title={title}>
       <div className={style.root}>
         <Card className={style.hero}>
           <p className={style.eyebrow}>Dashboard shell ready</p>
@@ -50,8 +46,8 @@ const FeaturePlaceholderDashboard: React.FC<
             <p className="cardTitle">Implementation Note</p>
             <p className={style.note}>
               This route is live and shares the same shell, filters, and menu as
-              the attrition dashboard. The visual blocks for this section can now
-              be added without reworking navigation.
+              the attrition dashboard. The visual blocks for this section can
+              now be added without reworking navigation.
             </p>
             <p className={style.noteAccent}>{note}</p>
           </Card>

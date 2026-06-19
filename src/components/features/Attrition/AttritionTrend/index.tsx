@@ -11,7 +11,7 @@ import style from "./AttritionTrend.module.css";
 const formatPercent = (value: number) => `${value}%`;
 const formatDeltaPercent = (value: number) =>
   `${Math.abs(Number(value.toFixed(1)))}%`;
-const formatHeadcount = (value: number) => value.toLocaleString();
+const formatCount = (value: number) => value.toLocaleString();
 
 interface TrendMetricRow {
   key: string;
@@ -21,22 +21,22 @@ interface TrendMetricRow {
 
 const trendMetricRows: TrendMetricRow[] = [
   {
-    key: "average-headcount",
-    label: "Average Headcount",
+    key: "total-quote",
+    label: "Total Quote",
     renderValue: (datum: AttritionTrendDatum) =>
-      formatHeadcount(datum.averageHeadcount),
+      formatCount(datum.averageHeadcount),
   },
   {
-    key: "attrition-rate",
-    label: "Attrition Rate",
+    key: "total-sales",
+    label: "Total Sales",
+    renderValue: (datum: AttritionTrendDatum) =>
+      formatCount(datum.totalAttrition),
+  },
+  {
+    key: "conversion-rate",
+    label: "Conversion %",
     renderValue: (datum: AttritionTrendDatum) =>
       formatPercent(datum.turnoverRate),
-  },
-  {
-    key: "retention-percent",
-    label: "Retention %",
-    renderValue: (datum: AttritionTrendDatum) =>
-      formatPercent(datum.retentionPercent),
   },
 ];
 
@@ -70,36 +70,22 @@ const renderTrendTooltip = ({
   if (!datum) {
     return null;
   }
-  const maleShare = Math.round(
-    (datum.maleAttrition / datum.totalAttrition) * 100,
-  );
-  const femaleShare = Math.round(
-    (datum.femaleAttrition / datum.totalAttrition) * 100,
-  );
 
   return (
     <div className={style.tooltip}>
       <div className={style.tooltipTitle}>{label}</div>
       <div className={style.tooltipRow}>
-        <span>Total Attrition</span>
-        <strong>{datum.totalAttrition}</strong>
+        <span>Total Quote</span>
+        <strong>{formatCount(datum.averageHeadcount)}</strong>
       </div>
       <div className={style.tooltipRow}>
-        <span>Attrition Rate</span>
-        <strong>{formatPercent(datum.turnoverRate)}</strong>
+        <span>Total Sales</span>
+        <strong>{formatCount(datum.totalAttrition)}</strong>
       </div>
       <div className={style.tooltipDivider} />
       <div className={style.tooltipRow}>
-        <span>Male</span>
-        <strong>
-          {datum.maleAttrition} ({maleShare}%)
-        </strong>
-      </div>
-      <div className={style.tooltipRow}>
-        <span>Female</span>
-        <strong>
-          {datum.femaleAttrition} ({femaleShare}%)
-        </strong>
+        <span>Conversion %</span>
+        <strong>{formatPercent(datum.turnoverRate)}</strong>
       </div>
     </div>
   );
@@ -118,10 +104,10 @@ const AttritionTrend: React.FC<AttritionComponentProps> = ({ className }) => {
     percentChange > 0 ? "up" : percentChange < 0 ? "down" : "flat";
   const changeDescription =
     changeDirection === "up"
-      ? "Attrition increased"
+      ? "Conversion increased"
       : changeDirection === "down"
-        ? "Attrition declined"
-        : "Attrition unchanged";
+        ? "Conversion declined"
+        : "Conversion unchanged";
   const ChangeIcon =
     changeDirection === "up"
       ? FaArrowTrendUp
@@ -131,9 +117,9 @@ const AttritionTrend: React.FC<AttritionComponentProps> = ({ className }) => {
   const deltaBadgeClassName = [
     style.deltaBadge,
     changeDirection === "up"
-      ? style.deltaUp
+      ? style.deltaDown
       : changeDirection === "down"
-        ? style.deltaDown
+        ? style.deltaUp
         : style.deltaFlat,
   ].join(" ");
 
@@ -141,7 +127,7 @@ const AttritionTrend: React.FC<AttritionComponentProps> = ({ className }) => {
     <Card className={className}>
       <div className={style.root}>
         <div className={style.header}>
-          <div className="cardTitle">Monthly Attrition Rate (%)</div>
+          <div className="cardTitle">Quote Trend</div>
           <div
             aria-label={`${changeDescription} by ${formatDeltaPercent(percentChange)}. ${currentMonth.month} vs ${previousMonth.month}.`}
             className={deltaBadgeClassName}

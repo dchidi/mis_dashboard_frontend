@@ -1,12 +1,36 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import AttritionDashboard from "./pages/AttritionDashboard";
+import { Anchor, Center, Paper, Stack, Text, Title } from "@mantine/core";
+import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
+import AttritionDashboard from "./pages/QuoteDashboard";
 import FeaturePlaceholderDashboard from "./pages/FeaturePlaceholderDashboard";
+import Login from "./pages/Login";
+
+function NotFoundPage() {
+  return (
+    <Center mih="100vh" px="md">
+      <Paper p="xl" radius="lg" shadow="sm" withBorder>
+        <Stack gap="sm" ta="center">
+          <Text c="dimmed" fw={700} size="sm" tt="uppercase">
+            404
+          </Text>
+          <Title order={1}>Page not found</Title>
+          <Text c="dimmed" maw={420}>
+            The route you requested is not defined in this application.
+          </Text>
+          <Anchor component={Link} fw={600} to="/">
+            Return to login
+          </Anchor>
+        </Stack>
+      </Paper>
+    </Center>
+  );
+}
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<AttritionDashboard />} />
+        <Route path="/" element={<Login />} />
+        <Route path="/quote_dashboard" element={<AttritionDashboard />} />
         <Route
           path="/headcount"
           element={
@@ -82,6 +106,7 @@ function App() {
             />
           }
         />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
   );

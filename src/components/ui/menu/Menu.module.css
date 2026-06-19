@@ -1,5 +1,5 @@
 .root {
-  left: calc(50vw - min(1000px, 50vw) + 1rem);
+  left: calc(50% - min(1000px, 50%) + 1rem);
   overflow: visible;
   position: fixed;
   top: 50%;
@@ -28,18 +28,18 @@
   gap: 0.75rem;
   max-height: calc(100svh - 2rem);
   overflow: hidden;
-  padding: 0.75rem 0.65rem;
+  padding: 0.7rem 0.55rem;
   position: relative;
   transition:
     width 220ms ease,
     border-color 180ms ease,
     box-shadow 180ms ease;
-  width: 4.1rem;
+  width: 3.85rem;
 }
 
 .panelExpanded {
   border-color: rgba(153, 157, 173, 0.22);
-  width: 14.75rem;
+  width: 14rem;
 }
 
 .toggleButton {
@@ -63,6 +63,11 @@
 .toggleButton:hover {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.08);
+}
+
+.panelExpanded .toggleButton {
+  align-self: flex-start;
+  width: 2.65rem;
 }
 
 .list {
@@ -92,7 +97,7 @@
 }
 
 .panelExpanded .label {
-  max-width: 12rem;
+  max-width: 11.25rem;
   opacity: 1;
   pointer-events: auto;
 }
@@ -209,7 +214,7 @@
   }
 
   .panelExpanded {
-    width: min(14rem, calc(100vw - 1.5rem));
+    width: min(13.25rem, calc(100vw - 1.5rem));
   }
 
   .toggleButton,

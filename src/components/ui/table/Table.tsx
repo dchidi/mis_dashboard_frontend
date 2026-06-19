@@ -37,6 +37,7 @@ const Table = <Row,>({
   rows,
   size = "default",
 }: TableProps<Row>) => {
+  const stickyColumnIndex = columns[0]?.isRowHeader ? 0 : -1;
   const rootStyle = {
     ...(minWidth ? { "--table-min-width": minWidth } : {}),
     ...(mobileMinWidth
@@ -58,8 +59,11 @@ const Table = <Row,>({
       >
         <thead>
           <tr>
-            {columns.map((column) => (
+            {columns.map((column, columnIndex) => (
               <th
+                className={
+                  columnIndex === stickyColumnIndex ? style.stickyHeader : undefined
+                }
                 key={column.key}
                 scope="col"
                 style={{
@@ -78,17 +82,21 @@ const Table = <Row,>({
 
             return (
               <tr key={key}>
-                {columns.map((column) => {
+                {columns.map((column, columnIndex) => {
                   const content = column.render(row);
                   const cellStyle = {
                     textAlign: column.cellAlign,
                     width: column.width,
                   };
+                  const isStickyColumn = columnIndex === stickyColumnIndex;
 
                   if (column.isRowHeader) {
                     return (
                       <th
-                        className={style.rowHeader}
+                        className={clsx(
+                          style.rowHeader,
+                          isStickyColumn && style.stickyRowHeader,
+                        )}
                         key={`${key}-${column.key}`}
                         scope="row"
                         style={cellStyle}
