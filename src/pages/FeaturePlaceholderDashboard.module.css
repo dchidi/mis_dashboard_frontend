@@ -1,0 +1,125 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.hero {
+  background:
+    radial-gradient(circle at top left, rgba(214, 101, 78, 0.15), transparent 34%),
+    linear-gradient(180deg, rgba(47, 50, 63, 0.94), rgba(42, 44, 55, 0.98));
+  border: 1px solid rgba(107, 99, 117, 0.22);
+  overflow: hidden;
+  position: relative;
+}
+
+.eyebrow {
+  color: #d8b6af;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+}
+
+.heroTitle {
+  color: var(--text-h);
+  font-size: clamp(1.9rem, 3vw, 2.6rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin: 0 0 0.75rem;
+}
+
+.heroCopy {
+  color: rgba(243, 244, 246, 0.78);
+  font-size: 0.94rem;
+  line-height: 1.7;
+  margin: 0;
+  max-width: 44rem;
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 1.5rem;
+}
+
+.pill {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
+  color: var(--text-h);
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.45rem 0.8rem;
+}
+
+.grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.listItem {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-h);
+  font-size: 0.9rem;
+  padding-bottom: 0.75rem;
+}
+
+.listItem:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.note {
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.noteAccent {
+  color: var(--text-h);
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+@media (max-width: 920px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .heroTitle {
+    font-size: 1.65rem;
+  }
+
+  .heroCopy,
+  .note,
+  .noteAccent,
+  .listItem {
+    font-size: 0.84rem;
+  }
+
+  .pill {
+    font-size: 0.72rem;
+  }
+}

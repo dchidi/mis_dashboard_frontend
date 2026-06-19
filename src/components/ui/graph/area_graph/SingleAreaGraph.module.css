@@ -1,0 +1,23 @@
+.root {
+  height: 21rem;
+  min-height: 18rem;
+  width: 100%;
+}
+
+.root :global(.recharts-tooltip-cursor) {
+  display: none !important;
+}
+
+.root :global(.recharts-wrapper),
+.root :global(.recharts-wrapper:focus),
+.root :global(.recharts-wrapper:focus-visible),
+.root :global(.recharts-surface),
+.root :global(.recharts-surface:focus),
+.root :global(.recharts-surface:focus-visible),
+.root :global(.recharts-wrapper svg),
+.root :global(.recharts-wrapper svg:focus),
+.root :global(.recharts-wrapper svg:focus-visible) {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}

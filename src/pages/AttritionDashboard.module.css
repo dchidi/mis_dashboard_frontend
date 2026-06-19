@@ -1,0 +1,58 @@
+.root,
+.row,
+.col,
+.leftSection {
+  display: flex;
+  gap: 10px;
+}
+
+.root {
+  padding: 10px;
+}
+.col,
+.leftSection {
+  flex-direction: column;
+  flex: 1;
+}
+.left {
+  flex: 1;
+}
+.section {
+  flex: 3;
+  min-height: 20vh;
+}
+
+.middleSection {
+  min-height: 70vh;
+  flex-shrink: 0;
+  flex: 0 0 420px;
+  /* flex: 0.8; */
+}
+
+@media (max-width: 1600px) {
+  .root {
+    flex-direction: column;
+  }
+  .section,
+  .middleSection {
+    flex: 1;
+  }
+}
+
+@media (max-width: 900px) {
+  .root,
+  .row,
+  .col,
+  .leftSection {
+    flex-direction: column;
+  }
+
+  .root {
+    gap: 16px;
+  }
+
+  .middleSection,
+  .section {
+    min-height: auto;
+  }
+}

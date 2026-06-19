@@ -1,0 +1,61 @@
+.root {
+  height: 100%;
+  min-height: 16rem;
+  position: relative;
+  width: 100%;
+  z-index: 0;
+}
+
+.tooltip {
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 14px 30px rgba(8, 6, 13, 0.16);
+  color: var(--text-h);
+  min-width: 12rem;
+  padding: 0.85rem 1rem;
+}
+
+.tooltipTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 0.6rem;
+}
+
+.tooltipRow {
+  align-items: baseline;
+  color: var(--text);
+  display: flex;
+  font-size: 0.9rem;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.tooltipRow strong {
+  color: var(--text-h);
+  font-weight: 700;
+}
+
+.root :global(.recharts-wrapper),
+.root :global(.recharts-wrapper:focus),
+.root :global(.recharts-wrapper:focus-visible),
+.root :global(.recharts-surface),
+.root :global(.recharts-surface:focus),
+.root :global(.recharts-surface:focus-visible),
+.root :global(.recharts-wrapper svg),
+.root :global(.recharts-wrapper svg:focus),
+.root :global(.recharts-wrapper svg:focus-visible) {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.root :global(.recharts-responsive-container),
+.root :global(.recharts-wrapper) {
+  overflow: visible !important;
+}
+
+.root :global(.recharts-tooltip-wrapper) {
+  pointer-events: none;
+  z-index: 4 !important;
+}
