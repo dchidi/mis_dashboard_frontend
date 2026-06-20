@@ -126,10 +126,7 @@ const QuoteByPromoCode: React.FC<QuoteByPromoCodeProps> = ({
   return (
     <Card className={className}>
       <div className={style.root}>
-        <div className={style.header}>
-          <div className="cardTitle">Quote by Promo Code</div>
-          <span className={style.scopeLabel}>Top 10 Promo Codes</span>
-        </div>
+        <div className="cardTitle">Quote by Promo Code (Top 10)</div>
 
         <section className={style.panelBody}>
           <Table
