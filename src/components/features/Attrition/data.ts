@@ -4,26 +4,50 @@ export interface AttritionPredictorDatum {
   predictor: string;
 }
 
-export interface AttritionSummaryDatum {
-  averageHeadcount: number;
-  exits: number;
-  label: string;
+export interface QuoteByCountryDatum {
+  conversionRate: number;
+  country: string;
+  growth: number;
+  quoteShare: number;
+  totalQuote: number;
 }
 
-export interface AttritionGenderDatum {
-  [key: string]: string | number;
-  attritionRate: number;
-  color: string;
-  exits: number;
-  gender: "Male" | "Female";
-  headcount: number;
-  key: "male" | "female";
-  shareOfHeadcount: number;
-  shareOfTotalAttrition: number;
+export interface QuoteAgingByCountryDatum {
+  bucket0To30: number;
+  bucket31To60: number;
+  bucket61To90: number;
+  country: string;
+}
+
+export interface PendingQuoteByCountryDatum {
+  country: string;
+  pendingQuotes: number;
+}
+
+export type PremiumCurrencyCode = "GBP" | "USD" | "EUR";
+
+export interface PremiumCurrencyOption {
+  code: PremiumCurrencyCode;
+  label: string;
+  rate: number;
+  symbol: string;
+}
+
+export interface PremiumOverviewDatum {
+  premiumConverted: number;
+  premiumQuotedGwp: number;
+}
+
+export interface PremiumChannelSplitDatum {
+  channel: "Contact Center" | "Web";
+  contribution: number;
+  fill: string;
+  totalPremium: number;
 }
 
 export interface QuoteTrendDatum {
   [key: string]: string | number;
+  averageTimeToConvertDays: number;
   conversionRate: number;
   month: string;
   previousYearConversionRate: number;
@@ -50,6 +74,27 @@ export interface PetTypeMixDatum {
   quoteCount: number;
   share: number;
   shareLabel: string;
+}
+
+export interface ProductRankingDatum {
+  metricValue: number;
+  product: string;
+  share: number;
+}
+
+export interface ProductPerformanceDatum {
+  convertedValue: number;
+  convertedVolume: number;
+  product: string;
+  quotedValue: number;
+  quotedVolume: number;
+}
+
+export interface PromoCodePerformanceDatum {
+  averageTimeToConvertDays: number;
+  convertedVolume: number;
+  promoCode: string;
+  quotedVolume: number;
 }
 
 export interface AttritionDepartmentDatum {
@@ -96,64 +141,155 @@ export const predictorData: AttritionPredictorDatum[] = [
   },
 ];
 
-export const currentPeriodSummary: AttritionSummaryDatum = {
-  averageHeadcount: 583,
-  exits: 14,
-  label: "Current Period",
-};
-
-export const summaryAttritionRate = Number(
-  (
-    (currentPeriodSummary.exits / currentPeriodSummary.averageHeadcount) *
-    100
-  ).toFixed(1),
-);
-
-export const summaryRetentionRate = Number(
-  (100 - summaryAttritionRate).toFixed(1),
-);
-
-const genderBaseData = [
+export const quoteByCountryData: QuoteByCountryDatum[] = [
   {
-    key: "male" as const,
-    gender: "Male" as const,
-    headcount: 308,
-    exits: 8,
-    color: "#33b18b",
+    country: "UK",
+    quoteShare: 38.4,
+    conversionRate: 3.1,
+    growth: 12.4,
+    totalQuote: 224,
   },
   {
-    key: "female" as const,
-    gender: "Female" as const,
-    headcount: 275,
-    exits: 6,
-    color: "#4e8df5",
+    country: "Sweden",
+    quoteShare: 22.7,
+    conversionRate: 2.8,
+    growth: 8.1,
+    totalQuote: 132,
+  },
+  {
+    country: "Ireland",
+    quoteShare: 16.8,
+    conversionRate: 2.5,
+    growth: -2.6,
+    totalQuote: 98,
+  },
+  {
+    country: "Germany",
+    quoteShare: 12.6,
+    conversionRate: 2.2,
+    growth: 4.3,
+    totalQuote: 74,
+  },
+  {
+    country: "France",
+    quoteShare: 9.5,
+    conversionRate: 1.9,
+    growth: -1.8,
+    totalQuote: 55,
   },
 ];
 
-export const genderTotalAttrition = genderBaseData.reduce(
-  (sum, group) => sum + group.exits,
+export const lapsedQuoteByCountryData: QuoteAgingByCountryDatum[] = [
+  {
+    country: "UK",
+    bucket0To30: 42,
+    bucket31To60: 28,
+    bucket61To90: 17,
+  },
+  {
+    country: "Sweden",
+    bucket0To30: 31,
+    bucket31To60: 21,
+    bucket61To90: 13,
+  },
+  {
+    country: "Ireland",
+    bucket0To30: 24,
+    bucket31To60: 16,
+    bucket61To90: 11,
+  },
+  {
+    country: "Germany",
+    bucket0To30: 18,
+    bucket31To60: 14,
+    bucket61To90: 9,
+  },
+  {
+    country: "France",
+    bucket0To30: 15,
+    bucket31To60: 10,
+    bucket61To90: 8,
+  },
+];
+
+export const pendingQuoteByCountryData: PendingQuoteByCountryDatum[] = [
+  {
+    country: "UK",
+    pendingQuotes: 58,
+  },
+  {
+    country: "Sweden",
+    pendingQuotes: 41,
+  },
+  {
+    country: "Ireland",
+    pendingQuotes: 33,
+  },
+  {
+    country: "Germany",
+    pendingQuotes: 26,
+  },
+  {
+    country: "France",
+    pendingQuotes: 20,
+  },
+];
+
+export const premiumCurrencyOptions: PremiumCurrencyOption[] = [
+  {
+    code: "GBP",
+    label: "GBP",
+    rate: 1,
+    symbol: "\u00A3",
+  },
+  {
+    code: "USD",
+    label: "USD",
+    rate: 1.28,
+    symbol: "$",
+  },
+  {
+    code: "EUR",
+    label: "EUR",
+    rate: 1.17,
+    symbol: "\u20AC",
+  },
+];
+
+export const premiumOverviewData: PremiumOverviewDatum = {
+  premiumQuotedGwp: 2_340_000,
+  premiumConverted: 1_410_000,
+};
+
+const premiumChannelSplitBaseData = [
+  {
+    channel: "Web" as const,
+    fill: "#4e8df5",
+    totalPremium: 1_460_000,
+  },
+  {
+    channel: "Contact Center" as const,
+    fill: "#33b18b",
+    totalPremium: 880_000,
+  },
+];
+
+const premiumChannelTotal = premiumChannelSplitBaseData.reduce(
+  (sum, entry) => sum + entry.totalPremium,
   0,
 );
 
-const totalHeadcount = genderBaseData.reduce(
-  (sum, group) => sum + group.headcount,
-  0,
-);
-
-export const genderAttritionData: AttritionGenderDatum[] = genderBaseData.map(
-  (group) => ({
-    ...group,
-    attritionRate: Number(((group.exits / group.headcount) * 100).toFixed(1)),
-    shareOfHeadcount: Number(
-      ((group.headcount / totalHeadcount) * 100).toFixed(1),
-    ),
-    shareOfTotalAttrition: Number(
-      ((group.exits / genderTotalAttrition) * 100).toFixed(1),
-    ),
-  }),
-);
+export const premiumChannelSplitData: PremiumChannelSplitDatum[] =
+  premiumChannelSplitBaseData.map((entry) => ({
+    ...entry,
+    contribution:
+      premiumChannelTotal === 0
+        ? 0
+        : Number(((entry.totalPremium / premiumChannelTotal) * 100).toFixed(1)),
+  }));
 
 interface QuoteTrendBaseDatum {
+  averageTimeToConvertDays: number;
   month: string;
   previousYearMonth: string;
   previousYearTotalQuote: number;
@@ -170,6 +306,7 @@ const calculateShare = (value: number, total: number) =>
 
 const trendBaseData: QuoteTrendBaseDatum[] = [
   {
+    averageTimeToConvertDays: 17,
     month: "Jan 25",
     previousYearMonth: "Jan 24",
     totalQuote: 585,
@@ -178,6 +315,7 @@ const trendBaseData: QuoteTrendBaseDatum[] = [
     previousYearTotalSales: 20,
   },
   {
+    averageTimeToConvertDays: 15,
     month: "Feb 25",
     previousYearMonth: "Feb 24",
     totalQuote: 600,
@@ -186,6 +324,7 @@ const trendBaseData: QuoteTrendBaseDatum[] = [
     previousYearTotalSales: 19,
   },
   {
+    averageTimeToConvertDays: 18,
     month: "Mar 25",
     previousYearMonth: "Mar 24",
     totalQuote: 600,
@@ -194,6 +333,7 @@ const trendBaseData: QuoteTrendBaseDatum[] = [
     previousYearTotalSales: 14,
   },
   {
+    averageTimeToConvertDays: 14,
     month: "Apr 25",
     previousYearMonth: "Apr 24",
     totalQuote: 572,
@@ -202,6 +342,7 @@ const trendBaseData: QuoteTrendBaseDatum[] = [
     previousYearTotalSales: 13,
   },
   {
+    averageTimeToConvertDays: 12,
     month: "May 25",
     previousYearMonth: "May 24",
     totalQuote: 590,
@@ -210,6 +351,7 @@ const trendBaseData: QuoteTrendBaseDatum[] = [
     previousYearTotalSales: 20,
   },
   {
+    averageTimeToConvertDays: 13,
     month: "Jun 25",
     previousYearMonth: "Jun 24",
     totalQuote: 583,
@@ -352,6 +494,121 @@ export const topPetTypeMix = petTypeMixData.reduce<PetTypeMixDatum | null>(
     !topEntry || entry.quoteCount > topEntry.quoteCount ? entry : topEntry,
   null,
 );
+
+export const productPerformanceData: ProductPerformanceDatum[] = [
+  {
+    product: "Premier Plus",
+    quotedVolume: 224,
+    convertedVolume: 8,
+    quotedValue: 620_000,
+    convertedValue: 24_800,
+  },
+  {
+    product: "Essential Cover",
+    quotedVolume: 186,
+    convertedVolume: 5,
+    quotedValue: 410_000,
+    convertedValue: 12_300,
+  },
+  {
+    product: "Lifetime Elite",
+    quotedVolume: 162,
+    convertedVolume: 7,
+    quotedValue: 540_000,
+    convertedValue: 20_500,
+  },
+  {
+    product: "Multi-Pet",
+    quotedVolume: 154,
+    convertedVolume: 6,
+    quotedValue: 430_000,
+    convertedValue: 15_400,
+  },
+  {
+    product: "Annual Flex",
+    quotedVolume: 128,
+    convertedVolume: 4,
+    quotedValue: 335_000,
+    convertedValue: 10_100,
+  },
+  {
+    product: "Vet Protect",
+    quotedVolume: 97,
+    convertedVolume: 4,
+    quotedValue: 280_000,
+    convertedValue: 11_200,
+  },
+  {
+    product: "Accident Only",
+    quotedVolume: 88,
+    convertedVolume: 2,
+    quotedValue: 160_000,
+    convertedValue: 3_600,
+  },
+];
+
+export const promoCodePerformanceData: PromoCodePerformanceDatum[] = [
+  {
+    averageTimeToConvertDays: 12,
+    promoCode: "WELCOME10",
+    quotedVolume: 154,
+    convertedVolume: 6,
+  },
+  {
+    averageTimeToConvertDays: 14,
+    promoCode: "MULTIPET20",
+    quotedVolume: 132,
+    convertedVolume: 5,
+  },
+  {
+    averageTimeToConvertDays: 16,
+    promoCode: "SAVE15",
+    quotedVolume: 118,
+    convertedVolume: 4,
+  },
+  {
+    averageTimeToConvertDays: 11,
+    promoCode: "LOYALTY5",
+    quotedVolume: 96,
+    convertedVolume: 4,
+  },
+  {
+    averageTimeToConvertDays: 13,
+    promoCode: "SPRING25",
+    quotedVolume: 84,
+    convertedVolume: 3,
+  },
+  {
+    averageTimeToConvertDays: 18,
+    promoCode: "APPONLY",
+    quotedVolume: 71,
+    convertedVolume: 2,
+  },
+  {
+    averageTimeToConvertDays: 15,
+    promoCode: "NEWYEAR20",
+    quotedVolume: 64,
+    convertedVolume: 2,
+  },
+  {
+    averageTimeToConvertDays: 10,
+    promoCode: "BUNDLE12",
+    quotedVolume: 58,
+    convertedVolume: 3,
+  },
+  {
+    averageTimeToConvertDays: 17,
+    promoCode: "REFERFRIEND",
+    quotedVolume: 52,
+    convertedVolume: 1,
+  },
+  {
+    averageTimeToConvertDays: 14,
+    promoCode: "PETCARE7",
+    quotedVolume: 47,
+    convertedVolume: 2,
+  },
+];
 
 export const departmentData: AttritionDepartmentDatum[] = [
   {

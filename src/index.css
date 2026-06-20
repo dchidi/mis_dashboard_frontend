@@ -117,7 +117,17 @@ code {
   background: var(--code-bg);
 }
 .cardTitle {
+  color: var(--text-h);
   margin: 0;
   font-size: 0.85rem;
   font-weight: 700;
+  line-height: 1;
+}
+
+.innerCardTitle {
+  color: var(--text-h);
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
 }

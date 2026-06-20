@@ -1,0 +1,49 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.header {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.scopeLabel {
+  color: var(--text);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.panelBody {
+  background:
+    linear-gradient(180deg, rgba(40, 42, 52, 0.24), rgba(28, 30, 39, 0.14)),
+    linear-gradient(180deg, rgba(107, 99, 117, 0.08), rgba(107, 99, 117, 0.04));
+  border: 1px solid rgba(107, 99, 117, 0.14);
+  border-radius: 1.1rem;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  position: relative;
+}
+
+.tableRegion {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .panelBody {
+    min-height: 0;
+  }
+}

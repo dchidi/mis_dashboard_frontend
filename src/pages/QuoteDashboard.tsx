@@ -1,38 +1,78 @@
+import { useState } from "react";
 import {
-  AttritionByDepartment,
-  AttritionByGender,
-  AttritionByGradeBand,
-  AttritionByPotentialPredicators,
-  AttritionSummary,
+  MetricViewDropdown,
+  PremiumOverview,
+  ProductPerformance,
+  QuoteByCountry,
+  QuoteByPromoCode,
+  QuoteWorkflow,
   QuoteTrend,
 } from "../components/features/Attrition";
+import type { TrendSeriesKey } from "../components/features/Attrition/QuotePerformance/types";
 import DashboardLayout from "../components/layout/DashboardLayout/DashboardLayout";
 import { dashboardMenuItems } from "../config/dashboardMenu";
 import style from "./page_css/QuoteDashboard.module.css";
 
-const renderChartView = () => (
+interface DashboardChartViewProps {
+  activeTrendSeriesKey: TrendSeriesKey;
+  onTrendSeriesChange: (key: TrendSeriesKey) => void;
+}
+
+const renderChartView = ({
+  activeTrendSeriesKey,
+  onTrendSeriesChange,
+}: DashboardChartViewProps) => (
   <div className={style.root}>
     <div className={style.leftColumn}>
-      <AttritionSummary className={style.section} />
-      <AttritionByPotentialPredicators className={style.section} />
+      <QuoteByCountry
+        activeTrendSeriesKey={activeTrendSeriesKey}
+        className={`${style.section} ${style.contentSection}`}
+      />
+      <QuoteWorkflow className={style.section} />
     </div>
 
-    <AttritionByGender className={style.middleColumn} />
+    <PremiumOverview className={style.middleColumn} />
 
     <div className={style.rightColumn}>
-      <QuoteTrend className={style.section} />
-      <div className={style.bottomRow}>
-        <AttritionByDepartment className={style.section} />
-        <AttritionByGradeBand className={style.section} />
-      </div>
+      <QuoteTrend
+        activeTrendSeriesKey={activeTrendSeriesKey}
+        className={`${style.section} ${style.contentSection}`}
+        onTrendSeriesChange={onTrendSeriesChange}
+      />
+      <ProductPerformance
+        activeTrendSeriesKey={activeTrendSeriesKey}
+        className={style.section}
+      />
+    </div>
+
+    <div className={style.bottomRow}>
+      <QuoteByPromoCode
+        activeTrendSeriesKey={activeTrendSeriesKey}
+        className={style.section}
+      />
     </div>
   </div>
 );
 
 const Dashboard: React.FC = () => {
+  const [activeTrendSeriesKey, setActiveTrendSeriesKey] =
+    useState<TrendSeriesKey>("totalQuote");
+
   return (
-    <DashboardLayout menuItems={dashboardMenuItems} title="Quote Dashboard">
-      {renderChartView()}
+    <DashboardLayout
+      headerLeading={
+        <MetricViewDropdown
+          activeKey={activeTrendSeriesKey}
+          onChange={setActiveTrendSeriesKey}
+        />
+      }
+      menuItems={dashboardMenuItems}
+      title="Quote Dashboard"
+    >
+      {renderChartView({
+        activeTrendSeriesKey,
+        onTrendSeriesChange: setActiveTrendSeriesKey,
+      })}
     </DashboardLayout>
   );
 };

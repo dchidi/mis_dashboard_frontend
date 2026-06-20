@@ -1,6 +1,9 @@
-export { default as AttritionSummary } from "./AttritionSummary";
+export { default as QuoteByCountry } from "./QuoteByCountry";
 export { default as AttritionByDepartment } from "./AttritionByDepartment";
-export { default as AttritionByGender } from "./AttritionByGender";
+export { default as MetricViewDropdown } from "./MetricViewDropdown";
+export { default as PremiumOverview } from "./PremiumOverview";
+export { default as ProductPerformance } from "./ProductPerformance";
+export { default as QuoteByPromoCode } from "./QuoteByPromoCode";
 export { default as AttritionByGradeBand } from "./AttritionByGradeBand";
-export { default as AttritionByPotentialPredicators } from "./AttritionPotentialPredicators";
-export { default as QuoteTrend } from "./QuoteTrend";
+export { default as QuoteWorkflow } from "./AttritionPotentialPredicators";
+export { default as QuoteTrend } from "./QuotePerformance";

@@ -24,6 +24,7 @@ interface TableProps<Row> {
   rowKey: (row: Row, index: number) => string | number;
   rows: Row[];
   size?: "default" | "small";
+  stickySpacerWidth?: string;
 }
 
 const Table = <Row,>({
@@ -36,12 +37,16 @@ const Table = <Row,>({
   rowKey,
   rows,
   size = "default",
+  stickySpacerWidth,
 }: TableProps<Row>) => {
   const stickyColumnIndex = columns[0]?.isRowHeader ? 0 : -1;
   const rootStyle = {
     ...(minWidth ? { "--table-min-width": minWidth } : {}),
     ...(mobileMinWidth
       ? { "--table-mobile-min-width": mobileMinWidth }
+      : {}),
+    ...(stickySpacerWidth
+      ? { "--table-sticky-spacer-width": stickySpacerWidth }
       : {}),
   } as CSSProperties;
 

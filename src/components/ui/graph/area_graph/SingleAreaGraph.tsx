@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
+  YAxis,
 } from "recharts";
 import style from "./SingleAreaGraph.module.css";
 
@@ -34,6 +35,7 @@ interface SingleAreaGraphProps {
   ) => string | number | undefined;
   xDataKey: string;
   yDataKey: string;
+  yDomainMode?: "fit" | "zero-based";
 }
 
 const formatValue = (value: string | number | undefined) => {
@@ -81,8 +83,31 @@ const SingleAreaGraph: React.FC<SingleAreaGraphProps> = ({
   valueLabelFormatter,
   xDataKey,
   yDataKey,
+  yDomainMode = "fit",
 }) => {
   const gradientId = useId().replace(/:/g, "");
+  const numericValues = data
+    .map((entry) => entry[yDataKey])
+    .filter((value): value is number => typeof value === "number");
+  const [domainMin, domainMax] =
+    numericValues.length === 0
+      ? [0, 1]
+      : (() => {
+          const minValue = Math.min(...numericValues);
+          const maxValue = Math.max(...numericValues);
+
+          if (yDomainMode === "zero-based") {
+            return [0, maxValue];
+          }
+
+          const range = maxValue - minValue;
+          const padding =
+            range > 0 ? range * 0.28 : Math.max(Math.abs(maxValue) * 0.08, 1);
+          const lowerBound =
+            minValue >= 0 ? Math.max(0, minValue - padding) : minValue - padding;
+
+          return [lowerBound, maxValue + padding];
+        })();
 
   return (
     <div
@@ -121,6 +146,11 @@ const SingleAreaGraph: React.FC<SingleAreaGraphProps> = ({
             tick={{ fill: "var(--text)", fontSize: 12 }}
             tickMargin={10}
             tickLine={false}
+          />
+          <YAxis
+            domain={[domainMin, domainMax]}
+            hide
+            tickCount={5}
           />
           {showTooltip ? (
             <Tooltip

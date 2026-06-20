@@ -9,12 +9,14 @@ import Menu, { type DashboardMenuItem } from "../../ui/menu/Menu";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
+  headerLeading?: React.ReactNode;
   menuItems?: DashboardMenuItem[];
   title?: string;
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   children,
+  headerLeading,
   menuItems,
   title,
 }) => {
@@ -29,7 +31,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   return (
     <div className={style.root}>
       <div className={style.header}>
-        <h3 className={style.title}>{title}</h3>
+        <div className={style.headerStart}>
+          <h3 className={style.title}>{title}</h3>
+          {headerLeading ? (
+            <div className={style.headerLeading}>{headerLeading}</div>
+          ) : null}
+        </div>
 
         <div className={style.actions}>
           <DatePickerInput
