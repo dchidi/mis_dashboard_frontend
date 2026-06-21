@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Table, { type TableColumn } from "../../../ui/table/Table";
-import { trendData } from "../data";
+import { type QuoteTrendDatum } from "../data";
 import { formatCount, formatPercent } from "./helpers";
 import style from "./QuotePerformance.module.css";
 
@@ -50,61 +50,65 @@ const buildMetricValues = (
 
 const formatDays = (value: number) => `${value}d`;
 
-const monthColumns: TableColumn<QuoteMetricRow>[] = [
-  {
-    header: "Metric",
-    isRowHeader: true,
-    key: "metric",
-    render: (row) => row.label,
-    width: "22%",
-  },
-  ...trendData.map((datum, index) => ({
-    cellAlign: "right" as const,
-    header: datum.month,
-    headerAlign: "right" as const,
-    key: datum.month,
-    render: (row: QuoteMetricRow) => row.values[index] ?? "0",
-    width: "13%",
-  })),
-];
+interface QuoteMetricsProps {
+  expanded: boolean;
+  trendData: QuoteTrendDatum[];
+}
 
-const metricRows: QuoteMetricRow[] = [
-  {
-    id: "total-quote",
-    label: "Total Quote",
-    values: buildMetricValues(
-      trendData.map((datum) => datum.totalQuote),
-      formatCount,
-    ),
-  },
-  {
-    id: "total-sales",
-    label: "Total Sales",
-    values: buildMetricValues(
-      trendData.map((datum) => datum.totalSales),
-      formatCount,
-    ),
-  },
-  {
-    id: "conversion-rate",
-    label: "Conversion %",
-    values: buildMetricValues(
-      trendData.map((datum) => datum.conversionRate),
-      formatPercent,
-    ),
-  },
-  {
-    id: "avg-time-to-convert",
-    label: "Avg. Time to Convert",
-    values: buildMetricValues(
-      trendData.map((datum) => datum.averageTimeToConvertDays),
-      formatDays,
-      "lower-is-better",
-    ),
-  },
-];
+const QuoteMetrics: React.FC<QuoteMetricsProps> = ({ expanded, trendData }) => {
+  const monthColumns: TableColumn<QuoteMetricRow>[] = [
+    {
+      header: "Metric",
+      isRowHeader: true,
+      key: "metric",
+      render: (row) => row.label,
+      width: "22%",
+    },
+    ...trendData.map((datum, index) => ({
+      cellAlign: "right" as const,
+      header: datum.month,
+      headerAlign: "right" as const,
+      key: datum.month,
+      render: (row: QuoteMetricRow) => row.values[index] ?? "0",
+      width: "13%",
+    })),
+  ];
+  const metricRows: QuoteMetricRow[] = [
+    {
+      id: "total-quote",
+      label: "Total Quote",
+      values: buildMetricValues(
+        trendData.map((datum) => datum.totalQuote),
+        formatCount,
+      ),
+    },
+    {
+      id: "total-sales",
+      label: "Total Sales",
+      values: buildMetricValues(
+        trendData.map((datum) => datum.totalSales),
+        formatCount,
+      ),
+    },
+    {
+      id: "conversion-rate",
+      label: "Conversion %",
+      values: buildMetricValues(
+        trendData.map((datum) => datum.conversionRate),
+        formatPercent,
+      ),
+    },
+    {
+      id: "avg-time-to-convert",
+      label: "Avg. Time to Convert",
+      values: buildMetricValues(
+        trendData.map((datum) => datum.averageTimeToConvertDays),
+        formatDays,
+        "lower-is-better",
+      ),
+    },
+  ];
 
-const QuoteMetrics: React.FC<{ expanded: boolean }> = ({ expanded }) => {
   return (
     <Table
       className={style.metricsTable}

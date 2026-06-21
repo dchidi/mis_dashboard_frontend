@@ -1,8 +1,6 @@
 import {
-  brandContributionData,
-  petTypeMixData,
-  topBrandContribution,
-  topPetTypeMix,
+  type BrandContributionDatum,
+  type PetTypeMixDatum,
   type QuoteTrendDatum,
 } from "../data";
 import {
@@ -18,35 +16,38 @@ import type {
   TrendSeriesOption,
 } from "./types";
 
-const topTwoPetTypeShare = Number(
-  petTypeMixData
-    .slice(0, 2)
-    .reduce((sum, entry) => sum + entry.share, 0)
-    .toFixed(1),
-);
-
 interface BuildAnalysisContentArgs {
   activeTab: QuoteCardTabKey;
   activeTrendSeries: TrendSeriesOption;
+  brandContributionData: BrandContributionDatum[];
   changeDirection: Direction;
   currentMonth: QuoteTrendDatum;
+  petTypeMixData: PetTypeMixDatum[];
   percentChange: number;
 }
 
 export const buildAnalysisContent = ({
   activeTab,
   activeTrendSeries,
+  brandContributionData,
   changeDirection,
   currentMonth,
+  petTypeMixData,
   percentChange,
 }: BuildAnalysisContentArgs): AnalysisContent => {
-  const leadBrandContribution = topBrandContribution ?? brandContributionData[0];
-  const leadPetTypeMix = topPetTypeMix ?? petTypeMixData[0];
   const brandContributionRanked = [...brandContributionData].sort(
     (left, right) => right.quoteCount - left.quoteCount,
   );
   const petTypeMixRanked = [...petTypeMixData].sort(
     (left, right) => right.quoteCount - left.quoteCount,
+  );
+  const leadBrandContribution = brandContributionRanked[0];
+  const leadPetTypeMix = petTypeMixRanked[0];
+  const topTwoPetTypeShare = Number(
+    petTypeMixRanked
+      .slice(0, 2)
+      .reduce((sum, entry) => sum + entry.share, 0)
+      .toFixed(1),
   );
   const brandHeadPair = brandContributionRanked.slice(0, 2);
   const brandMiddlePair = brandContributionRanked.slice(2, 4);

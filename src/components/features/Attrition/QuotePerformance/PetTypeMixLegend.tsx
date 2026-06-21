@@ -1,15 +1,19 @@
-import { petTypeMixData } from "../data";
+import { petTypeMixData, type PetTypeMixDatum } from "../data";
 import { formatCount, formatPercent, joinClassNames } from "./helpers";
 import style from "./QuotePerformance.module.css";
 
 interface PetTypeMixLegendProps {
   className?: string;
+  data?: PetTypeMixDatum[];
 }
 
-const PetTypeMixLegend: React.FC<PetTypeMixLegendProps> = ({ className }) => {
+const PetTypeMixLegend: React.FC<PetTypeMixLegendProps> = ({
+  className,
+  data = petTypeMixData,
+}) => {
   return (
     <div className={joinClassNames(style.legend, className)}>
-      {petTypeMixData.map((entry) => (
+      {data.map((entry) => (
         <div className={style.legendItem} key={entry.petType}>
           <span
             className={style.legendSwatch}

@@ -12,35 +12,34 @@
   min-width: 0;
 }
 
-.header {
-  align-items: center;
+.headerShell {
   backdrop-filter: blur(18px);
   background:
     linear-gradient(180deg, rgba(37, 38, 46, 0.92), rgba(29, 30, 37, 0.94));
   border-bottom: 1px solid rgba(107, 99, 117, 0.12);
   box-sizing: border-box;
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
-  left: 50%;
-  max-width: 1960px;
+  left: 0;
   padding: 0.95rem 0;
   position: fixed;
   top: 0;
-  transform: translateX(-50%);
-  width: calc(100% - 40px);
+  width: 100%;
   z-index: 40;
+}
+
+.header {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-start;
+  margin: 0 auto;
+  max-width: 1960px;
+  width: calc(100% - 40px);
 }
 
 .headerStart {
   align-items: center;
   display: flex;
   gap: 0.85rem;
-  min-width: 0;
-}
-
-.headerLeading {
-  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -57,8 +56,13 @@
   display: flex;
   gap: 0.7rem;
   justify-content: flex-end;
+  margin-left: auto;
   min-width: 0;
   white-space: nowrap;
+}
+
+.profileSlot {
+  flex: 0 0 auto;
 }
 
 .datePicker {
@@ -97,6 +101,10 @@
     --header-height: 9.4rem;
   }
 
+  .headerShell {
+    padding: 0.9rem 0;
+  }
+
   .header {
     align-items: flex-start;
     flex-direction: column;
@@ -111,7 +119,9 @@
 
   .actions {
     align-self: stretch;
+    flex-wrap: wrap;
     justify-content: flex-start;
+    margin-left: 0;
     white-space: normal;
   }
 
@@ -134,6 +144,7 @@
     align-self: flex-start;
     gap: 0.55rem;
     justify-content: flex-start;
+    margin-left: 0;
     width: 100%;
   }
 

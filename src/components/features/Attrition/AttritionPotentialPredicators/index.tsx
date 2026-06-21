@@ -78,6 +78,11 @@ interface LapsedQuoteTooltipProps {
   }>;
 }
 
+interface QuoteWorkflowProps extends AttritionComponentProps {
+  lapsedData?: QuoteAgingByCountryDatum[];
+  pendingData?: PendingQuoteByCountryDatum[];
+}
+
 const lapsedBucketConfig = [
   {
     color: "#4e8df5",
@@ -203,48 +208,51 @@ const quoteWorkflowColumns: TableColumn<QuoteAgingByCountryDatum>[] = [
   },
 ];
 
-const quoteWorkflowTabs: QuoteWorkflowTabConfig[] = [
-  {
-    kind: "lapsed",
-    key: "lapsed-quotes",
-    label: "Lapsed Quotes",
-    rows: lapsedQuoteByCountryData,
-    subtitle: "Lapsed quotes aged by country across the current bucket ranges.",
-    title: "Lapsed Quotes",
-  },
-  {
-    kind: "pending",
-    key: "pending-quotes",
-    label: "Pending Quotes",
-    rows: pendingQuoteByCountryData,
-    subtitle: "Current pending quote queue by country.",
-    title: "Pending Quotes by Country",
-  },
-];
-
-const QuoteWorkflow: React.FC<AttritionComponentProps> = ({ className }) => {
+const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({
+  className,
+  lapsedData = lapsedQuoteByCountryData,
+  pendingData = pendingQuoteByCountryData,
+}) => {
   const [activeTab, setActiveTab] =
     useState<QuoteWorkflowTabKey>("lapsed-quotes");
   const [isExpanded, setIsExpanded] = useState(false);
   const modalRef = useRef<HTMLDivElement | null>(null);
+  const quoteWorkflowTabs: QuoteWorkflowTabConfig[] = [
+    {
+      kind: "lapsed",
+      key: "lapsed-quotes",
+      label: "Lapsed Quotes",
+      rows: lapsedData,
+      subtitle: "Lapsed quotes aged by country across the current bucket ranges.",
+      title: "Lapsed Quotes",
+    },
+    {
+      kind: "pending",
+      key: "pending-quotes",
+      label: "Pending Quotes",
+      rows: pendingData,
+      subtitle: "Current pending quote queue by country.",
+      title: "Pending Quotes by Country",
+    },
+  ];
   const activeTabConfig =
     quoteWorkflowTabs.find((tab) => tab.key === activeTab) ?? quoteWorkflowTabs[0];
   const tabAccentRgb =
     activeTab === "lapsed-quotes" ? "215, 161, 61" : "78, 141, 245";
   const pendingQuoteChartData = useMemo<PendingQuoteChartDatum[]>(
     () =>
-      pendingQuoteByCountryData.map((row, index) => ({
+      pendingData.map((row, index) => ({
         ...row,
         countryCode:
           countryAbbreviationMap[row.country] ?? row.country.slice(0, 2),
         fill: index % 2 === 0 ? "#4e8df5" : "#33b18b",
         pendingLabel: formatCount(row.pendingQuotes),
       })),
-    [],
+    [pendingData],
   );
   const lapsedQuoteChartData = useMemo<LapsedQuoteChartDatum[]>(
     () =>
-      lapsedQuoteByCountryData.map((row) => ({
+      lapsedData.map((row) => ({
         ...row,
         countryCode:
           countryAbbreviationMap[row.country] ?? row.country.slice(0, 2),
@@ -253,7 +261,7 @@ const QuoteWorkflow: React.FC<AttritionComponentProps> = ({ className }) => {
           row.bucket31To60 +
           row.bucket61To90,
       })),
-    [],
+    [lapsedData],
   );
   const totalLapsedQuotes = lapsedQuoteChartData.reduce(
     (sum, row) => sum + row.total,
@@ -488,7 +496,7 @@ const QuoteWorkflow: React.FC<AttritionComponentProps> = ({ className }) => {
       minWidth={minWidth}
       mobileMinWidth={mobileMinWidth}
       rowKey={(row) => row.country}
-      rows={lapsedQuoteByCountryData}
+      rows={lapsedData}
       size="small"
       stickySpacerWidth="0.55rem"
     />

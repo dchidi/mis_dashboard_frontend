@@ -7,10 +7,9 @@ import {
 } from "react-icons/fa6";
 import Card from "../../../ui/card/Card";
 import {
-  brandContributionData,
-  topBrandContribution,
-  topPetTypeMix,
-  trendData,
+  type BrandContributionDatum,
+  type PetTypeMixDatum,
+  type QuoteTrendDatum,
 } from "../data";
 import { getMetricViewDescriptor } from "../metricView";
 import type { AttritionComponentProps } from "../type";
@@ -55,13 +54,19 @@ const analysisToneClassMap: Record<Tone, string> = {
 
 interface QuotePerformanceProps extends AttritionComponentProps {
   activeTrendSeriesKey: TrendSeriesKey;
+  brandContributionData?: BrandContributionDatum[];
+  petTypeMixData?: PetTypeMixDatum[];
   onTrendSeriesChange: (key: TrendSeriesKey) => void;
+  trendData?: QuoteTrendDatum[];
 }
 
 const QuotePerformance: React.FC<QuotePerformanceProps> = ({
   activeTrendSeriesKey,
+  brandContributionData = [],
   className,
+  petTypeMixData = [],
   onTrendSeriesChange,
+  trendData = [],
 }) => {
   const [activeTab, setActiveTab] = useState<QuoteCardTabKey>("quote-trend");
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
@@ -78,7 +83,7 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
             activeTrendSeries.key === "conversionRate"
               ? "Monthly conversion performance versus prior year."
               : activeTrendSeries.key === "totalSales"
-                ? "Monthly converted volume and performance versus prior year."
+                ? "Monthly sales volume and performance versus prior year."
                 : "Monthly quoted volume and performance versus prior year.",
           title: metricDescriptor.trendTabLabel,
         }
@@ -102,8 +107,12 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
         ? "212, 117, 88"
         : "78, 141, 245";
   const currentMonth = trendData[trendData.length - 1];
-  const leadBrandContribution = topBrandContribution ?? brandContributionData[0];
-  const leadPetTypeMix = topPetTypeMix;
+  const leadBrandContribution = [...brandContributionData].sort(
+    (left, right) => right.quoteCount - left.quoteCount,
+  )[0];
+  const leadPetTypeMix = [...petTypeMixData].sort(
+    (left, right) => right.quoteCount - left.quoteCount,
+  )[0];
 
   if (!currentMonth || !leadBrandContribution || !leadPetTypeMix) {
     return null;
@@ -147,8 +156,10 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
   const analysisContent = buildAnalysisContent({
     activeTab,
     activeTrendSeries,
+    brandContributionData,
     changeDirection,
     currentMonth,
+    petTypeMixData,
     percentChange,
   });
   const insightActionStyle = {
@@ -207,11 +218,15 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
         expanded={false}
         onTrendSeriesChange={onTrendSeriesChange}
         showSeriesSelector={false}
+        trendData={trendData}
       />
     ) : activeTab === "brand-contribution" ? (
-      <BrandContributionVisual expanded={false} />
+      <BrandContributionVisual
+        data={brandContributionData}
+        expanded={false}
+      />
     ) : (
-      <PetTypeMixVisual expanded={false} />
+      <PetTypeMixVisual data={petTypeMixData} expanded={false} />
     );
 
   const analysisVisualContent =
@@ -222,11 +237,12 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
         expanded
         onTrendSeriesChange={onTrendSeriesChange}
         showSeriesSelector={false}
+        trendData={trendData}
       />
     ) : activeTab === "brand-contribution" ? (
-      <BrandContributionVisual expanded />
+      <BrandContributionVisual data={brandContributionData} expanded />
     ) : (
-      <PetTypeMixVisual expanded />
+      <PetTypeMixVisual data={petTypeMixData} expanded />
     );
 
   const analysisSpotlightGraphic =

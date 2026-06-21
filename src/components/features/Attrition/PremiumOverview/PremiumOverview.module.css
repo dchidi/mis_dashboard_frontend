@@ -176,7 +176,9 @@
 .mixSection {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   gap: 0.9rem;
+  min-height: 0;
 }
 
 .mixHeader {
@@ -203,6 +205,9 @@
 .panelStack {
   display: grid;
   gap: 14px;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  height: 100%;
+  min-height: 0;
 }
 
 .channelPanel {
@@ -214,6 +219,7 @@
   border-radius: 24px;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   gap: 0.85rem;
   overflow: visible;
   padding: 1rem 1rem 1.05rem;
@@ -253,7 +259,10 @@
   align-items: center;
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   gap: 0.95rem;
+  min-height: 0;
+  justify-content: space-between;
   width: 100%;
 }
 

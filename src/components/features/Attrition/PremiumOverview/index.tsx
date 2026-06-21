@@ -1,5 +1,3 @@
-import { useEffect, useRef, useState } from "react";
-import { FaChevronDown } from "react-icons/fa6";
 import Card from "../../../ui/card/Card";
 import SingleDonutChart, {
   type SingleDonutChartDatum,
@@ -11,6 +9,7 @@ import {
   premiumOverviewData,
   type PremiumChannelSplitDatum,
   type PremiumCurrencyCode,
+  type PremiumOverviewDatum,
 } from "../data";
 import type { AttritionComponentProps } from "../type";
 import {
@@ -26,6 +25,12 @@ interface PremiumChannelDonutDatum extends SingleDonutChartDatum {
   label: string;
   totalPremium: number;
   value: number;
+}
+
+interface PremiumOverviewProps extends AttritionComponentProps {
+  activeCurrencyCode: PremiumCurrencyCode;
+  channelSplitData?: PremiumChannelSplitDatum[];
+  overviewData?: PremiumOverviewDatum;
 }
 
 const renderPremiumChannelTooltip =
@@ -59,21 +64,22 @@ const renderPremiumChannelTooltip =
     );
   };
 
-const PremiumOverview: React.FC<AttritionComponentProps> = ({ className }) => {
-  const [activeCurrencyCode, setActiveCurrencyCode] =
-    useState<PremiumCurrencyCode>("GBP");
-  const [isCurrencyMenuOpen, setIsCurrencyMenuOpen] = useState(false);
-  const currencyControlRef = useRef<HTMLDivElement | null>(null);
+const PremiumOverview: React.FC<PremiumOverviewProps> = ({
+  activeCurrencyCode,
+  channelSplitData = premiumChannelSplitData,
+  className,
+  overviewData = premiumOverviewData,
+}) => {
   const activeCurrency =
     premiumCurrencyOptions.find((option) => option.code === activeCurrencyCode) ??
     premiumCurrencyOptions[0];
   const conversionFactor =
-    premiumOverviewData.premiumQuotedGwp === 0
+    overviewData.premiumQuotedGwp === 0
       ? 0
-      : premiumOverviewData.premiumConverted / premiumOverviewData.premiumQuotedGwp;
+      : overviewData.premiumConverted / overviewData.premiumQuotedGwp;
 
   const quotedChannelChartData: PremiumChannelDonutDatum[] =
-    premiumChannelSplitData.map((channel) => ({
+    channelSplitData.map((channel) => ({
       channel: channel.channel,
       contribution: channel.contribution,
       fill: channel.fill,
@@ -83,11 +89,11 @@ const PremiumOverview: React.FC<AttritionComponentProps> = ({ className }) => {
     }));
 
   const convertedChannelChartData: PremiumChannelDonutDatum[] =
-    premiumChannelSplitData.map((channel) => ({
+    channelSplitData.map((channel) => ({
       channel: channel.channel,
       contribution: channel.contribution,
       fill: channel.fill,
-      label: `${channel.channel} Converted Premium`,
+      label: `${channel.channel} Sales Premium`,
       totalPremium: channel.totalPremium * conversionFactor,
       value: channel.totalPremium * conversionFactor,
     }));
@@ -105,7 +111,7 @@ const PremiumOverview: React.FC<AttritionComponentProps> = ({ className }) => {
     },
     {
       chartData: convertedChannelChartData,
-      title: "Converted Premium",
+      title: "Sales Premium",
       totalValue: formatCompactCurrency(
         convertedChannelChartData.reduce(
           (sum, entry) => sum + entry.totalPremium,
@@ -113,35 +119,9 @@ const PremiumOverview: React.FC<AttritionComponentProps> = ({ className }) => {
         ) * activeCurrency.rate,
         { currencySymbol: activeCurrency.symbol },
       ),
-      tooltipValueLabel: "Converted Premium",
+      tooltipValueLabel: "Sales Premium",
     },
   ] as const;
-
-  useEffect(() => {
-    if (!isCurrencyMenuOpen) {
-      return;
-    }
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!currencyControlRef.current?.contains(event.target as Node)) {
-        setIsCurrencyMenuOpen(false);
-      }
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsCurrencyMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handlePointerDown);
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isCurrencyMenuOpen]);
 
   return (
     <Card className={className}>
@@ -149,54 +129,6 @@ const PremiumOverview: React.FC<AttritionComponentProps> = ({ className }) => {
         <div className={style.header}>
           <div className={style.headerCopy}>
             <div className="cardTitle">Channel Distribution</div>
-          </div>
-
-          <div className={style.currencyControl} ref={currencyControlRef}>
-            <button
-              aria-expanded={isCurrencyMenuOpen}
-              aria-haspopup="listbox"
-              className={style.currencyTrigger}
-              onClick={() => setIsCurrencyMenuOpen((current) => !current)}
-              type="button"
-            >
-              <span>{activeCurrency.label}</span>
-              <FaChevronDown
-                aria-hidden="true"
-                className={`${style.currencyTriggerIcon} ${
-                  isCurrencyMenuOpen ? style.currencyTriggerIconOpen : ""
-                }`}
-              />
-            </button>
-
-            {isCurrencyMenuOpen ? (
-              <div
-                aria-label="Currency options"
-                className={style.currencyMenu}
-                role="listbox"
-              >
-                {premiumCurrencyOptions.map((option) => {
-                  const isActive = option.code === activeCurrency.code;
-
-                  return (
-                    <button
-                      aria-selected={isActive}
-                      className={`${style.currencyOption} ${
-                        isActive ? style.currencyOptionActive : ""
-                      }`}
-                      key={option.code}
-                      onClick={() => {
-                        setActiveCurrencyCode(option.code);
-                        setIsCurrencyMenuOpen(false);
-                      }}
-                      role="option"
-                      type="button"
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
           </div>
         </div>
 

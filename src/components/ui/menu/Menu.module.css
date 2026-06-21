@@ -8,6 +8,14 @@
   z-index: 35;
 }
 
+.rootInline {
+  left: auto;
+  position: relative;
+  top: auto;
+  transform: none;
+  width: auto;
+}
+
 .backdrop {
   background: transparent;
   border: none;

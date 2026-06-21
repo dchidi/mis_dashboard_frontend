@@ -6,7 +6,7 @@ import {
 } from "../../../../utils/formatters";
 import Card from "../../../ui/card/Card";
 import SegmentedTabs from "../../../ui/segmented_tabs";
-import { productPerformanceData } from "../data";
+import { productPerformanceData, type ProductPerformanceDatum } from "../data";
 import { getMetricViewDescriptor } from "../metricView";
 import type { TrendSeriesKey } from "../QuotePerformance/types";
 import type { AttritionComponentProps } from "../type";
@@ -16,6 +16,7 @@ type ProductMetricTabKey = "value" | "volume";
 
 interface ProductPerformanceProps extends AttritionComponentProps {
   activeTrendSeriesKey: TrendSeriesKey;
+  data?: ProductPerformanceDatum[];
 }
 
 interface ProductRow {
@@ -37,16 +38,17 @@ const productMetricTabs = [
 const ProductPerformance: React.FC<ProductPerformanceProps> = ({
   activeTrendSeriesKey,
   className,
+  data = productPerformanceData,
 }) => {
   const [activeTab, setActiveTab] = useState<ProductMetricTabKey>("volume");
   const metricDescriptor = getMetricViewDescriptor(activeTrendSeriesKey);
   const isVolumeTab = activeTab === "volume";
   const accentRgb = isVolumeTab ? "78, 141, 245" : "212, 117, 88";
-  const totalQuotedMetric = productPerformanceData.reduce(
+  const totalQuotedMetric = data.reduce(
     (sum, row) => sum + (isVolumeTab ? row.quotedVolume : row.quotedValue),
     0,
   );
-  const totalConvertedMetric = productPerformanceData.reduce(
+  const totalConvertedMetric = data.reduce(
     (sum, row) => sum + (isVolumeTab ? row.convertedVolume : row.convertedValue),
     0,
   );
@@ -55,7 +57,7 @@ const ProductPerformance: React.FC<ProductPerformanceProps> = ({
     : metricDescriptor.productValueTitle;
   const metricTotal =
     activeTrendSeriesKey === "totalSales" ? totalConvertedMetric : totalQuotedMetric;
-  const rows: ProductRow[] = productPerformanceData
+  const rows: ProductRow[] = data
     .map((row) => {
       const quotedMetric = isVolumeTab ? row.quotedVolume : row.quotedValue;
       const convertedMetric = isVolumeTab ? row.convertedVolume : row.convertedValue;

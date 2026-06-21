@@ -14,10 +14,11 @@ export interface DashboardMenuItem {
 
 interface MenuProps {
   className?: string;
+  inline?: boolean;
   items: DashboardMenuItem[];
 }
 
-const Menu: React.FC<MenuProps> = ({ className, items }) => {
+const Menu: React.FC<MenuProps> = ({ className, inline = false, items }) => {
   const [expanded, setExpanded] = useState(false);
   const location = useLocation();
 
@@ -30,7 +31,7 @@ const Menu: React.FC<MenuProps> = ({ className, items }) => {
   };
 
   return (
-    <div className={clsx(style.root, className)}>
+    <div className={clsx(style.root, inline && style.rootInline, className)}>
       {expanded ? (
         <button
           aria-label="Collapse dashboard menu"

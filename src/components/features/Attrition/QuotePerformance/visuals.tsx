@@ -8,10 +8,6 @@ import SingleDonutChart, {
   type SingleDonutChartTooltipProps,
 } from "../../../ui/graph/donut_chart/SingleDonutChart";
 import {
-  brandContributionData,
-  petTypeMixData,
-  petTypeMixTotalQuotes,
-  trendData,
   type BrandContributionDatum,
   type PetTypeMixDatum,
   type QuoteTrendDatum,
@@ -137,6 +133,7 @@ interface QuoteTrendVisualProps {
   expanded: boolean;
   onTrendSeriesChange: (key: TrendSeriesKey) => void;
   showSeriesSelector?: boolean;
+  trendData: QuoteTrendDatum[];
 }
 
 export const QuoteTrendVisual: React.FC<QuoteTrendVisualProps> = ({
@@ -145,6 +142,7 @@ export const QuoteTrendVisual: React.FC<QuoteTrendVisualProps> = ({
   expanded,
   onTrendSeriesChange,
   showSeriesSelector = true,
+  trendData,
 }) => {
   const quoteTrendChartColor =
     activeTrendSeriesKey === "totalQuote" ? "#c96a3d" : activeTrendSeries.color;
@@ -175,14 +173,15 @@ export const QuoteTrendVisual: React.FC<QuoteTrendVisualProps> = ({
         xDataKey="month"
         yDataKey={activeTrendSeries.key}
       />
-      {expanded ? <QuoteMetrics expanded /> : null}
+      {expanded ? <QuoteMetrics expanded trendData={trendData} /> : null}
     </>
   );
 };
 
-export const BrandContributionVisual: React.FC<{ expanded: boolean }> = ({
-  expanded,
-}) => {
+export const BrandContributionVisual: React.FC<{
+  data?: BrandContributionDatum[];
+  expanded: boolean;
+}> = ({ data = [], expanded }) => {
   return (
     <SingleBarGraph
       barSize={22}
@@ -195,7 +194,7 @@ export const BrandContributionVisual: React.FC<{ expanded: boolean }> = ({
       )}
       color="#d47558"
       colorKey="fill"
-      data={brandContributionData}
+      data={data}
       gridStroke="rgba(107, 99, 117, 0.18)"
       hideNumericAxis={false}
       numericTickFormatter={formatAxisCount}
@@ -207,9 +206,12 @@ export const BrandContributionVisual: React.FC<{ expanded: boolean }> = ({
   );
 };
 
-export const PetTypeMixVisual: React.FC<{ expanded: boolean }> = ({
-  expanded,
-}) => {
+export const PetTypeMixVisual: React.FC<{
+  data?: PetTypeMixDatum[];
+  expanded: boolean;
+}> = ({ data = [], expanded }) => {
+  const totalQuotes = data.reduce((sum, entry) => sum + entry.quoteCount, 0);
+
   return (
     <div
       className={joinClassNames(
@@ -221,7 +223,7 @@ export const PetTypeMixVisual: React.FC<{ expanded: boolean }> = ({
         <SingleDonutChart
           className={expanded ? style.analysisDonutChart : style.donutChart}
           cornerRadius={10}
-          data={petTypeMixData}
+          data={data}
           dataKey="quoteCount"
           innerRadius="74%"
           nameKey="petType"
@@ -233,12 +235,15 @@ export const PetTypeMixVisual: React.FC<{ expanded: boolean }> = ({
         <div className={style.centerStat}>
           <span className={style.centerLabel}>Total Quote</span>
           <strong className={style.centerValue}>
-            {formatCount(petTypeMixTotalQuotes)}
+            {formatCount(totalQuotes)}
           </strong>
         </div>
       </div>
 
-      <PetTypeMixLegend className={expanded ? style.analysisLegend : undefined} />
+      <PetTypeMixLegend
+        className={expanded ? style.analysisLegend : undefined}
+        data={data}
+      />
     </div>
   );
 };

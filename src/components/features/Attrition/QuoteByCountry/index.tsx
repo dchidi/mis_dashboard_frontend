@@ -69,11 +69,13 @@ const joinCountryCodes = (rows: QuoteByCountryChartDatum[]) =>
 
 interface QuoteByCountryProps extends AttritionComponentProps {
   activeTrendSeriesKey: TrendSeriesKey;
+  data?: QuoteByCountryDatum[];
 }
 
 const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
   activeTrendSeriesKey,
   className,
+  data = quoteByCountryData,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const modalRef = useRef<HTMLDivElement | null>(null);
@@ -81,7 +83,7 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
     trendSeriesOptions.find((series) => series.key === activeTrendSeriesKey) ??
     trendSeriesOptions[0];
   const metricDescriptor = getMetricViewDescriptor(activeTrendSeriesKey);
-  const countryRowsWithSales = quoteByCountryData.map((row) => ({
+  const countryRowsWithSales = data.map((row) => ({
     ...row,
     totalSales: Math.max(1, Math.round((row.totalQuote * row.conversionRate) / 100)),
   }));
@@ -188,14 +190,14 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
             {
               id: "converted-leader",
               label: "Lead Market",
-              note: `${leader.countryCode} drives ${formatPercent(leader.salesShare)} of converted volume.`,
+              note: `${leader.countryCode} drives ${formatPercent(leader.salesShare)} of sales volume.`,
               tone: "positive",
               value: `${leader.countryCode} ${formatCount(leader.totalSales)}`,
             },
             {
               id: "converted-concentration",
               label: "Top 2 Mix",
-              note: `${salesShareSortedRows[0]?.countryCode ?? ""} and ${salesShareSortedRows[1]?.countryCode ?? ""} account for most converted volume.`,
+              note: `${salesShareSortedRows[0]?.countryCode ?? ""} and ${salesShareSortedRows[1]?.countryCode ?? ""} account for most sales volume.`,
               tone: "neutral",
               value: `${formatPercent(topTwoSalesShare)}`,
             },

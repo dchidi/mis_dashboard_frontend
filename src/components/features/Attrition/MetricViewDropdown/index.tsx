@@ -7,11 +7,13 @@ import style from "./MetricViewDropdown.module.css";
 
 interface MetricViewDropdownProps {
   activeKey: TrendSeriesKey;
+  compact?: boolean;
   onChange: (key: TrendSeriesKey) => void;
 }
 
 const MetricViewDropdown: React.FC<MetricViewDropdownProps> = ({
   activeKey,
+  compact = false,
   onChange,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -50,12 +52,16 @@ const MetricViewDropdown: React.FC<MetricViewDropdownProps> = ({
   }, [isOpen]);
 
   return (
-    <div className={style.root} ref={rootRef} style={rootStyle}>
+    <div
+      className={`${style.root} ${compact ? style.rootCompact : ""}`}
+      ref={rootRef}
+      style={rootStyle}
+    >
       <button
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         aria-label={`Metric view: ${activeDescriptor.buttonLabel}`}
-        className={`${style.trigger} ${isOpen ? style.triggerOpen : ""}`}
+        className={`${style.trigger} ${compact ? style.triggerCompact : ""} ${isOpen ? style.triggerOpen : ""}`}
         onClick={() => setIsOpen((current) => !current)}
         type="button"
       >
@@ -63,17 +69,21 @@ const MetricViewDropdown: React.FC<MetricViewDropdownProps> = ({
           <span className={style.triggerIconWrap}>
             <ActiveIcon aria-hidden="true" className={style.triggerIcon} />
           </span>
-          <span className={style.triggerText}>{activeDescriptor.buttonLabel}</span>
+          {!compact ? (
+            <span className={style.triggerText}>{activeDescriptor.buttonLabel}</span>
+          ) : null}
         </span>
-        <FaChevronDown
-          aria-hidden="true"
-          className={`${style.chevron} ${isOpen ? style.chevronOpen : ""}`}
-        />
+        {!compact ? (
+          <FaChevronDown
+            aria-hidden="true"
+            className={`${style.chevron} ${isOpen ? style.chevronOpen : ""}`}
+          />
+        ) : null}
       </button>
 
       <div
         aria-hidden={!isOpen}
-        className={`${style.menu} ${isOpen ? style.menuOpen : ""}`}
+        className={`${style.menu} ${compact ? style.menuCompact : ""} ${isOpen ? style.menuOpen : ""}`}
         role="listbox"
       >
         {trendSeriesOptions.map((option) => {
@@ -84,7 +94,7 @@ const MetricViewDropdown: React.FC<MetricViewDropdownProps> = ({
           return (
             <button
               aria-selected={isActive}
-              className={`${style.option} ${isActive ? style.optionActive : ""}`}
+              className={`${style.option} ${compact ? style.optionCompact : ""} ${isActive ? style.optionActive : ""}`}
               key={option.key}
               onClick={() => {
                 onChange(option.key);
@@ -101,14 +111,18 @@ const MetricViewDropdown: React.FC<MetricViewDropdownProps> = ({
                   <span className={style.optionLabel}>
                     {descriptor.buttonLabel}
                   </span>
-                  <span className={style.optionDescription}>
-                    {descriptor.buttonDescription}
-                  </span>
+                  {!compact ? (
+                    <span className={style.optionDescription}>
+                      {descriptor.buttonDescription}
+                    </span>
+                  ) : null}
                 </span>
               </span>
-              <span className={style.optionStatus}>
-                {isActive ? <FaCheck aria-hidden="true" /> : null}
-              </span>
+              {!compact ? (
+                <span className={style.optionStatus}>
+                  {isActive ? <FaCheck aria-hidden="true" /> : null}
+                </span>
+              ) : null}
             </button>
           );
         })}

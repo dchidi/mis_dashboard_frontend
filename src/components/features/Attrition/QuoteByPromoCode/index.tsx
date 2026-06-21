@@ -10,6 +10,7 @@ import style from "./QuoteByPromoCode.module.css";
 
 interface QuoteByPromoCodeProps extends AttritionComponentProps {
   activeTrendSeriesKey: TrendSeriesKey;
+  data?: PromoCodePerformanceDatum[];
 }
 
 interface PromoCodeTableRow extends PromoCodePerformanceDatum {
@@ -25,16 +26,17 @@ const formatDays = (value: number) => `${value}d`;
 const QuoteByPromoCode: React.FC<QuoteByPromoCodeProps> = ({
   activeTrendSeriesKey,
   className,
+  data = promoCodePerformanceData,
 }) => {
-  const totalQuotedVolume = promoCodePerformanceData.reduce(
+  const totalQuotedVolume = data.reduce(
     (sum, row) => sum + row.quotedVolume,
     0,
   );
-  const totalConvertedVolume = promoCodePerformanceData.reduce(
+  const totalConvertedVolume = data.reduce(
     (sum, row) => sum + row.convertedVolume,
     0,
   );
-  const rows: PromoCodeTableRow[] = promoCodePerformanceData
+  const rows: PromoCodeTableRow[] = data
     .map((row) => {
       const conversionRate = Number(
         ((row.convertedVolume / Math.max(row.quotedVolume, 1)) * 100).toFixed(1),
