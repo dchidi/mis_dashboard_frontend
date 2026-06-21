@@ -1,7 +1,7 @@
 .root {
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 2.5fr);
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.15fr) minmax(0, 2.35fr);
   grid-template-areas:
     "country premium trend"
     "workflow premium product"

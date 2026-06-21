@@ -608,6 +608,10 @@
   width: min(70rem, calc(100vw - 2rem));
 }
 
+.analysisDrawerWide {
+  width: min(82rem, calc(100vw - 2rem));
+}
+
 .analysisHeader {
   align-items: flex-start;
   border-bottom: 1px solid rgba(107, 99, 117, 0.14);
@@ -704,6 +708,10 @@
   min-height: 0;
   overflow: auto;
   padding: 1rem;
+}
+
+.analysisBodyWide {
+  grid-template-columns: minmax(0, 1.8fr) minmax(20rem, 0.78fr);
 }
 
 .analysisVisualCard {

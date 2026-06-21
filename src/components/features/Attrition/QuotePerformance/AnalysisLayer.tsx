@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { FaXmark } from "react-icons/fa6";
@@ -64,6 +65,9 @@ const AnalysisLayer: React.FC<AnalysisLayerProps> = ({
     return null;
   }
 
+  const isTrendAnalysis =
+    activeTab === "quote-trend" || activeTab === "conversion-trend";
+
   return createPortal(
     <div
       className={style.analysisOverlay}
@@ -74,7 +78,10 @@ const AnalysisLayer: React.FC<AnalysisLayerProps> = ({
         aria-describedby={`quote-analysis-subtitle-${activeTab}`}
         aria-labelledby={`quote-analysis-title-${activeTab}`}
         aria-modal="true"
-        className={style.analysisDrawer}
+        className={clsx(
+          style.analysisDrawer,
+          isTrendAnalysis && style.analysisDrawerWide,
+        )}
         onClick={(event) => event.stopPropagation()}
         ref={dialogRef}
         role="dialog"
@@ -113,7 +120,12 @@ const AnalysisLayer: React.FC<AnalysisLayerProps> = ({
           </button>
         </div>
 
-        <div className={style.analysisBody}>
+        <div
+          className={clsx(
+            style.analysisBody,
+            isTrendAnalysis && style.analysisBodyWide,
+          )}
+        >
           <section className={style.analysisVisualCard}>{children}</section>
 
           <aside className={style.analysisSidebar}>

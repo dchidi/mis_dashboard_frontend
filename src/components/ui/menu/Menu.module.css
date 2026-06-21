@@ -52,10 +52,15 @@
 
 .toggleButton {
   align-items: center;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background:
+    radial-gradient(circle at 30% 28%, rgba(78, 141, 245, 0.18), transparent 72%),
+    linear-gradient(180deg, rgba(78, 141, 245, 0.08), rgba(78, 141, 245, 0.03));
+  border: 1px solid rgba(78, 141, 245, 0.18);
   border-radius: 16px;
-  color: var(--text-h);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 18px rgba(8, 6, 13, 0.12);
+  color: #8fb5ff;
   cursor: pointer;
   display: flex;
   height: 2.65rem;
@@ -69,8 +74,10 @@
 }
 
 .toggleButton:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at 30% 28%, rgba(78, 141, 245, 0.24), transparent 72%),
+    linear-gradient(180deg, rgba(78, 141, 245, 0.11), rgba(78, 141, 245, 0.04));
+  border-color: rgba(78, 141, 245, 0.26);
 }
 
 .panelExpanded .toggleButton {
@@ -112,7 +119,7 @@
 
 .toggleCaret {
   align-items: center;
-  color: var(--text);
+  color: currentColor;
   display: inline-flex;
   font-size: 0.9rem;
   height: 1.25rem;
