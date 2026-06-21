@@ -31,9 +31,9 @@ const metricViewDescriptors: Record<TrendSeriesKey, MetricViewDescriptor> = {
     countryTitle: "Quote by Country",
     performanceTitle: "Quote Performance",
     productValueSummaryLabel: "Quoted Value",
-    productValueTitle: "Top 5 Products by Quote Value",
+    productValueTitle: "Quote Value by Product (Top 5)",
     productVolumeSummaryLabel: "Quoted Vol.",
-    productVolumeTitle: "Top 5 Products by Quote Volume",
+    productVolumeTitle: "Quote Volume by Product (Top 5)",
     trendTabLabel: "Quote Trend",
   },
   totalSales: {

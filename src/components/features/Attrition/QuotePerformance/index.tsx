@@ -1,11 +1,11 @@
-import { useState, type CSSProperties } from "react";
+import { useState } from "react";
 import {
   FaArrowTrendDown,
   FaArrowTrendUp,
   FaMinus,
-  FaRegLightbulb,
 } from "react-icons/fa6";
 import Card from "../../../ui/card/Card";
+import InsightButton from "../../../ui/insight_button";
 import {
   type BrandContributionDatum,
   type PetTypeMixDatum,
@@ -30,6 +30,7 @@ import type {
 } from "./types";
 import {
   BrandContributionVisual,
+  ConversionTrendVisual,
   PetTypeMixVisual,
   QuoteTrendVisual,
 } from "./visuals";
@@ -73,12 +74,18 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
   const activeTrendSeries =
     trendSeriesOptions.find((series) => series.key === activeTrendSeriesKey) ??
     trendSeriesOptions[0];
+  const conversionTrendSeries =
+    trendSeriesOptions.find((series) => series.key === "conversionRate") ??
+    trendSeriesOptions[0];
   const metricDescriptor = getMetricViewDescriptor(activeTrendSeriesKey);
   const resolvedTabs = quoteCardTabs.map((tab) =>
     tab.key === "quote-trend"
       ? {
           ...tab,
-          label: metricDescriptor.trendTabLabel,
+          label:
+            activeTrendSeries.key === "conversionRate"
+              ? "Conversion Performance"
+              : metricDescriptor.trendTabLabel,
           subtitle:
             activeTrendSeries.key === "conversionRate"
               ? "Monthly conversion performance versus prior year."
@@ -92,17 +99,22 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
   const activeTabConfig =
     resolvedTabs.find((tab) => tab.key === activeTab) ?? resolvedTabs[0];
   const isQuoteTrendActive = activeTab === "quote-trend";
+  const isConversionTrendActive = activeTab === "conversion-trend";
+  const isTrendTabActive = isQuoteTrendActive || isConversionTrendActive;
+  const activeSeriesForTab = isConversionTrendActive
+    ? conversionTrendSeries
+    : activeTrendSeries;
   const activeTrendTitleLabel =
-    activeTrendSeries.key === "conversionRate"
+    activeSeriesForTab.key === "conversionRate"
       ? "Conversion Rate"
-      : activeTrendSeries.label.replace("Total ", "");
+      : activeSeriesForTab.label.replace("Total ", "");
   const activePanelTitle =
-    activeTab === "quote-trend"
+    isTrendTabActive
       ? `${activeTrendTitleLabel} Trend`
       : activeTabConfig.title;
   const quoteTabAccentRgb =
-    activeTab === "quote-trend"
-      ? activeTrendSeries.accentRgb
+    isTrendTabActive
+      ? activeSeriesForTab.accentRgb
       : activeTab === "brand-contribution"
         ? "212, 117, 88"
         : "78, 141, 245";
@@ -118,10 +130,10 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
     return null;
   }
 
-  const currentTrendValue = readTrendMetric(currentMonth, activeTrendSeries.key);
+  const currentTrendValue = readTrendMetric(currentMonth, activeSeriesForTab.key);
   const previousYearTrendValue = readTrendMetric(
     currentMonth,
-    activeTrendSeries.previousYearKey,
+    activeSeriesForTab.previousYearKey,
   );
   const percentChange =
     previousYearTrendValue === 0
@@ -132,10 +144,10 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
     percentChange > 0 ? "up" : percentChange < 0 ? "down" : "flat";
   const changeDescription =
     changeDirection === "up"
-      ? `${activeTrendSeries.description} increased`
+      ? `${activeSeriesForTab.description} increased`
       : changeDirection === "down"
-        ? `${activeTrendSeries.description} declined`
-        : `${activeTrendSeries.description} unchanged`;
+        ? `${activeSeriesForTab.description} declined`
+        : `${activeSeriesForTab.description} unchanged`;
   const ChangeIcon =
     changeDirection === "up"
       ? FaArrowTrendUp
@@ -143,7 +155,7 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
         ? FaArrowTrendDown
         : FaMinus;
   const signalTone: Tone =
-    activeTab === "quote-trend"
+    isTrendTabActive
       ? changeDirection === "up"
         ? "positive"
         : changeDirection === "down"
@@ -155,23 +167,20 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
   const signalClassName = joinClassNames(style.signal, toneClassMap[signalTone]);
   const analysisContent = buildAnalysisContent({
     activeTab,
-    activeTrendSeries,
+    activeTrendSeries: activeSeriesForTab,
     brandContributionData,
     changeDirection,
     currentMonth,
     petTypeMixData,
     percentChange,
   });
-  const insightActionStyle = {
-    "--insight-rgb": analysisContent.insightAccentRgb,
-  } as CSSProperties;
   const analysisSpotlightToneClass =
     analysisToneClassMap[analysisContent.analysisSpotlightTone];
 
   const signalContent =
-    activeTab === "quote-trend" ? (
+    isTrendTabActive ? (
       <div
-        aria-label={`${changeDescription} by ${formatDeltaPercent(percentChange)} year over year for ${activeTrendSeries.label}.`}
+        aria-label={`${changeDescription} by ${formatDeltaPercent(percentChange)} year over year for ${activeSeriesForTab.label}.`}
         className={signalClassName}
       >
         <span className={style.signalLabel}>YoY</span>
@@ -220,6 +229,8 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
         showSeriesSelector={false}
         trendData={trendData}
       />
+    ) : activeTab === "conversion-trend" ? (
+      <ConversionTrendVisual expanded={false} trendData={trendData} />
     ) : activeTab === "brand-contribution" ? (
       <BrandContributionVisual
         data={brandContributionData}
@@ -239,6 +250,8 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
         showSeriesSelector={false}
         trendData={trendData}
       />
+    ) : activeTab === "conversion-trend" ? (
+      <ConversionTrendVisual expanded trendData={trendData} />
     ) : activeTab === "brand-contribution" ? (
       <BrandContributionVisual data={brandContributionData} expanded />
     ) : (
@@ -246,7 +259,7 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
     );
 
   const analysisSpotlightGraphic =
-    activeTab === "quote-trend" ? (
+    isTrendTabActive ? (
       <ChangeIcon
         aria-hidden="true"
         className={joinClassNames(
@@ -290,7 +303,7 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
             aria-labelledby={`quote-tab-${activeTab}`}
             className={joinClassNames(
               style.panelBody,
-              isQuoteTrendActive && style.panelBodyQuoteTrend,
+              isTrendTabActive && style.panelBodyQuoteTrend,
             )}
             id={`quote-panel-${activeTab}`}
             key={activeTab}
@@ -299,28 +312,18 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
             <div
               className={joinClassNames(
                 style.panelContent,
-                isQuoteTrendActive && style.panelContentQuoteTrend,
+                isTrendTabActive && style.panelContentQuoteTrend,
               )}
             >
-              {isQuoteTrendActive ? (
+              {isTrendTabActive ? (
                 <div className={style.flatControlRow}>
-                  <button
-                    aria-haspopup="dialog"
-                    aria-label={`Open ${activeTabConfig.label.toLowerCase()} insights`}
-                    className={joinClassNames(
-                      style.insightAction,
-                      style.controlInsightAction,
-                    )}
+                  <InsightButton
+                    accentRgb={analysisContent.insightAccentRgb}
+                    ariaLabel={`Open ${activeTabConfig.label.toLowerCase()} insights`}
+                    className={style.controlInsightAction}
                     onClick={() => setIsAnalysisOpen(true)}
-                    style={insightActionStyle}
                     title={`View ${activeTabConfig.label} insights`}
-                    type="button"
-                  >
-                    <FaRegLightbulb
-                      aria-hidden="true"
-                      className={style.insightActionIcon}
-                    />
-                  </button>
+                  />
                 </div>
               ) : (
                 <div className={style.panelHeader}>
@@ -331,20 +334,12 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
                     <p className={style.subtitle}>{activeTabConfig.subtitle}</p>
                   </div>
 
-                  <button
-                    aria-haspopup="dialog"
-                    aria-label={`Open ${activeTabConfig.label.toLowerCase()} insights`}
-                    className={style.insightAction}
+                  <InsightButton
+                    accentRgb={analysisContent.insightAccentRgb}
+                    ariaLabel={`Open ${activeTabConfig.label.toLowerCase()} insights`}
                     onClick={() => setIsAnalysisOpen(true)}
-                    style={insightActionStyle}
                     title={`View ${activeTabConfig.label} insights`}
-                    type="button"
-                  >
-                    <FaRegLightbulb
-                      aria-hidden="true"
-                      className={style.insightActionIcon}
-                    />
-                  </button>
+                  />
                 </div>
               )}
 

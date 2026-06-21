@@ -52,10 +52,15 @@ const formatDays = (value: number) => `${value}d`;
 
 interface QuoteMetricsProps {
   expanded: boolean;
+  showPreviousYearRows?: boolean;
   trendData: QuoteTrendDatum[];
 }
 
-const QuoteMetrics: React.FC<QuoteMetricsProps> = ({ expanded, trendData }) => {
+const QuoteMetrics: React.FC<QuoteMetricsProps> = ({
+  expanded,
+  showPreviousYearRows = false,
+  trendData,
+}) => {
   const monthColumns: TableColumn<QuoteMetricRow>[] = [
     {
       header: "Metric",
@@ -82,6 +87,18 @@ const QuoteMetrics: React.FC<QuoteMetricsProps> = ({ expanded, trendData }) => {
         formatCount,
       ),
     },
+    ...(showPreviousYearRows
+      ? [
+          {
+            id: "previous-year-total-quote",
+            label: "Prev Yr Quote",
+            values: buildMetricValues(
+              trendData.map((datum) => datum.previousYearTotalQuote),
+              formatCount,
+            ),
+          },
+        ]
+      : []),
     {
       id: "total-sales",
       label: "Total Sales",
@@ -90,6 +107,18 @@ const QuoteMetrics: React.FC<QuoteMetricsProps> = ({ expanded, trendData }) => {
         formatCount,
       ),
     },
+    ...(showPreviousYearRows
+      ? [
+          {
+            id: "previous-year-total-sales",
+            label: "Prev Yr Sales",
+            values: buildMetricValues(
+              trendData.map((datum) => datum.previousYearTotalSales),
+              formatCount,
+            ),
+          },
+        ]
+      : []),
     {
       id: "conversion-rate",
       label: "Conversion %",
@@ -98,6 +127,18 @@ const QuoteMetrics: React.FC<QuoteMetricsProps> = ({ expanded, trendData }) => {
         formatPercent,
       ),
     },
+    ...(showPreviousYearRows
+      ? [
+          {
+            id: "previous-year-conversion-rate",
+            label: "Prev Yr Conv %",
+            values: buildMetricValues(
+              trendData.map((datum) => datum.previousYearConversionRate),
+              formatPercent,
+            ),
+          },
+        ]
+      : []),
     {
       id: "avg-time-to-convert",
       label: "Avg. Time to Convert",

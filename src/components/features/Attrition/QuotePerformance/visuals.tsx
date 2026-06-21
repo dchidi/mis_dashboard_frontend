@@ -1,12 +1,11 @@
-import SingleAreaGraph, {
-  type SingleAreaGraphTooltipProps,
-} from "../../../ui/graph/area_graph/SingleAreaGraph";
 import SingleBarGraph, {
   type SingleBarGraphTooltipProps,
 } from "../../../ui/graph/bar_chart/SingleBarGraph";
 import SingleDonutChart, {
   type SingleDonutChartTooltipProps,
 } from "../../../ui/graph/donut_chart/SingleDonutChart";
+import ComparisonAreaGraph from "../../../ui/graph/area_graph/ComparisonAreaGraph";
+import DoubleLineGraph from "../../../ui/graph/line_graph/DoubleLineGraph";
 import {
   type BrandContributionDatum,
   type PetTypeMixDatum,
@@ -17,59 +16,12 @@ import {
   formatCount,
   formatPercent,
   joinClassNames,
-  readTrendMetric,
 } from "./helpers";
 import QuoteMetrics from "./QuoteMetrics";
 import PetTypeMixLegend from "./PetTypeMixLegend";
 import TrendSeriesSelector from "./TrendSeriesSelector";
 import type { TrendSeriesKey, TrendSeriesOption } from "./types";
 import style from "./QuotePerformance.module.css";
-
-const renderTrendTooltip =
-  (activeSeries: TrendSeriesOption) =>
-  ({ active, label, payload }: SingleAreaGraphTooltipProps) => {
-    if (!active || !payload?.length) {
-      return null;
-    }
-
-    const datum = payload[0].payload as QuoteTrendDatum | undefined;
-    if (!datum) {
-      return null;
-    }
-
-    return (
-      <div className={style.tooltip}>
-        <div className={style.tooltipTitle}>{label}</div>
-        <div className={style.tooltipRow}>
-          <span>{activeSeries.label}</span>
-          <strong>
-            {activeSeries.valueFormatter(readTrendMetric(datum, activeSeries.key))}
-          </strong>
-        </div>
-        <div className={style.tooltipRow}>
-          <span>{datum.previousYearMonth}</span>
-          <strong>
-            {activeSeries.valueFormatter(
-              readTrendMetric(datum, activeSeries.previousYearKey),
-            )}
-          </strong>
-        </div>
-        <div className={style.tooltipDivider} />
-        <div className={style.tooltipRow}>
-          <span>Total Quote</span>
-          <strong>{formatCount(datum.totalQuote)}</strong>
-        </div>
-        <div className={style.tooltipRow}>
-          <span>Total Sales</span>
-          <strong>{formatCount(datum.totalSales)}</strong>
-        </div>
-        <div className={style.tooltipRow}>
-          <span>Conversion %</span>
-          <strong>{formatPercent(datum.conversionRate)}</strong>
-        </div>
-      </div>
-    );
-  };
 
 const renderBrandTooltip = ({
   active,
@@ -157,23 +109,43 @@ export const QuoteTrendVisual: React.FC<QuoteTrendVisualProps> = ({
           />
         </div>
       ) : null}
-      <SingleAreaGraph
-        className={expanded ? style.analysisAreaChart : style.chart}
-        color={quoteTrendChartColor}
-        data={trendData}
-        renderTooltip={renderTrendTooltip(activeTrendSeries)}
-        showTooltip
-        showValueLabels
-        valueLabelColor="var(--text)"
-        valueLabelFormatter={(value) =>
-          typeof value === "number"
-            ? activeTrendSeries.valueFormatter(value)
-            : value
+      <ComparisonAreaGraph
+        allowYAxisDecimals={activeTrendSeriesKey === "conversionRate"}
+        axisTickFormatter={(value) =>
+          activeTrendSeriesKey === "conversionRate"
+            ? formatPercent(value)
+            : formatAxisCount(Math.round(value))
         }
+        chartMargin={{ top: 8, right: 16, left: 10, bottom: 28 }}
+        className={expanded ? style.analysisAreaChart : style.chart}
+        comparisonDataKey={activeTrendSeries.previousYearKey}
+        comparisonLabel="Previous Year"
+        comparisonStrokeDasharray="6 5"
+        currentDataKey={activeTrendSeries.key}
+        currentLabel="Current Year"
+        currentColor={quoteTrendChartColor}
+        data={trendData}
+        legendAlign="center"
+        legendIconSize={8}
+        legendVerticalAlign="bottom"
+        legendWrapperStyle={{
+          fontSize: "0.6rem",
+          lineHeight: 1.1,
+          paddingTop: 12,
+        }}
+        tooltipValueFormatter={(value) => activeTrendSeries.valueFormatter(value)}
+        valueSuffix={activeTrendSeriesKey === "conversionRate" ? "%" : ""}
         xDataKey="month"
-        yDataKey={activeTrendSeries.key}
+        xAxisPadding={{ left: 10, right: 10 }}
+        yAxisWidth={activeTrendSeriesKey === "conversionRate" ? 56 : 48}
       />
-      {expanded ? <QuoteMetrics expanded trendData={trendData} /> : null}
+      {expanded ? (
+        <QuoteMetrics
+          expanded
+          showPreviousYearRows
+          trendData={trendData}
+        />
+      ) : null}
     </>
   );
 };
@@ -203,6 +175,51 @@ export const BrandContributionVisual: React.FC<{
       showTooltip
       valueKey="quoteCount"
     />
+  );
+};
+
+export const ConversionTrendVisual: React.FC<{
+  expanded: boolean;
+  trendData: QuoteTrendDatum[];
+}> = ({ expanded, trendData }) => {
+  return (
+    <>
+      <DoubleLineGraph
+        chartMargin={{ top: 8, right: 16, left: 10, bottom: 28 }}
+        className={expanded ? style.analysisAreaChart : style.chart}
+        data={trendData}
+        lines={[
+          {
+            color: "#6f8dff",
+            dataKey: "conversionRate",
+            name: "Current Year",
+            strokeWidth: 3,
+          },
+          {
+            color: "#7f879f",
+            dataKey: "previousYearConversionRate",
+            name: "Previous Year",
+            strokeDasharray: "6 5",
+            strokeWidth: 2.2,
+          },
+        ]}
+        legendAlign="center"
+        legendIconSize={8}
+        legendVerticalAlign="bottom"
+        legendWrapperStyle={{
+          fontSize: "0.6rem",
+          lineHeight: 1.1,
+          paddingTop: 12,
+        }}
+        showDots
+        showLegend
+        valueSuffix="%"
+        xDataKey="month"
+        xAxisPadding={{ left: 10, right: 10 }}
+        yAxisWidth={56}
+      />
+      {expanded ? <QuoteMetrics expanded trendData={trendData} /> : null}
+    </>
   );
 };
 

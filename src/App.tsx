@@ -32,77 +32,47 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/quote_dashboard" element={<AttritionDashboard />} />
         <Route
-          path="/headcount"
+          path="/policy"
           element={
             <FeaturePlaceholderDashboard
-              description="Track how workforce size moves across the selected reporting period, where the shifts come from, and whether the organisation is building or losing capacity."
+              description="Track policy book movement across quoted, active, lapsed, and cancelled business so users can understand policy health beyond raw quote volume."
               focusAreas={[
-                "Starting vs ending headcount",
-                "Joins, transfers, and exits",
-                "Critical team coverage",
+                "Active vs lapsed policies",
+                "New business and cancellations",
+                "Policy mix by channel or market",
               ]}
-              note="Headcount should become the balance view that explains the base population behind every rate on the other dashboards."
-              title="Headcount Analysis"
+              note="Policy should become the operating view for book health, movement, and channel quality after the quote dashboard."
+              title="Policy Dashboard"
             />
           }
         />
         <Route
-          path="/demographics"
+          path="/renewals"
           element={
             <FeaturePlaceholderDashboard
-              description="Expose the workforce profile behind the headline numbers so leaders can see whether change is concentrated by gender, age band, tenure, or other meaningful segments."
+              description="Surface renewal pipeline, retention pressure, and upcoming renewal cohorts so teams can see where conversion and renewal risk are building."
               focusAreas={[
-                "Gender and age distribution",
-                "Tenure and grade mix",
-                "Cross-segment movement",
+                "Renewal due pipeline",
+                "Retention and save rate",
+                "At-risk renewal cohorts",
               ]}
-              note="Demographics should explain who makes up the workforce before attrition or absence conclusions are drawn."
-              title="Demographics Analysis"
+              note="Renewals should become the retention view that explains what portion of the book is being defended, saved, or lost."
+              title="Renewals Dashboard"
             />
           }
         />
         <Route
-          path="/absence"
+          path="/reports"
           element={
             <FeaturePlaceholderDashboard
-              description="Surface attendance pressure early by tracking leave volume, absence rates, and hotspots that may later correlate with attrition or productivity loss."
+              description="Provide a reporting workspace for scheduled exports, executive summaries, and cross-functional views of quote, policy, and renewal performance."
               focusAreas={[
-                "Days lost and absence rate",
-                "Frequent short-term absence",
-                "Business-unit hotspots",
+                "Executive summary packs",
+                "Scheduled and ad hoc exports",
+                "Cross-dashboard KPI snapshots",
               ]}
-              note="Absence is strongest when paired with trend, trigger, and recurrence views rather than a single monthly total."
-              title="Absence Analysis"
-            />
-          }
-        />
-        <Route
-          path="/learning-development"
-          element={
-            <FeaturePlaceholderDashboard
-              description="Show how capability investment is landing across the workforce, which groups are engaging, and whether completion patterns align with priority talent segments."
-              focusAreas={[
-                "Enrollment and completion",
-                "Hours per employee",
-                "Coverage by grade or function",
-              ]}
-              note="Learning metrics become more useful when tied to role criticality, promotion paths, and retention outcomes."
-              title="Learning & Development"
-            />
-          }
-        />
-        <Route
-          path="/planning"
-          element={
-            <FeaturePlaceholderDashboard
-              description="Turn the dashboard shell into a forward-looking workspace for demand, hiring need, and risk-based workforce scenarios instead of only reporting historical movement."
-              focusAreas={[
-                "Demand vs supply forecast",
-                "Gap and risk scenarios",
-                "Succession pressure points",
-              ]}
-              note="Planning should become the synthesis layer that uses headcount, attrition, and skills signals to support action."
-              title="Workforce Planning"
+              note="Reports should become the presentation layer for curated outputs rather than another operational dashboard."
+              title="Reports"
             />
           }
         />

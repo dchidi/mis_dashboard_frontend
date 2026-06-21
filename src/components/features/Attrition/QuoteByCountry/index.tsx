@@ -4,7 +4,6 @@ import {
   FaCaretDown,
   FaCaretRight,
   FaCaretUp,
-  FaUpRightAndDownLeftFromCenter,
   FaXmark,
 } from "react-icons/fa6";
 import {
@@ -18,6 +17,7 @@ import {
 } from "recharts";
 import Card from "../../../ui/card/Card";
 import InsightPanel, { type InsightPanelItem } from "../../../ui/insight_panel";
+import InsightButton from "../../../ui/insight_button";
 import Table, { type TableColumn } from "../../../ui/table/Table";
 import { quoteByCountryData, type QuoteByCountryDatum } from "../data";
 import { getMetricViewDescriptor } from "../metricView";
@@ -572,19 +572,12 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
         <div className={style.root}>
           <div className={style.header}>
             <div className="cardTitle">{metricDescriptor.countryTitle}</div>
-            <button
-              aria-haspopup="dialog"
-              aria-label={`Expand ${metricDescriptor.countryTitle.toLowerCase()}`}
-              className={style.expandButton}
+            <InsightButton
+              accentRgb={activeTrendSeries.accentRgb}
+              ariaLabel={`Open ${metricDescriptor.countryTitle.toLowerCase()} insights`}
               onClick={() => setIsExpanded(true)}
-              title="Expand table"
-              type="button"
-            >
-              <FaUpRightAndDownLeftFromCenter
-                aria-hidden="true"
-                className={style.expandIcon}
-              />
-            </button>
+              title={`View ${metricDescriptor.countryTitle} insights`}
+            />
           </div>
           {/* <p className={style.subtitle}>
             Country-level quote mix with current conversion and growth

@@ -14,6 +14,12 @@ export const quoteCardTabs: QuoteCardTabConfig[] = [
     title: "Quote Trend",
   },
   {
+    key: "conversion-trend",
+    label: "Conversion Trend",
+    subtitle: "Monthly conversion rate movement versus prior year.",
+    title: "Conversion Trend",
+  },
+  {
     key: "brand-contribution",
     label: "Brand Contribution",
     subtitle: "Quote volume and contribution across active brands.",

@@ -1,43 +1,31 @@
 import type { DashboardMenuItem } from "../components/ui/menu/Menu";
 import {
-  FaArrowTrendDown,
-  FaCalendarXmark,
+  FaArrowsRotate,
   FaChartLine,
-  FaGraduationCap,
-  FaUserGroup,
-  FaUsers,
+  FaFileLines,
+  FaFileShield,
 } from "react-icons/fa6";
 
 export const dashboardMenuItems: DashboardMenuItem[] = [
   {
     end: true,
-    icon: FaArrowTrendDown,
-    label: "Attrition",
-    to: "/",
+    icon: FaFileLines,
+    label: "Quote",
+    to: "/quote_dashboard",
   },
   {
-    icon: FaUsers,
-    label: "Headcount",
-    to: "/headcount",
+    icon: FaFileShield,
+    label: "Policy",
+    to: "/policy",
   },
   {
-    icon: FaUserGroup,
-    label: "Demographics",
-    to: "/demographics",
-  },
-  {
-    icon: FaCalendarXmark,
-    label: "Absence",
-    to: "/absence",
-  },
-  {
-    icon: FaGraduationCap,
-    label: "Learning",
-    to: "/learning-development",
+    icon: FaArrowsRotate,
+    label: "Renewals",
+    to: "/renewals",
   },
   {
     icon: FaChartLine,
-    label: "Planning",
-    to: "/planning",
+    label: "Reports",
+    to: "/reports",
   },
 ];

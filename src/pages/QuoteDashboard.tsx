@@ -51,7 +51,8 @@ const renderChartView = ({
       activeCurrencyCode={activeCurrencyCode}
       channelSplitData={dashboardData.premiumChannelSplitData}
       className={`${style.section} ${style.premiumCard}`}
-      overviewData={dashboardData.premiumOverviewData}
+      pendingData={dashboardData.pendingQuoteByCountryData}
+      trendData={dashboardData.trendData}
     />
     <QuoteTrend
       activeTrendSeriesKey={activeTrendSeriesKey}

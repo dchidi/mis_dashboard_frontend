@@ -2,6 +2,7 @@ import type { IconType } from "react-icons";
 
 export type QuoteCardTabKey =
   | "quote-trend"
+  | "conversion-trend"
   | "brand-contribution"
   | "pet-type-mix";
 

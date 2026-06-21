@@ -78,6 +78,8 @@ export const buildAnalysisContent = ({
       currentMonth.conversionRate - currentMonth.previousYearConversionRate
     ).toFixed(1),
   );
+  const isTrendAnalysis =
+    activeTab === "quote-trend" || activeTab === "conversion-trend";
 
   const quoteTrendAlerts = [
     {
@@ -148,14 +150,20 @@ export const buildAnalysisContent = ({
   ] as const;
 
   const activeAnalysisAlerts =
-    activeTab === "quote-trend"
+    isTrendAnalysis
       ? [...quoteTrendAlerts]
       : activeTab === "brand-contribution"
         ? [...brandAlerts]
         : [...petMixAlerts];
 
   const activeAnalysisSummary =
-    activeTab === "quote-trend"
+    activeTab === "conversion-trend"
+      ? [
+          `${formatPercent(currentMonth.conversionRate)} current`,
+          `${formatPercent(currentMonth.previousYearConversionRate)} last year`,
+          `${formatPointGap(conversionPointGap)} gap`,
+        ]
+      : activeTab === "quote-trend"
       ? [
           `YoY ${formatDeltaPercent(percentChange)}`,
           `${formatCount(currentMonth.totalQuote)} quotes`,
@@ -174,12 +182,12 @@ export const buildAnalysisContent = ({
           ];
 
   const insightAccentRgb =
-    activeTab === "quote-trend"
+    isTrendAnalysis
       ? activeTrendSeries.key === "totalSales"
         ? "51, 177, 139"
         : activeTrendSeries.key === "conversionRate"
           ? "78, 141, 245"
-          : "138, 116, 232"
+          : "201, 106, 61"
       : activeTab === "brand-contribution"
         ? "212, 117, 88"
         : "78, 141, 245";
@@ -188,19 +196,23 @@ export const buildAnalysisContent = ({
     activeAnalysisAlerts,
     activeAnalysisSummary,
     analysisSpotlightLabel:
-      activeTab === "quote-trend"
+      activeTab === "conversion-trend"
+        ? "Point Gap"
+        : activeTab === "quote-trend"
         ? "YoY Signal"
         : activeTab === "brand-contribution"
           ? "Lead Brand"
           : "Highest Contributor",
     analysisSpotlightMeta:
-      activeTab === "quote-trend"
+      activeTab === "conversion-trend"
+        ? `${currentMonth.month} conversion at ${formatPercent(currentMonth.conversionRate)} versus ${formatPercent(currentMonth.previousYearConversionRate)} in ${currentMonth.previousYearMonth}`
+        : activeTab === "quote-trend"
         ? `${activeTrendSeries.label} for ${currentMonth.month} vs ${currentMonth.previousYearMonth}`
         : activeTab === "brand-contribution"
           ? `${formatCount(leadBrandContribution?.quoteCount ?? 0)} quotes | ${formatPercent(leadBrandContribution?.share ?? 0)} share`
           : `${formatCount(leadPetTypeMix?.quoteCount ?? 0)} quotes | ${formatPercent(leadPetTypeMix?.share ?? 0)} mix`,
     analysisSpotlightTone:
-      activeTab === "quote-trend"
+      isTrendAnalysis
         ? changeDirection === "up"
           ? "positive"
           : changeDirection === "down"
@@ -210,7 +222,9 @@ export const buildAnalysisContent = ({
           ? "warm"
           : "cool",
     analysisSpotlightValue:
-      activeTab === "quote-trend"
+      activeTab === "conversion-trend"
+        ? formatPointGap(conversionPointGap)
+        : activeTab === "quote-trend"
         ? formatDeltaPercent(percentChange)
         : activeTab === "brand-contribution"
           ? leadBrandContribution?.brand ?? ""

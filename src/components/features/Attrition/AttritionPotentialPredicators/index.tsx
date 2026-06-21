@@ -11,11 +11,11 @@ import {
   YAxis,
 } from "recharts";
 import {
-  FaUpRightAndDownLeftFromCenter,
   FaXmark,
 } from "react-icons/fa6";
 import Card from "../../../ui/card/Card";
 import InsightPanel, { type InsightPanelItem } from "../../../ui/insight_panel";
+import InsightButton from "../../../ui/insight_button";
 import SegmentedTabs from "../../../ui/segmented_tabs";
 import SingleBarGraph, {
   type SingleBarGraphDatum,
@@ -85,17 +85,17 @@ interface QuoteWorkflowProps extends AttritionComponentProps {
 
 const lapsedBucketConfig = [
   {
-    color: "#4e8df5",
+    color: "#d7a13d",
     key: "bucket0To30",
     label: "0-30 Days",
   },
   {
-    color: "#33b18b",
+    color: "#c46b43",
     key: "bucket31To60",
     label: "31-60 Days",
   },
   {
-    color: "#d7a13d",
+    color: "#C05A52",
     key: "bucket61To90",
     label: "61-90 Days",
   },
@@ -241,11 +241,11 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({
     activeTab === "lapsed-quotes" ? "215, 161, 61" : "78, 141, 245";
   const pendingQuoteChartData = useMemo<PendingQuoteChartDatum[]>(
     () =>
-      pendingData.map((row, index) => ({
+      pendingData.map((row) => ({
         ...row,
         countryCode:
           countryAbbreviationMap[row.country] ?? row.country.slice(0, 2),
-        fill: index % 2 === 0 ? "#4e8df5" : "#33b18b",
+        fill: "#4e8df5",
         pendingLabel: formatCount(row.pendingQuotes),
       })),
     [pendingData],
@@ -583,19 +583,12 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({
           <div className={style.topline}>
             <div className={`cardTitle ${style.outerTitle}`}>Quote Workflow</div>
             <div className={style.topActions}>
-              <button
-                aria-haspopup="dialog"
-                aria-label="Expand quote workflow"
-                className={style.expandButton}
+              <InsightButton
+                accentRgb={tabAccentRgb}
+                ariaLabel="Open quote workflow insights"
                 onClick={() => setIsExpanded(true)}
-                title="Expand card"
-                type="button"
-              >
-                <FaUpRightAndDownLeftFromCenter
-                  aria-hidden="true"
-                  className={style.expandIcon}
-                />
-              </button>
+                title="View quote workflow insights"
+              />
             </div>
           </div>
 
