@@ -19,39 +19,52 @@
 }
 
 .panelStack {
-  display: grid;
-  gap: 12px;
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
   height: 100%;
   min-height: 0;
 }
 
-.channelCard {
+.channelSection {
   --channel-accent: #58c89a;
   --channel-glow-rgb: 88, 200, 154;
-  background:
-    radial-gradient(
-      circle at top right,
-      rgba(var(--channel-glow-rgb), 0.18),
-      transparent 44%
-    ),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015));
-  border: 1px solid rgba(107, 99, 117, 0.12);
-  border-radius: 1.35rem;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.03),
-    0 18px 28px rgba(8, 6, 13, 0.08);
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-  min-height: 0;
-  padding: 0.95rem 1rem 0.9rem;
+  position: relative;
 }
 
-.channelCardHeader {
-  align-items: center;
+.channelSection::before {
+  background:
+    radial-gradient(
+      circle at 78% 22%,
+      rgba(var(--channel-glow-rgb), 0.16),
+      transparent 38%
+    ),
+    radial-gradient(
+      circle at 50% 52%,
+      rgba(var(--channel-glow-rgb), 0.06),
+      transparent 42%
+    );
+  border-radius: 1.15rem;
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.channelSection + .channelSection {
+  border-top: 1px solid rgba(107, 99, 117, 0.14);
+  margin-top: 0.9rem;
+  padding-top: 1.8rem;
+}
+
+.channelSectionInner {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 0.8rem;
+  min-height: 0;
+  padding: 0.2rem 0.1rem 0.15rem;
+  position: relative;
+  z-index: 1;
 }
 
 .channelTitleRow {
@@ -78,7 +91,7 @@
 .gaugeWrap {
   display: grid;
   justify-items: center;
-  min-height: 11.6rem;
+  min-height: 10.4rem;
   position: relative;
   width: 100%;
 }
@@ -86,7 +99,7 @@
 .gauge {
   display: block;
   height: auto;
-  max-width: 15rem;
+  max-width: 12.6rem;
   overflow: visible;
   width: 100%;
 }
@@ -121,7 +134,7 @@
 
 .gaugeValue {
   color: var(--text-h);
-  font-size: 1.28rem;
+  font-size: 1.22rem;
   font-weight: 700;
   letter-spacing: -0.05em;
   line-height: 0.9;
@@ -138,32 +151,12 @@
   text-transform: uppercase;
 }
 
-.metricList {
-  border-top: 1px solid rgba(107, 99, 117, 0.12);
-  display: flex;
-  flex-direction: column;
+.metricsTable {
+  flex: 0 0 auto;
+  width: 100%;
 }
 
-.metricRow {
-  align-items: center;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
-  min-width: 0;
-  padding: 0.82rem 0;
-}
-
-.metricRow:not(:last-child) {
-  border-bottom: 1px solid rgba(107, 99, 117, 0.1);
-}
-
-.metricLabel {
-  color: rgba(203, 211, 230, 0.76);
-  font-size: 0.78rem;
-  line-height: 1.35;
-}
-
-.metricValue {
+.metricTableValue {
   color: rgba(238, 242, 255, 0.96);
   font-size: 0.9rem;
   font-weight: 700;
@@ -173,8 +166,13 @@
 }
 
 @media (max-width: 640px) {
+  .channelSection + .channelSection {
+    margin-top: 0.72rem;
+    padding-top: 1.45rem;
+  }
+
   .gaugeWrap {
-    min-height: 10.8rem;
+    min-height: 9.9rem;
   }
 
   .gaugeValue {

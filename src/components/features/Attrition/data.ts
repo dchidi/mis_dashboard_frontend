@@ -97,6 +97,13 @@ export interface PromoCodePerformanceDatum {
   quotedVolume: number;
 }
 
+export interface AgentPerformanceDatum {
+  agent: string;
+  averageTimeToConvertDays: number;
+  convertedVolume: number;
+  quotedVolume: number;
+}
+
 export interface AttritionDepartmentDatum {
   [key: string]: string | number;
   attritionRate: number;
@@ -606,6 +613,69 @@ export const promoCodePerformanceData: PromoCodePerformanceDatum[] = [
     averageTimeToConvertDays: 14,
     promoCode: "PETCARE7",
     quotedVolume: 47,
+    convertedVolume: 2,
+  },
+];
+
+export const agentPerformanceData: AgentPerformanceDatum[] = [
+  {
+    agent: "Amara D",
+    averageTimeToConvertDays: 11,
+    quotedVolume: 148,
+    convertedVolume: 7,
+  },
+  {
+    agent: "Liam K",
+    averageTimeToConvertDays: 13,
+    quotedVolume: 136,
+    convertedVolume: 6,
+  },
+  {
+    agent: "Sophia M",
+    averageTimeToConvertDays: 12,
+    quotedVolume: 121,
+    convertedVolume: 5,
+  },
+  {
+    agent: "Noah R",
+    averageTimeToConvertDays: 15,
+    quotedVolume: 114,
+    convertedVolume: 4,
+  },
+  {
+    agent: "Olivia T",
+    averageTimeToConvertDays: 10,
+    quotedVolume: 102,
+    convertedVolume: 5,
+  },
+  {
+    agent: "Ethan B",
+    averageTimeToConvertDays: 16,
+    quotedVolume: 91,
+    convertedVolume: 3,
+  },
+  {
+    agent: "Isla C",
+    averageTimeToConvertDays: 14,
+    quotedVolume: 84,
+    convertedVolume: 3,
+  },
+  {
+    agent: "Mason F",
+    averageTimeToConvertDays: 17,
+    quotedVolume: 76,
+    convertedVolume: 2,
+  },
+  {
+    agent: "Ava J",
+    averageTimeToConvertDays: 12,
+    quotedVolume: 69,
+    convertedVolume: 3,
+  },
+  {
+    agent: "Leo S",
+    averageTimeToConvertDays: 18,
+    quotedVolume: 58,
     convertedVolume: 2,
   },
 ];

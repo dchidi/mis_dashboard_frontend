@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import Card from "../../../ui/card/Card";
+import Table, { type TableColumn } from "../../../ui/table/Table";
 import {
   premiumChannelSplitData,
   pendingQuoteByCountryData,
@@ -30,6 +31,12 @@ interface ChannelCardDatum {
   totalQuote: number;
 }
 
+interface ChannelMetricRow {
+  id: string;
+  label: string;
+  value: string;
+}
+
 const CHANNEL_ORDER = ["Web", "Contact Center"] as const;
 
 const CHANNEL_VISUALS: Record<
@@ -47,6 +54,24 @@ const CHANNEL_VISUALS: Record<
 };
 
 const formatWholeNumber = (value: number) => value.toLocaleString("en-GB");
+
+const channelMetricColumns: TableColumn<ChannelMetricRow>[] = [
+  {
+    header: "Metric",
+    isRowHeader: true,
+    key: "metric",
+    render: (row) => row.label,
+    width: "68%",
+  },
+  {
+    cellAlign: "right",
+    header: "Value",
+    headerAlign: "right",
+    key: "value",
+    render: (row) => <span className={style.metricTableValue}>{row.value}</span>,
+    width: "32%",
+  },
+];
 
 const allocateByShare = (
   total: number,
@@ -160,6 +185,24 @@ const DonutChart: React.FC<{
   </div>
 );
 
+const buildChannelMetricRows = (channel: ChannelCardDatum): ChannelMetricRow[] => [
+  {
+    id: `${channel.channel}-conversion-rate`,
+    label: "Conversion Rate",
+    value: formatPercent(channel.conversionRate),
+  },
+  {
+    id: `${channel.channel}-pending-quotes`,
+    label: "Pending Quotes",
+    value: formatWholeNumber(channel.pendingQuotes),
+  },
+  {
+    id: `${channel.channel}-total-quote`,
+    label: "Total Quote",
+    value: formatWholeNumber(channel.totalQuote),
+  },
+];
+
 const PremiumOverview: React.FC<PremiumOverviewProps> = ({
   channelSplitData = premiumChannelSplitData,
   className,
@@ -180,7 +223,7 @@ const PremiumOverview: React.FC<PremiumOverviewProps> = ({
         <section className={style.panelStack}>
           {channelCards.map((channel) => (
             <article
-              className={style.channelCard}
+              className={style.channelSection}
               key={channel.channel}
               style={
                 {
@@ -189,39 +232,30 @@ const PremiumOverview: React.FC<PremiumOverviewProps> = ({
                 } as CSSProperties
               }
             >
-              <div className={style.channelCardHeader}>
+              <div className={style.channelSectionInner}>
                 <div className={style.channelTitleRow}>
                   <span className={style.channelDot} />
                   <span className={`innerCardTitle ${style.channelTitle}`}>
                     {channel.channel}
                   </span>
                 </div>
-              </div>
 
-              <DonutChart
-                accentColor={channel.accentColor}
-                share={channel.share}
-              />
+                <DonutChart
+                  accentColor={channel.accentColor}
+                  share={channel.share}
+                />
 
-              <div className={style.metricList}>
-                <div className={style.metricRow}>
-                  <span className={style.metricLabel}>Conversion Rate</span>
-                  <strong className={style.metricValue}>
-                    {formatPercent(channel.conversionRate)}
-                  </strong>
-                </div>
-                <div className={style.metricRow}>
-                  <span className={style.metricLabel}>Pending Quotes</span>
-                  <strong className={style.metricValue}>
-                    {formatWholeNumber(channel.pendingQuotes)}
-                  </strong>
-                </div>
-                <div className={style.metricRow}>
-                  <span className={style.metricLabel}>Total Quote</span>
-                  <strong className={style.metricValue}>
-                    {formatWholeNumber(channel.totalQuote)}
-                  </strong>
-                </div>
+                <Table
+                  className={style.metricsTable}
+                  columns={channelMetricColumns}
+                  layout="fixed"
+                  minWidth="100%"
+                  mobileMinWidth="100%"
+                  rowKey={(row) => row.id}
+                  rows={buildChannelMetricRows(channel)}
+                  size="small"
+                  stickySpacerWidth="0.4rem"
+                />
               </div>
             </article>
           ))}
