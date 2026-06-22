@@ -7,9 +7,51 @@ export interface AttritionPredictorDatum {
 export interface QuoteByCountryDatum {
   conversionRate: number;
   country: string;
+  countryCode: string;
   growth: number;
   quoteShare: number;
+  salesShare: number;
   totalQuote: number;
+  totalSales: number;
+}
+
+export interface QuoteByCountryViewRow extends QuoteByCountryDatum {
+  metricLabel: string;
+  metricValue: number;
+}
+
+export interface QuoteByCountryInsightDatum {
+  id: string;
+  label: string;
+  note: string;
+  tone: "negative" | "neutral" | "positive";
+  value: string;
+}
+
+export interface QuoteByCountryViewData {
+  chartData: QuoteByCountryViewRow[];
+  insights: QuoteByCountryInsightDatum[];
+  tableRows: QuoteByCountryViewRow[];
+}
+
+export interface QuoteByCountryCardData {
+  conversionRate: QuoteByCountryViewData;
+  totalQuote: QuoteByCountryViewData;
+  totalSales: QuoteByCountryViewData;
+}
+
+export interface MetricKeyed<T> {
+  conversionRate: T;
+  totalQuote: T;
+  totalSales: T;
+}
+
+export interface DashboardInsightDatum {
+  id: string;
+  label: string;
+  note: string;
+  tone: "negative" | "neutral" | "positive";
+  value: string;
 }
 
 export interface QuoteAgingByCountryDatum {
@@ -38,11 +80,30 @@ export interface PremiumOverviewDatum {
   premiumQuotedGwp: number;
 }
 
+export interface MetricDisplayRow {
+  id: string;
+  label: string;
+  value: string;
+}
+
 export interface PremiumChannelSplitDatum {
   channel: "Contact Center" | "Web";
   contribution: number;
   fill: string;
   totalPremium: number;
+}
+
+export interface PremiumOverviewSectionDatum {
+  accentColor: string;
+  accentGlowRgb: string;
+  channel: PremiumChannelSplitDatum["channel"];
+  metricRows: MetricDisplayRow[];
+  share: number;
+  shareLabel: string;
+}
+
+export interface PremiumOverviewCardData {
+  sections: PremiumOverviewSectionDatum[];
 }
 
 export interface QuoteTrendDatum {
@@ -90,6 +151,28 @@ export interface ProductPerformanceDatum {
   quotedVolume: number;
 }
 
+export type ProductMetricTabKey = "value" | "volume";
+
+export interface ProductPerformanceRowData {
+  fillPercent: number;
+  metaDisplay: string;
+  metricDisplay: string;
+  product: string;
+  rankLabel: string;
+}
+
+export interface ProductPerformanceViewData {
+  accentRgb: string;
+  rows: ProductPerformanceRowData[];
+  summaryValue: string;
+  title: string;
+}
+
+export interface ProductPerformanceCardData {
+  value: MetricKeyed<ProductPerformanceViewData>;
+  volume: MetricKeyed<ProductPerformanceViewData>;
+}
+
 export interface PromoCodePerformanceDatum {
   averageTimeToConvertDays: number;
   convertedVolume: number;
@@ -103,6 +186,204 @@ export interface AgentPerformanceDatum {
   convertedVolume: number;
   quotedVolume: number;
 }
+
+export type PromoCardTabKey = "promo-code" | "agent";
+
+export interface PromoPerformanceTableRow {
+  averageTimeToConvertLabel: string;
+  conversionRateLabel: string;
+  convertedShareLabel: string;
+  convertedVolumeLabel: string;
+  id: string;
+  label: string;
+  quotedShareLabel: string;
+  quotedVolumeLabel: string;
+}
+
+export interface PromoPerformanceViewData {
+  firstColumnHeader: string;
+  rows: PromoPerformanceTableRow[];
+  title: string;
+}
+
+export interface QuoteByPromoCodeCardData {
+  agent: MetricKeyed<PromoPerformanceViewData>;
+  promoCode: MetricKeyed<PromoPerformanceViewData>;
+}
+
+export type QuoteWorkflowTabKey = string;
+
+export interface LapsedQuoteBucketDatum {
+  color: string;
+  key: "bucket0To30" | "bucket31To60" | "bucket61To90";
+  label: string;
+}
+
+export interface WorkflowBarChartDatum {
+  [key: string]: string | number;
+  country: string;
+  countryCode: string;
+  fill: string;
+  value: number;
+  valueLabel: string;
+}
+
+export interface LapsedQuoteChartDatum extends QuoteAgingByCountryDatum {
+  countryCode: string;
+  total: number;
+}
+
+export interface QuoteWorkflowBaseViewData {
+  accentRgb: string;
+  insights: DashboardInsightDatum[];
+  key: QuoteWorkflowTabKey;
+  label: string;
+  metricLabel: string;
+  subtitle: string;
+  title: string;
+}
+
+export interface LapsedQuoteWorkflowViewData
+  extends QuoteWorkflowBaseViewData {
+  buckets: LapsedQuoteBucketDatum[];
+  chartData: LapsedQuoteChartDatum[];
+  kind: "lapsed";
+  tableRows: QuoteAgingByCountryDatum[];
+}
+
+export interface WorkflowBarViewData
+  extends QuoteWorkflowBaseViewData {
+  chartData: WorkflowBarChartDatum[];
+  kind: "bar";
+}
+
+export type QuoteWorkflowViewData =
+  | LapsedQuoteWorkflowViewData
+  | WorkflowBarViewData;
+
+export interface QuoteWorkflowCardData {
+  idBase?: string;
+  title?: string;
+  tabs: QuoteWorkflowViewData[];
+}
+
+export interface QuoteMetricCellData {
+  display: string;
+  tone: "negative" | "neutral" | "positive";
+  trend: "down" | "flat" | "up";
+}
+
+export interface QuoteMetricTableRowData {
+  id: string;
+  label: string;
+  values: QuoteMetricCellData[];
+}
+
+export interface QuoteMetricTableData {
+  months: string[];
+  rows: QuoteMetricTableRowData[];
+}
+
+export type QuotePerformanceViewKey =
+  | "quote-trend"
+  | "cumulative-trend"
+  | "conversion-trend"
+  | "brand-contribution"
+  | "pet-type-mix";
+
+export interface QuotePerformanceSignalData {
+  ariaLabel: string;
+  direction: "down" | "flat" | "up";
+  kind: "dot" | "trend";
+  label: string;
+  tone: "cool" | "negative" | "neutral" | "positive" | "warm";
+  value: string;
+}
+
+export interface QuotePerformanceAlertData {
+  id: string;
+  severity: "high" | "low" | "medium";
+  text: string;
+  tone: "exception" | "risk" | "trend";
+}
+
+export interface QuotePerformanceAnalysisData {
+  activeAnalysisAlerts: QuotePerformanceAlertData[];
+  activeAnalysisSummary: string[];
+  analysisSpotlightLabel: string;
+  analysisSpotlightMeta: string;
+  analysisSpotlightTone: "cool" | "negative" | "neutral" | "positive" | "warm";
+  analysisSpotlightValue: string;
+  insightAccentRgb: string;
+}
+
+export interface QuotePerformanceBaseTabData {
+  accentRgb: string;
+  analysis: QuotePerformanceAnalysisData;
+  key: QuotePerformanceViewKey;
+  label: string;
+  panelTitle: string;
+  signal: QuotePerformanceSignalData;
+  subtitle: string;
+  title: string;
+}
+
+export interface QuoteTrendPerformanceTabData
+  extends QuotePerformanceBaseTabData {
+  kind: "quote-trend";
+  metricsTable: QuoteMetricTableData;
+  trendData: QuoteTrendDatum[];
+  trendSeriesKey: "conversionRate" | "totalQuote" | "totalSales";
+}
+
+export interface ConversionTrendPerformanceTabData
+  extends QuotePerformanceBaseTabData {
+  kind: "conversion-trend";
+  metricsTable: QuoteMetricTableData;
+  trendData: QuoteTrendDatum[];
+}
+
+export interface CumulativeTrendDatum {
+  [key: string]: string | number;
+  currentCumulative: number;
+  month: string;
+  previousYearCumulative: number;
+}
+
+export interface CumulativeTrendPerformanceTabData
+  extends QuotePerformanceBaseTabData {
+  kind: "cumulative-trend";
+  metricsTable: QuoteMetricTableData;
+  trendData: CumulativeTrendDatum[];
+  yAxisWidth?: number;
+}
+
+export interface BrandContributionPerformanceTabData
+  extends QuotePerformanceBaseTabData {
+  brandData: BrandContributionDatum[];
+  kind: "brand-contribution";
+}
+
+export interface PetTypeMixPerformanceTabData
+  extends QuotePerformanceBaseTabData {
+  kind: "pet-type-mix";
+  petTypeData: PetTypeMixDatum[];
+  totalQuote: number;
+}
+
+export type QuotePerformanceTabData =
+  | BrandContributionPerformanceTabData
+  | ConversionTrendPerformanceTabData
+  | CumulativeTrendPerformanceTabData
+  | PetTypeMixPerformanceTabData
+  | QuoteTrendPerformanceTabData;
+
+export interface QuotePerformanceMetricViewData {
+  tabs: QuotePerformanceTabData[];
+}
+
+export interface QuotePerformanceCardData
+  extends MetricKeyed<QuotePerformanceMetricViewData> {}
 
 export interface AttritionDepartmentDatum {
   [key: string]: string | number;
@@ -151,38 +432,53 @@ export const predictorData: AttritionPredictorDatum[] = [
 export const quoteByCountryData: QuoteByCountryDatum[] = [
   {
     country: "UK",
+    countryCode: "UK",
     quoteShare: 38.4,
+    salesShare: 43.8,
     conversionRate: 3.1,
     growth: 12.4,
     totalQuote: 224,
+    totalSales: 7,
   },
   {
     country: "Sweden",
+    countryCode: "SE",
     quoteShare: 22.7,
+    salesShare: 25,
     conversionRate: 2.8,
     growth: 8.1,
     totalQuote: 132,
+    totalSales: 4,
   },
   {
     country: "Ireland",
+    countryCode: "IE",
     quoteShare: 16.8,
+    salesShare: 12.5,
     conversionRate: 2.5,
     growth: -2.6,
     totalQuote: 98,
+    totalSales: 2,
   },
   {
     country: "Germany",
+    countryCode: "DE",
     quoteShare: 12.6,
+    salesShare: 12.5,
     conversionRate: 2.2,
     growth: 4.3,
     totalQuote: 74,
+    totalSales: 2,
   },
   {
     country: "France",
+    countryCode: "FR",
     quoteShare: 9.5,
+    salesShare: 6.3,
     conversionRate: 1.9,
     growth: -1.8,
     totalQuote: 55,
+    totalSales: 1,
   },
 ];
 

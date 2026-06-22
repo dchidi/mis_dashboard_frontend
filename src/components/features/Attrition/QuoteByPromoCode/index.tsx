@@ -3,115 +3,48 @@ import Card from "../../../ui/card/Card";
 import Table, { type TableColumn } from "../../../ui/table/Table";
 import SegmentedTabs from "../../../ui/segmented_tabs";
 import {
-  agentPerformanceData,
-  promoCodePerformanceData,
-  type AgentPerformanceDatum,
-  type PromoCodePerformanceDatum,
+  type PromoPerformanceTableRow,
+  type QuoteByPromoCodeCardData,
 } from "../data";
+import type { MetricViewVariant } from "../metricView";
 import type { TrendSeriesKey } from "../QuotePerformance/types";
 import type { AttritionComponentProps } from "../type";
 import style from "./QuoteByPromoCode.module.css";
 
 interface QuoteByPromoCodeProps extends AttritionComponentProps {
   activeTrendSeriesKey: TrendSeriesKey;
-  agentData?: AgentPerformanceDatum[];
-  data?: PromoCodePerformanceDatum[];
+  data?: QuoteByPromoCodeCardData;
+  metricViewVariant?: MetricViewVariant;
 }
-
-type PromoCardTabKey = "promo-code" | "agent";
-
-interface PerformanceSourceRow {
-  conversionRate: number;
-  convertedShare: number;
-  id: string;
-  label: string;
-  quotedShare: number;
-  averageTimeToConvertDays: number;
-  convertedVolume: number;
-  quotedVolume: number;
-}
-
-const formatCount = (value: number) => value.toLocaleString();
-const formatPercent = (value: number) => `${value}%`;
-const formatDays = (value: number) => `${value}d`;
-
-const promoTabs = [
-  {
-    key: "promo-code" as const,
-    label: "Quote by Promo Code (Top 10)",
-  },
-  {
-    key: "agent" as const,
-    label: "Quote by Agent (Top 10)",
-  },
-];
 
 const QuoteByPromoCode: React.FC<QuoteByPromoCodeProps> = ({
   activeTrendSeriesKey,
-  agentData = agentPerformanceData,
   className,
-  data = promoCodePerformanceData,
+  data,
+  metricViewVariant = "quote",
 }) => {
-  const [activeTab, setActiveTab] = useState<PromoCardTabKey>("promo-code");
-  const activeRowsSource =
-    activeTab === "promo-code"
-      ? data.map((row) => ({
-          averageTimeToConvertDays: row.averageTimeToConvertDays,
-          convertedVolume: row.convertedVolume,
-          id: row.promoCode,
-          label: row.promoCode,
-          quotedVolume: row.quotedVolume,
-        }))
-      : agentData.map((row) => ({
-          averageTimeToConvertDays: row.averageTimeToConvertDays,
-          convertedVolume: row.convertedVolume,
-          id: row.agent,
-          label: row.agent,
-          quotedVolume: row.quotedVolume,
-        }));
-  const totalQuotedVolume = activeRowsSource.reduce(
-    (sum, row) => sum + row.quotedVolume,
-    0,
-  );
-  const totalConvertedVolume = activeRowsSource.reduce(
-    (sum, row) => sum + row.convertedVolume,
-    0,
-  );
-  const rows: PerformanceSourceRow[] = activeRowsSource
-    .map((row) => {
-      const conversionRate = Number(
-        ((row.convertedVolume / Math.max(row.quotedVolume, 1)) * 100).toFixed(1),
-      );
-
-      return {
-        ...row,
-        conversionRate,
-        convertedShare: Number(
-          ((row.convertedVolume / Math.max(totalConvertedVolume, 1)) * 100).toFixed(
-            1,
-          ),
-        ),
-        quotedShare: Number(
-          ((row.quotedVolume / Math.max(totalQuotedVolume, 1)) * 100).toFixed(1),
-        ),
-      } satisfies PerformanceSourceRow;
-    })
-    .sort((left, right) => {
-      if (activeTrendSeriesKey === "conversionRate") {
-        return right.conversionRate - left.conversionRate;
-      }
-
-      if (activeTrendSeriesKey === "totalSales") {
-        return right.convertedVolume - left.convertedVolume;
-      }
-
-      return right.quotedVolume - left.quotedVolume;
-    })
-    .slice(0, 10);
-  const firstColumnHeader = activeTab === "promo-code" ? "Promo Code" : "Agent";
-  const promoColumns: TableColumn<PerformanceSourceRow>[] = [
+  const [activeTab, setActiveTab] = useState<"promoCode" | "agent">("promoCode");
+  const primaryMetricLabel =
+    metricViewVariant === "policy" ? "Policy" : "Quote";
+  const promoTabs = [
     {
-      header: firstColumnHeader,
+      key: "promoCode" as const,
+      label: `${primaryMetricLabel} by Promo Code (Top 10)`,
+    },
+    {
+      key: "agent" as const,
+      label: `${primaryMetricLabel} by Agent (Top 10)`,
+    },
+  ];
+  const activeView = data?.[activeTab]?.[activeTrendSeriesKey];
+
+  if (!activeView) {
+    return null;
+  }
+
+  const promoColumns: TableColumn<PromoPerformanceTableRow>[] = [
+    {
+      header: activeView.firstColumnHeader,
       isRowHeader: true,
       key: "source-label",
       render: (row) => row.label,
@@ -119,18 +52,18 @@ const QuoteByPromoCode: React.FC<QuoteByPromoCodeProps> = ({
     },
     {
       cellAlign: "right",
-      header: "Total Quote",
+      header: `Total ${primaryMetricLabel}`,
       headerAlign: "right",
       key: "total-quote",
-      render: (row) => formatCount(row.quotedVolume),
+      render: (row) => row.quotedVolumeLabel,
       width: "12%",
     },
     {
       cellAlign: "right",
-      header: "Quote Share",
+      header: `${primaryMetricLabel} Share`,
       headerAlign: "right",
       key: "quote-share",
-      render: (row) => formatPercent(row.quotedShare),
+      render: (row) => row.quotedShareLabel,
       width: "12%",
     },
     {
@@ -138,7 +71,7 @@ const QuoteByPromoCode: React.FC<QuoteByPromoCodeProps> = ({
       header: "Total Sales",
       headerAlign: "right",
       key: "total-sales",
-      render: (row) => formatCount(row.convertedVolume),
+      render: (row) => row.convertedVolumeLabel,
       width: "12%",
     },
     {
@@ -146,7 +79,7 @@ const QuoteByPromoCode: React.FC<QuoteByPromoCodeProps> = ({
       header: "Sales Share",
       headerAlign: "right",
       key: "sales-share",
-      render: (row) => formatPercent(row.convertedShare),
+      render: (row) => row.convertedShareLabel,
       width: "12%",
     },
     {
@@ -154,7 +87,7 @@ const QuoteByPromoCode: React.FC<QuoteByPromoCodeProps> = ({
       header: "Conversion %",
       headerAlign: "right",
       key: "conversion-rate",
-      render: (row) => formatPercent(row.conversionRate),
+      render: (row) => row.conversionRateLabel,
       width: "12%",
     },
     {
@@ -162,7 +95,7 @@ const QuoteByPromoCode: React.FC<QuoteByPromoCodeProps> = ({
       header: "Avg. Time to Convert",
       headerAlign: "right",
       key: "avg-time-to-convert",
-      render: (row) => formatDays(row.averageTimeToConvertDays),
+      render: (row) => row.averageTimeToConvertLabel,
       width: "22%",
     },
   ];
@@ -170,14 +103,14 @@ const QuoteByPromoCode: React.FC<QuoteByPromoCodeProps> = ({
   return (
     <Card className={className}>
       <div className={style.root}>
-        <div className="cardTitle">{promoTabs.find((tab) => tab.key === activeTab)?.label}</div>
+        <div className="cardTitle">{activeView.title}</div>
 
         <SegmentedTabs
           accentRgb="138, 116, 232"
           activeKey={activeTab}
           ariaLabel="Promo and agent views"
           idBase="promo-performance"
-          onChange={setActiveTab}
+          onChange={(key) => setActiveTab(key as "promoCode" | "agent")}
           options={promoTabs}
         />
 
@@ -189,7 +122,7 @@ const QuoteByPromoCode: React.FC<QuoteByPromoCodeProps> = ({
             minWidth="100%"
             mobileMinWidth="56rem"
             rowKey={(row) => row.id}
-            rows={rows}
+            rows={activeView.rows}
             size="small"
             stickySpacerWidth="0.55rem"
           />

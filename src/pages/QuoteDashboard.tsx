@@ -25,13 +25,11 @@ import style from "./page_css/QuoteDashboard.module.css";
 
 interface DashboardChartViewProps {
   activeTrendSeriesKey: TrendSeriesKey;
-  activeCurrencyCode: PremiumCurrencyCode;
   dashboardData: ReturnType<typeof buildQuoteDashboardData>;
   onTrendSeriesChange: (key: TrendSeriesKey) => void;
 }
 
 const renderChartView = ({
-  activeCurrencyCode,
   activeTrendSeriesKey,
   dashboardData,
   onTrendSeriesChange,
@@ -44,23 +42,17 @@ const renderChartView = ({
     />
     <QuoteWorkflow
       className={`${style.section} ${style.workflowCard}`}
-      lapsedData={dashboardData.lapsedQuoteByCountryData}
-      pendingData={dashboardData.pendingQuoteByCountryData}
+      data={dashboardData.quoteWorkflowData}
     />
     <PremiumOverview
-      activeCurrencyCode={activeCurrencyCode}
-      channelSplitData={dashboardData.premiumChannelSplitData}
       className={`${style.section} ${style.premiumCard}`}
-      pendingData={dashboardData.pendingQuoteByCountryData}
-      trendData={dashboardData.trendData}
+      data={dashboardData.premiumOverviewData}
     />
     <QuoteTrend
       activeTrendSeriesKey={activeTrendSeriesKey}
-      brandContributionData={dashboardData.brandContributionData}
       className={`${style.section} ${style.trendCard}`}
+      data={dashboardData.quotePerformanceData}
       onTrendSeriesChange={onTrendSeriesChange}
-      petTypeMixData={dashboardData.petTypeMixData}
-      trendData={dashboardData.trendData}
     />
     <ProductPerformance
       activeTrendSeriesKey={activeTrendSeriesKey}
@@ -127,6 +119,7 @@ const Dashboard: React.FC = () => {
           onActiveMetricChange={setActiveTrendSeriesKey}
           onBrandsChange={setSelectedBrands}
           onCountriesChange={setSelectedCountries}
+          onManageUsers={() => navigate("/manage_users")}
           onLogout={() => navigate("/")}
           onPetTypesChange={setSelectedPetTypes}
           onRunEtl={() => setIsEtlRunning(true)}
@@ -139,7 +132,6 @@ const Dashboard: React.FC = () => {
       title="Quote Dashboard"
     >
       {renderChartView({
-        activeCurrencyCode,
         activeTrendSeriesKey,
         dashboardData,
         onTrendSeriesChange: setActiveTrendSeriesKey,

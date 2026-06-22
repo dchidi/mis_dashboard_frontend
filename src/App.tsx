@@ -3,6 +3,9 @@ import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 import AttritionDashboard from "./pages/QuoteDashboard";
 import FeaturePlaceholderDashboard from "./pages/FeaturePlaceholderDashboard";
 import Login from "./pages/Login";
+import ManageUsers from "./pages/ManageUsers";
+import PolicyDashboard from "./pages/PolicyDashboard";
+import Reports from "./pages/Reports";
 
 function NotFoundPage() {
   return (
@@ -31,21 +34,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/quote_dashboard" element={<AttritionDashboard />} />
-        <Route
-          path="/policy"
-          element={
-            <FeaturePlaceholderDashboard
-              description="Track policy book movement across quoted, active, lapsed, and cancelled business so users can understand policy health beyond raw quote volume."
-              focusAreas={[
-                "Active vs lapsed policies",
-                "New business and cancellations",
-                "Policy mix by channel or market",
-              ]}
-              note="Policy should become the operating view for book health, movement, and channel quality after the quote dashboard."
-              title="Policy Dashboard"
-            />
-          }
-        />
+        <Route path="/manage_users" element={<ManageUsers />} />
+        <Route path="/policy" element={<PolicyDashboard />} />
         <Route
           path="/renewals"
           element={
@@ -63,18 +53,7 @@ function App() {
         />
         <Route
           path="/reports"
-          element={
-            <FeaturePlaceholderDashboard
-              description="Provide a reporting workspace for scheduled exports, executive summaries, and cross-functional views of quote, policy, and renewal performance."
-              focusAreas={[
-                "Executive summary packs",
-                "Scheduled and ad hoc exports",
-                "Cross-dashboard KPI snapshots",
-              ]}
-              note="Reports should become the presentation layer for curated outputs rather than another operational dashboard."
-              title="Reports"
-            />
-          }
+          element={<Reports />}
         />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

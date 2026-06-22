@@ -66,7 +66,9 @@ const AnalysisLayer: React.FC<AnalysisLayerProps> = ({
   }
 
   const isTrendAnalysis =
-    activeTab === "quote-trend" || activeTab === "conversion-trend";
+    activeTab === "quote-trend" ||
+    activeTab === "cumulative-trend" ||
+    activeTab === "conversion-trend";
 
   return createPortal(
     <div

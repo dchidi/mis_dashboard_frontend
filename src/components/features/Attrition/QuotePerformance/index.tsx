@@ -6,30 +6,23 @@ import {
 } from "react-icons/fa6";
 import Card from "../../../ui/card/Card";
 import InsightButton from "../../../ui/insight_button";
+import { type QuotePerformanceCardData } from "../data";
 import {
-  type BrandContributionDatum,
-  type PetTypeMixDatum,
-  type QuoteTrendDatum,
-} from "../data";
-import { getMetricViewDescriptor } from "../metricView";
+  getMetricViewDescriptor,
+  type MetricViewVariant,
+} from "../metricView";
 import type { AttritionComponentProps } from "../type";
 import AnalysisLayer from "./AnalysisLayer";
-import { quoteCardTabs, trendSeriesOptions } from "./config";
-import {
-  formatDeltaPercent,
-  formatPercent,
-  joinClassNames,
-  readTrendMetric,
-} from "./helpers";
-import { buildAnalysisContent } from "./insights";
+import { getTrendSeriesOptions } from "./config";
+import { joinClassNames } from "./helpers";
 import type {
-  Direction,
   QuoteCardTabKey,
   Tone,
   TrendSeriesKey,
 } from "./types";
 import {
   BrandContributionVisual,
+  CumulativeTrendVisual,
   ConversionTrendVisual,
   PetTypeMixVisual,
   QuoteTrendVisual,
@@ -55,207 +48,163 @@ const analysisToneClassMap: Record<Tone, string> = {
 
 interface QuotePerformanceProps extends AttritionComponentProps {
   activeTrendSeriesKey: TrendSeriesKey;
-  brandContributionData?: BrandContributionDatum[];
-  petTypeMixData?: PetTypeMixDatum[];
+  data?: QuotePerformanceCardData;
+  metricViewVariant?: MetricViewVariant;
   onTrendSeriesChange: (key: TrendSeriesKey) => void;
-  trendData?: QuoteTrendDatum[];
 }
 
 const QuotePerformance: React.FC<QuotePerformanceProps> = ({
   activeTrendSeriesKey,
-  brandContributionData = [],
   className,
-  petTypeMixData = [],
+  data,
+  metricViewVariant = "quote",
   onTrendSeriesChange,
-  trendData = [],
 }) => {
   const [activeTab, setActiveTab] = useState<QuoteCardTabKey>("quote-trend");
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
-  const activeTrendSeries =
-    trendSeriesOptions.find((series) => series.key === activeTrendSeriesKey) ??
-    trendSeriesOptions[0];
-  const conversionTrendSeries =
-    trendSeriesOptions.find((series) => series.key === "conversionRate") ??
-    trendSeriesOptions[0];
-  const metricDescriptor = getMetricViewDescriptor(activeTrendSeriesKey);
-  const resolvedTabs = quoteCardTabs.map((tab) =>
-    tab.key === "quote-trend"
-      ? {
-          ...tab,
-          label:
-            activeTrendSeries.key === "conversionRate"
-              ? "Conversion Performance"
-              : metricDescriptor.trendTabLabel,
-          subtitle:
-            activeTrendSeries.key === "conversionRate"
-              ? "Monthly conversion performance versus prior year."
-              : activeTrendSeries.key === "totalSales"
-                ? "Monthly sales volume and performance versus prior year."
-                : "Monthly quoted volume and performance versus prior year.",
-          title: metricDescriptor.trendTabLabel,
-        }
-      : tab,
+  const metricDescriptor = getMetricViewDescriptor(
+    activeTrendSeriesKey,
+    metricViewVariant,
   );
-  const activeTabConfig =
-    resolvedTabs.find((tab) => tab.key === activeTab) ?? resolvedTabs[0];
-  const isQuoteTrendActive = activeTab === "quote-trend";
-  const isConversionTrendActive = activeTab === "conversion-trend";
-  const isTrendTabActive = isQuoteTrendActive || isConversionTrendActive;
-  const activeSeriesForTab = isConversionTrendActive
-    ? conversionTrendSeries
-    : activeTrendSeries;
-  const activeTrendTitleLabel =
-    activeSeriesForTab.key === "conversionRate"
-      ? "Conversion Rate"
-      : activeSeriesForTab.label.replace("Total ", "");
-  const activePanelTitle =
-    isTrendTabActive
-      ? `${activeTrendTitleLabel} Trend`
-      : activeTabConfig.title;
-  const quoteTabAccentRgb =
-    isTrendTabActive
-      ? activeSeriesForTab.accentRgb
-      : activeTab === "brand-contribution"
-        ? "212, 117, 88"
-        : "78, 141, 245";
-  const currentMonth = trendData[trendData.length - 1];
-  const leadBrandContribution = [...brandContributionData].sort(
-    (left, right) => right.quoteCount - left.quoteCount,
-  )[0];
-  const leadPetTypeMix = [...petTypeMixData].sort(
-    (left, right) => right.quoteCount - left.quoteCount,
-  )[0];
+  const trendSeriesOptions = getTrendSeriesOptions(metricViewVariant);
+  const activeMetricView = data?.[activeTrendSeriesKey];
+  const tabs = activeMetricView?.tabs ?? [];
+  const activeTabData = tabs.find((tab) => tab.key === activeTab) ?? tabs[0];
 
-  if (!currentMonth || !leadBrandContribution || !leadPetTypeMix) {
+  if (!activeTabData) {
     return null;
   }
 
-  const currentTrendValue = readTrendMetric(currentMonth, activeSeriesForTab.key);
-  const previousYearTrendValue = readTrendMetric(
-    currentMonth,
-    activeSeriesForTab.previousYearKey,
+  const isTrendTabActive =
+    activeTabData.kind === "quote-trend" ||
+    activeTabData.kind === "cumulative-trend" ||
+    activeTabData.kind === "conversion-trend";
+  const signalClassName = joinClassNames(
+    style.signal,
+    toneClassMap[activeTabData.signal.tone],
   );
-  const percentChange =
-    previousYearTrendValue === 0
-      ? 0
-      : ((currentTrendValue - previousYearTrendValue) / previousYearTrendValue) *
-          100;
-  const changeDirection: Direction =
-    percentChange > 0 ? "up" : percentChange < 0 ? "down" : "flat";
-  const changeDescription =
-    changeDirection === "up"
-      ? `${activeSeriesForTab.description} increased`
-      : changeDirection === "down"
-        ? `${activeSeriesForTab.description} declined`
-        : `${activeSeriesForTab.description} unchanged`;
+  const analysisSpotlightToneClass =
+    analysisToneClassMap[activeTabData.analysis.analysisSpotlightTone];
   const ChangeIcon =
-    changeDirection === "up"
+    activeTabData.signal.direction === "up"
       ? FaArrowTrendUp
-      : changeDirection === "down"
+      : activeTabData.signal.direction === "down"
         ? FaArrowTrendDown
         : FaMinus;
-  const signalTone: Tone =
-    isTrendTabActive
-      ? changeDirection === "up"
-        ? "positive"
-        : changeDirection === "down"
-          ? "negative"
-          : "neutral"
-      : activeTab === "brand-contribution"
-        ? "warm"
-        : "cool";
-  const signalClassName = joinClassNames(style.signal, toneClassMap[signalTone]);
-  const analysisContent = buildAnalysisContent({
-    activeTab,
-    activeTrendSeries: activeSeriesForTab,
-    brandContributionData,
-    changeDirection,
-    currentMonth,
-    petTypeMixData,
-    percentChange,
-  });
-  const analysisSpotlightToneClass =
-    analysisToneClassMap[analysisContent.analysisSpotlightTone];
+  const activeTrendSeries =
+    activeTabData.kind === "quote-trend"
+      ? trendSeriesOptions.find(
+          (series) => series.key === activeTabData.trendSeriesKey,
+        ) ?? trendSeriesOptions[0]
+      : activeTabData.kind === "cumulative-trend"
+        ? trendSeriesOptions.find((series) => series.key === activeTrendSeriesKey) ??
+          trendSeriesOptions[0]
+        : trendSeriesOptions.find((series) => series.key === "conversionRate") ??
+          trendSeriesOptions[0];
 
   const signalContent =
-    isTrendTabActive ? (
+    activeTabData.signal.kind === "trend" ? (
       <div
-        aria-label={`${changeDescription} by ${formatDeltaPercent(percentChange)} year over year for ${activeSeriesForTab.label}.`}
+        aria-label={activeTabData.signal.ariaLabel}
         className={signalClassName}
       >
-        <span className={style.signalLabel}>YoY</span>
+        <span className={style.signalLabel}>{activeTabData.signal.label}</span>
         <div className={style.signalValueRow}>
           <ChangeIcon aria-hidden="true" className={style.signalIcon} />
-          <strong className={style.signalValue}>
-            {formatDeltaPercent(percentChange)}
-          </strong>
-        </div>
-      </div>
-    ) : activeTab === "brand-contribution" ? (
-      <div
-        aria-label={`${leadBrandContribution.brand} leads brand contribution at ${formatPercent(leadBrandContribution.share)}.`}
-        className={signalClassName}
-      >
-        <span className={style.signalLabel}>{leadBrandContribution.brand}</span>
-        <div className={style.signalValueRow}>
-          <span aria-hidden="true" className={style.signalDot} />
-          <strong className={style.signalValue}>
-            {formatPercent(leadBrandContribution.share)}
-          </strong>
+          <strong className={style.signalValue}>{activeTabData.signal.value}</strong>
         </div>
       </div>
     ) : (
       <div
-        aria-label={`${leadPetTypeMix.petType} account for ${formatPercent(leadPetTypeMix.share)} of quotes.`}
+        aria-label={activeTabData.signal.ariaLabel}
         className={signalClassName}
       >
-        <span className={style.signalLabel}>{leadPetTypeMix.petType}</span>
+        <span className={style.signalLabel}>{activeTabData.signal.label}</span>
         <div className={style.signalValueRow}>
           <span aria-hidden="true" className={style.signalDot} />
-          <strong className={style.signalValue}>
-            {formatPercent(leadPetTypeMix.share)}
-          </strong>
+          <strong className={style.signalValue}>{activeTabData.signal.value}</strong>
         </div>
       </div>
     );
 
   const cardVisualContent =
-    activeTab === "quote-trend" ? (
+    activeTabData.kind === "quote-trend" ? (
       <QuoteTrendVisual
         activeTrendSeries={activeTrendSeries}
-        activeTrendSeriesKey={activeTrendSeriesKey}
+        activeTrendSeriesKey={activeTabData.trendSeriesKey}
         expanded={false}
+        metricsTableData={activeTabData.metricsTable}
         onTrendSeriesChange={onTrendSeriesChange}
         showSeriesSelector={false}
-        trendData={trendData}
+        trendData={activeTabData.trendData}
       />
-    ) : activeTab === "conversion-trend" ? (
-      <ConversionTrendVisual expanded={false} trendData={trendData} />
-    ) : activeTab === "brand-contribution" ? (
-      <BrandContributionVisual
-        data={brandContributionData}
+    ) : activeTabData.kind === "conversion-trend" ? (
+      <ConversionTrendVisual
         expanded={false}
+        metricsTableData={activeTabData.metricsTable}
+        trendData={activeTabData.trendData}
+      />
+    ) : activeTabData.kind === "cumulative-trend" ? (
+      <CumulativeTrendVisual
+        expanded={false}
+        metricsTableData={activeTabData.metricsTable}
+        trendData={activeTabData.trendData}
+        valueSuffix={activeTrendSeriesKey === "conversionRate" ? "%" : ""}
+        yAxisWidth={activeTabData.yAxisWidth}
+      />
+    ) : activeTabData.kind === "brand-contribution" ? (
+      <BrandContributionVisual
+        data={activeTabData.brandData}
+        expanded={false}
+        metricViewVariant={metricViewVariant}
       />
     ) : (
-      <PetTypeMixVisual data={petTypeMixData} expanded={false} />
+      <PetTypeMixVisual
+        data={activeTabData.petTypeData}
+        expanded={false}
+        metricViewVariant={metricViewVariant}
+        totalQuote={activeTabData.totalQuote}
+      />
     );
 
   const analysisVisualContent =
-    activeTab === "quote-trend" ? (
+    activeTabData.kind === "quote-trend" ? (
       <QuoteTrendVisual
         activeTrendSeries={activeTrendSeries}
-        activeTrendSeriesKey={activeTrendSeriesKey}
+        activeTrendSeriesKey={activeTabData.trendSeriesKey}
         expanded
+        metricsTableData={activeTabData.metricsTable}
         onTrendSeriesChange={onTrendSeriesChange}
         showSeriesSelector={false}
-        trendData={trendData}
+        trendData={activeTabData.trendData}
       />
-    ) : activeTab === "conversion-trend" ? (
-      <ConversionTrendVisual expanded trendData={trendData} />
-    ) : activeTab === "brand-contribution" ? (
-      <BrandContributionVisual data={brandContributionData} expanded />
+    ) : activeTabData.kind === "conversion-trend" ? (
+      <ConversionTrendVisual
+        expanded
+        metricsTableData={activeTabData.metricsTable}
+        trendData={activeTabData.trendData}
+      />
+    ) : activeTabData.kind === "cumulative-trend" ? (
+      <CumulativeTrendVisual
+        expanded
+        metricsTableData={activeTabData.metricsTable}
+        trendData={activeTabData.trendData}
+        valueSuffix={activeTrendSeriesKey === "conversionRate" ? "%" : ""}
+        yAxisWidth={activeTabData.yAxisWidth}
+      />
+    ) : activeTabData.kind === "brand-contribution" ? (
+      <BrandContributionVisual
+        data={activeTabData.brandData}
+        expanded
+        metricViewVariant={metricViewVariant}
+      />
     ) : (
-      <PetTypeMixVisual data={petTypeMixData} expanded />
+      <PetTypeMixVisual
+        data={activeTabData.petTypeData}
+        expanded
+        metricViewVariant={metricViewVariant}
+        totalQuote={activeTabData.totalQuote}
+      />
     );
 
   const analysisSpotlightGraphic =
@@ -283,30 +232,30 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
         <div className={style.root}>
           <div className={style.topline}>
             <div className={`cardTitle ${style.outerTitle}`}>
-              {isQuoteTrendActive
+              {activeTabData.kind === "quote-trend"
                 ? metricDescriptor.performanceTitle
-                : activeTabConfig.title}
+                : activeTabData.title}
             </div>
             {signalContent}
           </div>
 
           <SegmentedTabs
-            accentRgb={quoteTabAccentRgb}
+            accentRgb={activeTabData.accentRgb}
             activeKey={activeTab}
             ariaLabel="Quote performance views"
             idBase="quote"
-            onChange={setActiveTab}
-            options={resolvedTabs.map(({ key, label }) => ({ key, label }))}
+            onChange={(key) => setActiveTab(key as QuoteCardTabKey)}
+            options={tabs.map(({ key, label }) => ({ key, label }))}
           />
 
           <section
-            aria-labelledby={`quote-tab-${activeTab}`}
+            aria-labelledby={`quote-tab-${activeTabData.key}`}
             className={joinClassNames(
               style.panelBody,
               isTrendTabActive && style.panelBodyQuoteTrend,
             )}
-            id={`quote-panel-${activeTab}`}
-            key={activeTab}
+            id={`quote-panel-${activeTabData.key}`}
+            key={activeTabData.key}
             role="tabpanel"
           >
             <div
@@ -318,27 +267,27 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
               {isTrendTabActive ? (
                 <div className={style.flatControlRow}>
                   <InsightButton
-                    accentRgb={analysisContent.insightAccentRgb}
-                    ariaLabel={`Open ${activeTabConfig.label.toLowerCase()} insights`}
+                    accentRgb={activeTabData.analysis.insightAccentRgb}
+                    ariaLabel={`Open ${activeTabData.label.toLowerCase()} insights`}
                     className={style.controlInsightAction}
                     onClick={() => setIsAnalysisOpen(true)}
-                    title={`View ${activeTabConfig.label} insights`}
+                    title={`View ${activeTabData.label} insights`}
                   />
                 </div>
               ) : (
                 <div className={style.panelHeader}>
                   <div className={style.panelIntro}>
                     <div className={`innerCardTitle ${style.panelTitle}`}>
-                      {activePanelTitle}
+                      {activeTabData.panelTitle}
                     </div>
-                    <p className={style.subtitle}>{activeTabConfig.subtitle}</p>
+                    <p className={style.subtitle}>{activeTabData.subtitle}</p>
                   </div>
 
                   <InsightButton
-                    accentRgb={analysisContent.insightAccentRgb}
-                    ariaLabel={`Open ${activeTabConfig.label.toLowerCase()} insights`}
+                    accentRgb={activeTabData.analysis.insightAccentRgb}
+                    ariaLabel={`Open ${activeTabData.label.toLowerCase()} insights`}
                     onClick={() => setIsAnalysisOpen(true)}
-                    title={`View ${activeTabConfig.label} insights`}
+                    title={`View ${activeTabData.label} insights`}
                   />
                 </div>
               )}
@@ -350,15 +299,20 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
       </Card>
 
       <AnalysisLayer
-        activeAnalysisAlerts={analysisContent.activeAnalysisAlerts}
-        activeAnalysisSummary={analysisContent.activeAnalysisSummary}
-        activePanelTitle={activePanelTitle}
-        activeTab={activeTab}
-        activeTabConfig={activeTabConfig}
+        activeAnalysisAlerts={activeTabData.analysis.activeAnalysisAlerts}
+        activeAnalysisSummary={activeTabData.analysis.activeAnalysisSummary}
+        activePanelTitle={activeTabData.panelTitle}
+        activeTab={activeTabData.key}
+        activeTabConfig={{
+          key: activeTabData.key,
+          label: activeTabData.label,
+          subtitle: activeTabData.subtitle,
+          title: activeTabData.title,
+        }}
         analysisSpotlightGraphic={analysisSpotlightGraphic}
-        analysisSpotlightLabel={analysisContent.analysisSpotlightLabel}
-        analysisSpotlightMeta={analysisContent.analysisSpotlightMeta}
-        analysisSpotlightValue={analysisContent.analysisSpotlightValue}
+        analysisSpotlightLabel={activeTabData.analysis.analysisSpotlightLabel}
+        analysisSpotlightMeta={activeTabData.analysis.analysisSpotlightMeta}
+        analysisSpotlightValue={activeTabData.analysis.analysisSpotlightValue}
         isOpen={isAnalysisOpen}
         onClose={() => setIsAnalysisOpen(false)}
       >

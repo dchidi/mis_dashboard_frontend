@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Bar,
@@ -10,169 +10,31 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import {
-  FaXmark,
-} from "react-icons/fa6";
+import { FaXmark } from "react-icons/fa6";
 import Card from "../../../ui/card/Card";
 import InsightPanel, { type InsightPanelItem } from "../../../ui/insight_panel";
 import InsightButton from "../../../ui/insight_button";
 import SegmentedTabs from "../../../ui/segmented_tabs";
 import SingleBarGraph, {
-  type SingleBarGraphDatum,
   type SingleBarGraphTooltipProps,
 } from "../../../ui/graph/bar_chart/SingleBarGraph";
 import Table, { type TableColumn } from "../../../ui/table/Table";
 import {
-  lapsedQuoteByCountryData,
-  pendingQuoteByCountryData,
-  type PendingQuoteByCountryDatum,
+  type LapsedQuoteChartDatum,
   type QuoteAgingByCountryDatum,
+  type QuoteWorkflowCardData,
+  type QuoteWorkflowTabKey,
+  type WorkflowBarChartDatum,
 } from "../data";
 import type { AttritionComponentProps } from "../type";
 import { formatAxisCount } from "../../../../utils/formatters";
 import style from "./AttritionPotentialPredicators.module.css";
 
-type QuoteWorkflowTabKey = "lapsed-quotes" | "pending-quotes";
-
-interface LapsedQuoteWorkflowTabConfig {
-  key: QuoteWorkflowTabKey;
-  label: string;
-  rows: QuoteAgingByCountryDatum[];
-  subtitle: string;
-  title: string;
-}
-
-interface PendingQuoteWorkflowTabConfig {
-  key: QuoteWorkflowTabKey;
-  label: string;
-  rows: PendingQuoteByCountryDatum[];
-  subtitle: string;
-  title: string;
-}
-
-type QuoteWorkflowTabConfig =
-  | (LapsedQuoteWorkflowTabConfig & { kind: "lapsed" })
-  | (PendingQuoteWorkflowTabConfig & { kind: "pending" });
-
-interface PendingQuoteChartDatum
-  extends PendingQuoteByCountryDatum,
-    SingleBarGraphDatum {
-  fill: string;
-  countryCode: string;
-  pendingLabel: string;
-}
-
-interface LapsedQuoteChartDatum {
-  bucket0To30: number;
-  bucket31To60: number;
-  bucket61To90: number;
-  country: string;
-  countryCode: string;
-  total: number;
-}
-
-interface LapsedQuoteTooltipProps {
-  active?: boolean;
-  payload?: ReadonlyArray<{
-    payload?: LapsedQuoteChartDatum;
-  }>;
-}
-
 interface QuoteWorkflowProps extends AttritionComponentProps {
-  lapsedData?: QuoteAgingByCountryDatum[];
-  pendingData?: PendingQuoteByCountryDatum[];
+  data?: QuoteWorkflowCardData;
 }
-
-const lapsedBucketConfig = [
-  {
-    color: "#d7a13d",
-    key: "bucket0To30",
-    label: "0-30 Days",
-  },
-  {
-    color: "#c46b43",
-    key: "bucket31To60",
-    label: "31-60 Days",
-  },
-  {
-    color: "#C05A52",
-    key: "bucket61To90",
-    label: "61-90 Days",
-  },
-] as const;
 
 const formatCount = (value: number) => value.toLocaleString();
-const countryAbbreviationMap: Record<string, string> = {
-  France: "FR",
-  Germany: "DE",
-  Ireland: "IE",
-  Sweden: "SE",
-  UK: "UK",
-};
-
-const formatPercent = (value: number) => `${Number(value.toFixed(1))}%`;
-
-const renderPendingQuoteTooltip = ({
-  active,
-  payload,
-}: SingleBarGraphTooltipProps) => {
-  if (!active || !payload?.length) {
-    return null;
-  }
-
-  const datum = payload[0].payload as PendingQuoteChartDatum | undefined;
-  if (!datum) {
-    return null;
-  }
-
-  return (
-    <div className={style.tooltip}>
-      <div className={style.tooltipTitle}>{datum.country}</div>
-      <div className={style.tooltipRow}>
-        <span>Pending Quotes</span>
-        <strong>{formatCount(datum.pendingQuotes)}</strong>
-      </div>
-    </div>
-  );
-};
-
-const renderLapsedQuoteTooltip = ({
-  active,
-  payload,
-}: LapsedQuoteTooltipProps) => {
-  if (!active || !payload?.length) {
-    return null;
-  }
-
-  const datum = payload[0].payload;
-  if (!datum) {
-    return null;
-  }
-
-  return (
-    <div className={style.tooltip}>
-      <div className={style.tooltipTitle}>{datum.country}</div>
-      {lapsedBucketConfig.map((bucket) => (
-        <div className={style.tooltipRow} key={bucket.key}>
-          <span className={style.tooltipLabel}>
-            <span
-              aria-hidden="true"
-              className={style.tooltipSwatch}
-              style={{ backgroundColor: bucket.color }}
-            />
-            {bucket.label}
-          </span>
-          <strong>{formatCount(datum[bucket.key])}</strong>
-        </div>
-      ))}
-      <div className={style.tooltipDivider} />
-      <div className={style.tooltipRow}>
-        <span>Total</span>
-        <strong>{formatCount(datum.total)}</strong>
-      </div>
-    </div>
-  );
-};
 
 const quoteWorkflowColumns: TableColumn<QuoteAgingByCountryDatum>[] = [
   {
@@ -208,146 +70,27 @@ const quoteWorkflowColumns: TableColumn<QuoteAgingByCountryDatum>[] = [
   },
 ];
 
-const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({
-  className,
-  lapsedData = lapsedQuoteByCountryData,
-  pendingData = pendingQuoteByCountryData,
-}) => {
-  const [activeTab, setActiveTab] =
-    useState<QuoteWorkflowTabKey>("lapsed-quotes");
+const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({ className, data }) => {
+  const tabs = data?.tabs ?? [];
+  const [activeTab, setActiveTab] = useState<QuoteWorkflowTabKey>(
+    tabs[0]?.key ?? "lapsed-quotes",
+  );
   const [isExpanded, setIsExpanded] = useState(false);
   const modalRef = useRef<HTMLDivElement | null>(null);
-  const quoteWorkflowTabs: QuoteWorkflowTabConfig[] = [
-    {
-      kind: "lapsed",
-      key: "lapsed-quotes",
-      label: "Lapsed Quotes",
-      rows: lapsedData,
-      subtitle: "Lapsed quotes aged by country across the current bucket ranges.",
-      title: "Lapsed Quotes",
-    },
-    {
-      kind: "pending",
-      key: "pending-quotes",
-      label: "Pending Quotes",
-      rows: pendingData,
-      subtitle: "Current pending quote queue by country.",
-      title: "Pending Quotes by Country",
-    },
-  ];
-  const activeTabConfig =
-    quoteWorkflowTabs.find((tab) => tab.key === activeTab) ?? quoteWorkflowTabs[0];
-  const tabAccentRgb =
-    activeTab === "lapsed-quotes" ? "215, 161, 61" : "78, 141, 245";
-  const pendingQuoteChartData = useMemo<PendingQuoteChartDatum[]>(
-    () =>
-      pendingData.map((row) => ({
-        ...row,
-        countryCode:
-          countryAbbreviationMap[row.country] ?? row.country.slice(0, 2),
-        fill: "#4e8df5",
-        pendingLabel: formatCount(row.pendingQuotes),
-      })),
-    [pendingData],
-  );
-  const lapsedQuoteChartData = useMemo<LapsedQuoteChartDatum[]>(
-    () =>
-      lapsedData.map((row) => ({
-        ...row,
-        countryCode:
-          countryAbbreviationMap[row.country] ?? row.country.slice(0, 2),
-        total:
-          row.bucket0To30 +
-          row.bucket31To60 +
-          row.bucket61To90,
-      })),
-    [lapsedData],
-  );
-  const totalLapsedQuotes = lapsedQuoteChartData.reduce(
-    (sum, row) => sum + row.total,
-    0,
-  );
-  const lapsedRowsByTotal = [...lapsedQuoteChartData].sort(
-    (left, right) => right.total - left.total,
-  );
-  const freshBucketTotal = lapsedQuoteChartData.reduce(
-    (sum, row) => sum + row.bucket0To30,
-    0,
-  );
-  const oldestMixRow = lapsedQuoteChartData.reduce((current, row) => {
-    const currentLateShare = current.bucket61To90 / Math.max(current.total, 1);
-    const nextLateShare = row.bucket61To90 / Math.max(row.total, 1);
+  const activeTabData = tabs.find((tab) => tab.key === activeTab) ?? tabs[0];
+  const workflowTitle = data?.title ?? "Quote Workflow";
+  const workflowIdBase = data?.idBase ?? "quote-workflow";
+  const workflowTitleLabel = workflowTitle.toLowerCase();
 
-    return nextLateShare > currentLateShare ? row : current;
-  }, lapsedQuoteChartData[0]);
-  const topTwoLapsedShare = Number(
-    lapsedRowsByTotal
-      .slice(0, 2)
-      .reduce((sum, row) => sum + row.total, 0)
-      .toFixed(0),
-  );
-  const lapsedInsights: InsightPanelItem[] = [
-    {
-      id: "recovery-window",
-      label: "Recovery Window",
-      note: `${formatPercent((freshBucketTotal / Math.max(totalLapsedQuotes, 1)) * 100)} of lapsed quotes are still inside 0-30 days.`,
-      tone: "positive",
-      value: formatPercent((freshBucketTotal / Math.max(totalLapsedQuotes, 1)) * 100),
-    },
-    {
-      id: "top-two-load",
-      label: "Top 2 Load",
-      note: `${lapsedRowsByTotal[0]?.countryCode ?? ""} and ${lapsedRowsByTotal[1]?.countryCode ?? ""} account for most lapsed volume.`,
-      tone: "neutral",
-      value: formatPercent((topTwoLapsedShare / Math.max(totalLapsedQuotes, 1)) * 100),
-    },
-    {
-      id: "oldest-mix",
-      label: "Oldest Mix",
-      note: `${oldestMixRow.countryCode} has the highest 61-90 day share in the lapsed book.`,
-      tone: "negative",
-      value: `${oldestMixRow.countryCode} ${formatPercent(
-        (oldestMixRow.bucket61To90 / Math.max(oldestMixRow.total, 1)) * 100,
-      )}`,
-    },
-  ];
-  const totalPendingQuotes = pendingQuoteChartData.reduce(
-    (sum, row) => sum + row.pendingQuotes,
-    0,
-  );
-  const pendingRowsByTotal = [...pendingQuoteChartData].sort(
-    (left, right) => right.pendingQuotes - left.pendingQuotes,
-  );
-  const pendingLeadRow = pendingRowsByTotal[0];
-  const pendingTailRow = pendingRowsByTotal[pendingRowsByTotal.length - 1];
-  const topTwoPendingTotal = pendingRowsByTotal
-    .slice(0, 2)
-    .reduce((sum, row) => sum + row.pendingQuotes, 0);
-  const pendingInsights: InsightPanelItem[] = [
-    {
-      id: "lead-queue",
-      label: "Lead Queue",
-      note: `${pendingLeadRow.countryCode} holds ${formatPercent(
-        (pendingLeadRow.pendingQuotes / Math.max(totalPendingQuotes, 1)) * 100,
-      )} of pending quotes.`,
-      tone: "neutral",
-      value: `${pendingLeadRow.countryCode} ${formatCount(pendingLeadRow.pendingQuotes)}`,
-    },
-    {
-      id: "top-two-pending",
-      label: "Top 2 Load",
-      note: `${pendingRowsByTotal[0]?.countryCode ?? ""} and ${pendingRowsByTotal[1]?.countryCode ?? ""} carry most pending intake.`,
-      tone: "negative",
-      value: formatPercent((topTwoPendingTotal / Math.max(totalPendingQuotes, 1)) * 100),
-    },
-    {
-      id: "lightest-queue",
-      label: "Lightest Queue",
-      note: `${pendingTailRow.country} has the smallest pending workload in the current queue.`,
-      tone: "positive",
-      value: `${pendingTailRow.countryCode} ${formatCount(pendingTailRow.pendingQuotes)}`,
-    },
-  ];
+  useEffect(() => {
+    if (!tabs.length) {
+      return;
+    }
+
+    if (!tabs.some((tab) => tab.key === activeTab)) {
+      setActiveTab(tabs[0].key);
+    }
+  }, [activeTab, tabs]);
 
   useEffect(() => {
     if (!isExpanded || typeof document === "undefined") {
@@ -373,7 +116,81 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({
     };
   }, [isExpanded]);
 
-  const renderPendingQuoteChart = (expanded: boolean) => (
+  if (!activeTabData) {
+    return null;
+  }
+
+  const renderLapsedQuoteTooltip = ({
+    active,
+    payload,
+  }: {
+    active?: boolean;
+    payload?: ReadonlyArray<{
+      payload?: LapsedQuoteChartDatum;
+    }>;
+  }) => {
+    if (!active || !payload?.length || activeTabData.kind !== "lapsed") {
+      return null;
+    }
+
+    const datum = payload[0].payload;
+    if (!datum) {
+      return null;
+    }
+
+    return (
+      <div className={style.tooltip}>
+        <div className={style.tooltipTitle}>{datum.country}</div>
+        {activeTabData.buckets.map((bucket) => (
+          <div className={style.tooltipRow} key={bucket.key}>
+            <span className={style.tooltipLabel}>
+              <span
+                aria-hidden="true"
+                className={style.tooltipSwatch}
+                style={{ backgroundColor: bucket.color }}
+              />
+              {bucket.label}
+            </span>
+            <strong>{formatCount(datum[bucket.key])}</strong>
+          </div>
+        ))}
+        <div className={style.tooltipDivider} />
+        <div className={style.tooltipRow}>
+          <span>Total</span>
+          <strong>{formatCount(datum.total)}</strong>
+        </div>
+      </div>
+    );
+  };
+
+  const renderBarChartTooltip = ({
+    active,
+    payload,
+  }: SingleBarGraphTooltipProps) => {
+    if (!active || !payload?.length || activeTabData.kind !== "bar") {
+      return null;
+    }
+
+    const datum = payload[0].payload as WorkflowBarChartDatum | undefined;
+    if (!datum) {
+      return null;
+    }
+
+    return (
+      <div className={style.tooltip}>
+        <div className={style.tooltipTitle}>{datum.country}</div>
+        <div className={style.tooltipRow}>
+          <span>{activeTabData.metricLabel}</span>
+          <strong>{formatCount(datum.value)}</strong>
+        </div>
+      </div>
+    );
+  };
+
+  const renderBarChart = (
+    chartData: WorkflowBarChartDatum[],
+    expanded: boolean,
+  ) => (
     <SingleBarGraph
       barSize={22}
       categoryKey="countryCode"
@@ -381,26 +198,29 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({
       className={expanded ? style.expandedChart : style.chart}
       color="#4e8df5"
       colorKey="fill"
-      data={pendingQuoteChartData}
+      data={chartData}
       gridStroke="rgba(107, 99, 117, 0.18)"
       hideNumericAxis={false}
-      labelKey="pendingLabel"
+      labelKey="valueLabel"
       numericTickFormatter={formatAxisCount}
       orientation="horizontal"
-      renderTooltip={renderPendingQuoteTooltip}
+      renderTooltip={renderBarChartTooltip}
       showTooltip
       showValueLabels
-      valueKey="pendingQuotes"
+      valueKey="value"
     />
   );
 
-  const renderLapsedQuoteChart = (expanded: boolean) => (
+  const renderLapsedQuoteChart = (
+    chartData: LapsedQuoteChartDatum[],
+    expanded: boolean,
+  ) => (
     <div className={style.lapsedChartBlock}>
       <div className={expanded ? style.expandedChart : style.chart}>
         <ResponsiveContainer height="100%" width="100%">
           <BarChart
             accessibilityLayer={false}
-            data={lapsedQuoteChartData}
+            data={chartData}
             layout="vertical"
             margin={{
               top: 8,
@@ -416,12 +236,7 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({
               strokeDasharray="4 4"
               vertical
             />
-            <XAxis
-              axisLine={false}
-              hide
-              tickLine={false}
-              type="number"
-            />
+            <XAxis axisLine={false} hide tickLine={false} type="number" />
             <YAxis
               axisLine={false}
               dataKey="countryCode"
@@ -431,60 +246,63 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({
               width={expanded ? 54 : 42}
             />
             <RechartsTooltip
-              content={(tooltipProps) => (
-                <>{renderLapsedQuoteTooltip(tooltipProps)}</>
-              )}
+              content={(tooltipProps) => <>{renderLapsedQuoteTooltip(tooltipProps)}</>}
               cursor={false}
               trigger="hover"
             />
-            {lapsedBucketConfig.map((bucket, index) => {
-              const radius: number | [number, number, number, number] =
-                index === 0
-                  ? [8, 0, 0, 8]
-                  : index === lapsedBucketConfig.length - 1
-                    ? [0, 8, 8, 0]
-                    : 0;
+            {activeTabData.kind === "lapsed"
+              ? activeTabData.buckets.map((bucket, index) => {
+                  const radius: number | [number, number, number, number] =
+                    index === 0
+                      ? [8, 0, 0, 8]
+                      : index === activeTabData.buckets.length - 1
+                        ? [0, 8, 8, 0]
+                        : 0;
 
-              return (
-                <Bar
-                  barSize={expanded ? 28 : 24}
-                  dataKey={bucket.key}
-                  fill={bucket.color}
-                  key={bucket.key}
-                  radius={radius}
-                  stackId="lapsed-aging"
-                >
-                  {index === lapsedBucketConfig.length - 1 ? (
-                    <LabelList
-                      dataKey="total"
-                      fill="var(--text-h)"
-                      fontSize={12}
-                      position="right"
-                    />
-                  ) : null}
-                </Bar>
-              );
-            })}
+                  return (
+                    <Bar
+                      barSize={expanded ? 28 : 24}
+                      dataKey={bucket.key}
+                      fill={bucket.color}
+                      key={bucket.key}
+                      radius={radius}
+                      stackId="lapsed-aging"
+                    >
+                      {index === activeTabData.buckets.length - 1 ? (
+                        <LabelList
+                          dataKey="total"
+                          fill="var(--text-h)"
+                          fontSize={12}
+                          position="right"
+                        />
+                      ) : null}
+                    </Bar>
+                  );
+                })
+              : null}
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      <div className={style.lapsedLegend}>
-        {lapsedBucketConfig.map((bucket) => (
-          <div className={style.lapsedLegendItem} key={bucket.key}>
-            <span
-              aria-hidden="true"
-              className={style.lapsedLegendSwatch}
-              style={{ backgroundColor: bucket.color }}
-            />
-            <span className={style.lapsedLegendLabel}>{bucket.label}</span>
-          </div>
-        ))}
-      </div>
+      {activeTabData.kind === "lapsed" ? (
+        <div className={style.lapsedLegend}>
+          {activeTabData.buckets.map((bucket) => (
+            <div className={style.lapsedLegendItem} key={bucket.key}>
+              <span
+                aria-hidden="true"
+                className={style.lapsedLegendSwatch}
+                style={{ backgroundColor: bucket.color }}
+              />
+              <span className={style.lapsedLegendLabel}>{bucket.label}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 
   const lapsedTable = (
+    rows: QuoteAgingByCountryDatum[],
     minWidth: string,
     mobileMinWidth: string,
     className?: string,
@@ -496,16 +314,16 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({
       minWidth={minWidth}
       mobileMinWidth={mobileMinWidth}
       rowKey={(row) => row.country}
-      rows={lapsedData}
+      rows={rows}
       size="small"
       stickySpacerWidth="0.55rem"
     />
   );
 
   const panelContentBody =
-    activeTabConfig.kind === "pending"
-      ? renderPendingQuoteChart(false)
-      : renderLapsedQuoteChart(false);
+    activeTabData.kind === "bar"
+      ? renderBarChart(activeTabData.chartData, false)
+      : renderLapsedQuoteChart(activeTabData.chartData, false);
 
   const expandedLayer =
     isExpanded && typeof document !== "undefined"
@@ -516,7 +334,7 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({
             role="presentation"
           >
             <div
-              aria-labelledby="quote-workflow-modal-title"
+              aria-labelledby={`${workflowIdBase}-modal-title`}
               aria-modal="true"
               className={style.modal}
               onClick={(event) => event.stopPropagation()}
@@ -530,14 +348,14 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({
                   <div className={style.modalTitleRow}>
                     <h3
                       className={style.modalTitle}
-                      id="quote-workflow-modal-title"
+                      id={`${workflowIdBase}-modal-title`}
                     >
-                      {activeTabConfig.title}
+                      {activeTabData.title}
                     </h3>
                   </div>
                 </div>
                 <button
-                  aria-label="Close quote workflow expanded view"
+                  aria-label={`Close ${workflowTitleLabel} expanded view`}
                   className={style.closeButton}
                   onClick={() => setIsExpanded(false)}
                   type="button"
@@ -546,28 +364,29 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({
                 </button>
               </div>
 
-              {activeTabConfig.kind === "pending" ? (
-                <p className={style.modalSubtitle}>{activeTabConfig.subtitle}</p>
+              {activeTabData.kind === "bar" ? (
+                <p className={style.modalSubtitle}>{activeTabData.subtitle}</p>
               ) : null}
 
               <div className={style.expandedStack}>
                 <div className={style.expandedTopGrid}>
-                  {activeTabConfig.kind === "pending"
-                    ? renderPendingQuoteChart(true)
-                    : renderLapsedQuoteChart(true)}
+                  {activeTabData.kind === "bar"
+                    ? renderBarChart(activeTabData.chartData, true)
+                    : renderLapsedQuoteChart(activeTabData.chartData, true)}
 
                   <InsightPanel
-                    accentRgb={tabAccentRgb}
-                    items={
-                      activeTabConfig.kind === "pending"
-                        ? pendingInsights
-                        : lapsedInsights
-                    }
+                    accentRgb={activeTabData.accentRgb}
+                    items={activeTabData.insights as InsightPanelItem[]}
                   />
                 </div>
 
-                {activeTabConfig.kind === "lapsed"
-                  ? lapsedTable("42rem", "42rem", style.expandedTableRegion)
+                {activeTabData.kind === "lapsed"
+                  ? lapsedTable(
+                      activeTabData.tableRows,
+                      "42rem",
+                      "42rem",
+                      style.expandedTableRegion,
+                    )
                   : null}
               </div>
             </div>
@@ -581,35 +400,33 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({
       <Card className={className}>
         <div className={style.root}>
           <div className={style.topline}>
-            <div className={`cardTitle ${style.outerTitle}`}>Quote Workflow</div>
+            <div className={`cardTitle ${style.outerTitle}`}>{workflowTitle}</div>
             <div className={style.topActions}>
               <InsightButton
-                accentRgb={tabAccentRgb}
-                ariaLabel="Open quote workflow insights"
+                accentRgb={activeTabData.accentRgb}
+                ariaLabel={`Open ${workflowTitleLabel} insights`}
                 onClick={() => setIsExpanded(true)}
-                title="View quote workflow insights"
+                title={`View ${workflowTitleLabel} insights`}
               />
             </div>
           </div>
 
           <SegmentedTabs
-            accentRgb={tabAccentRgb}
+            accentRgb={activeTabData.accentRgb}
             activeKey={activeTab}
-            ariaLabel="Quote workflow views"
-            idBase="quote-workflow"
-            onChange={setActiveTab}
-            options={quoteWorkflowTabs.map(({ key, label }) => ({ key, label }))}
+            ariaLabel={`${workflowTitle} views`}
+            idBase={workflowIdBase}
+            onChange={(key) => setActiveTab(key as QuoteWorkflowTabKey)}
+            options={tabs.map(({ key, label }) => ({ key, label }))}
           />
 
           <section
-            aria-labelledby={`quote-workflow-tab-${activeTabConfig.key}`}
+            aria-labelledby={`${workflowIdBase}-tab-${activeTabData.key}`}
             className={style.panelBody}
-            id={`quote-workflow-panel-${activeTabConfig.key}`}
+            id={`${workflowIdBase}-panel-${activeTabData.key}`}
             role="tabpanel"
           >
-            <div className={style.panelContent}>
-              {panelContentBody}
-            </div>
+            <div className={style.panelContent}>{panelContentBody}</div>
           </section>
         </div>
       </Card>

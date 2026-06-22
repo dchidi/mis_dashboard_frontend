@@ -3,6 +3,7 @@ import {
   FaArrowRightFromBracket,
   FaDatabase,
   FaFilter,
+  FaUsers,
 } from "react-icons/fa6";
 import type { PremiumCurrencyCode } from "../../features/Attrition/data";
 import type { SelectionOption } from "../../features/Attrition/dashboardState";
@@ -24,12 +25,17 @@ interface DashboardProfileMenuProps {
   onActiveMetricChange: (value: TrendSeriesKey) => void;
   onBrandsChange: (values: string[]) => void;
   onCountriesChange: (values: string[]) => void;
+  onManageUsers?: () => void;
   onLogout: () => void;
   onPetTypesChange: (values: string[]) => void;
   onRunEtl: () => void;
   selectedBrands: string[];
   selectedCountries: string[];
   selectedPetTypes: string[];
+  showFilterControls?: boolean;
+  showManageUsersControl?: boolean;
+  showRunEtlControl?: boolean;
+  userManagementActive?: boolean;
 }
 
 interface FilterGroupProps<T extends string> {
@@ -124,12 +130,17 @@ const DashboardProfileMenu: React.FC<DashboardProfileMenuProps> = ({
   onActiveMetricChange,
   onBrandsChange,
   onCountriesChange,
+  onManageUsers,
   onLogout,
   onPetTypesChange,
   onRunEtl,
   selectedBrands,
   selectedCountries,
   selectedPetTypes,
+  showFilterControls = true,
+  showManageUsersControl = true,
+  showRunEtlControl = true,
+  userManagementActive = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -199,6 +210,7 @@ const DashboardProfileMenu: React.FC<DashboardProfileMenuProps> = ({
             className={`${style.actionButton} ${
               showFilters ? style.actionButtonActive : ""
             }`}
+            hidden={!showFilterControls}
             onClick={() => setShowFilters((current) => !current)}
             role="menuitem"
             type="button"
@@ -207,18 +219,38 @@ const DashboardProfileMenu: React.FC<DashboardProfileMenuProps> = ({
             <span>Filters</span>
           </button>
 
-          <button
-            className={`${style.actionButton} ${
-              isEtlRunning ? style.actionButtonActive : ""
-            }`}
-            disabled={isEtlRunning}
-            onClick={onRunEtl}
-            role="menuitem"
-            type="button"
-          >
-            <FaDatabase aria-hidden="true" />
-            <span>{isEtlRunning ? "Running ETL" : "Run ETL"}</span>
-          </button>
+          {showManageUsersControl ? (
+            <button
+              className={`${style.actionButton} ${
+                userManagementActive ? style.actionButtonActive : ""
+              }`}
+              onClick={() => {
+                setIsOpen(false);
+                setShowFilters(false);
+                onManageUsers?.();
+              }}
+              role="menuitem"
+              type="button"
+            >
+              <FaUsers aria-hidden="true" />
+              <span>Manage Users</span>
+            </button>
+          ) : null}
+
+          {showRunEtlControl ? (
+            <button
+              className={`${style.actionButton} ${
+                isEtlRunning ? style.actionButtonActive : ""
+              }`}
+              disabled={isEtlRunning}
+              onClick={onRunEtl}
+              role="menuitem"
+              type="button"
+            >
+              <FaDatabase aria-hidden="true" />
+              <span>{isEtlRunning ? "Running ETL" : "Run ETL"}</span>
+            </button>
+          ) : null}
 
           <button
             className={style.actionButton}
@@ -235,7 +267,7 @@ const DashboardProfileMenu: React.FC<DashboardProfileMenuProps> = ({
           </button>
         </div>
 
-        {showFilters ? (
+        {showFilterControls && showFilters ? (
           <div className={style.filterPanel}>
             <FilterGroup
               allLabel="All"

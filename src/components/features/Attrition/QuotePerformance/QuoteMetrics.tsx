@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import Table, { type TableColumn } from "../../../ui/table/Table";
-import { type QuoteTrendDatum } from "../data";
-import { formatCount, formatPercent } from "./helpers";
+import { type QuoteMetricTableData } from "../data";
 import style from "./QuotePerformance.module.css";
 
 interface QuoteMetricRow {
@@ -10,153 +9,70 @@ interface QuoteMetricRow {
   values: ReactNode[];
 }
 
-type TrendDirection = "higher-is-better" | "lower-is-better";
-
-const buildMetricValues = (
-  values: number[],
-  formatter: (value: number) => string,
-  trendDirection: TrendDirection = "higher-is-better",
-) =>
-  values.map((value, index) => {
-    const previousValue = values[index - 1];
-    const movementClassName =
-      value > previousValue ? style.metricTrendUp : style.metricTrendDown;
-    const toneClassName =
-      trendDirection === "lower-is-better"
-        ? value < previousValue
-          ? style.metricTrendTonePositive
-          : style.metricTrendToneNegative
-        : value > previousValue
-          ? style.metricTrendTonePositive
-          : style.metricTrendToneNegative;
-
-    return (
-      <span className={style.metricValue} key={`${formatter(value)}-${index}`}>
-        {index === 0 || value === previousValue ? (
-          <span
-            aria-hidden="true"
-            className={`${style.metricTrendIndicator} ${style.metricTrendNeutral}`}
-          />
-        ) : (
-          <span
-            aria-hidden="true"
-            className={`${style.metricTrendIndicator} ${movementClassName} ${toneClassName}`}
-          />
-        )}
-        <span className={style.metricValueText}>{formatter(value)}</span>
-      </span>
-    );
-  });
-
-const formatDays = (value: number) => `${value}d`;
-
 interface QuoteMetricsProps {
   expanded: boolean;
-  showPreviousYearRows?: boolean;
-  trendData: QuoteTrendDatum[];
+  tableData: QuoteMetricTableData;
 }
 
-const QuoteMetrics: React.FC<QuoteMetricsProps> = ({
-  expanded,
-  showPreviousYearRows = false,
-  trendData,
-}) => {
+const QuoteMetrics: React.FC<QuoteMetricsProps> = ({ expanded, tableData }) => {
+  const isDenseDayTable = tableData.months.length > 12;
+  const rowHeaderWidth = isDenseDayTable ? "10rem" : "22%";
+  const valueColumnWidth = isDenseDayTable ? "4.25rem" : "13%";
+  const tableMinWidth = isDenseDayTable
+    ? `${10 + tableData.months.length * 4.25}rem`
+    : expanded
+      ? "48rem"
+      : "42rem";
   const monthColumns: TableColumn<QuoteMetricRow>[] = [
     {
       header: "Metric",
       isRowHeader: true,
       key: "metric",
       render: (row) => row.label,
-      width: "22%",
+      width: rowHeaderWidth,
     },
-    ...trendData.map((datum, index) => ({
+    ...tableData.months.map((month, index) => ({
       cellAlign: "right" as const,
-      header: datum.month,
+      header: month,
       headerAlign: "right" as const,
-      key: datum.month,
+      key: month,
       render: (row: QuoteMetricRow) => row.values[index] ?? "0",
-      width: "13%",
+      width: valueColumnWidth,
     })),
   ];
-  const metricRows: QuoteMetricRow[] = [
-    {
-      id: "total-quote",
-      label: "Total Quote",
-      values: buildMetricValues(
-        trendData.map((datum) => datum.totalQuote),
-        formatCount,
-      ),
-    },
-    ...(showPreviousYearRows
-      ? [
-          {
-            id: "previous-year-total-quote",
-            label: "Prev Yr Quote",
-            values: buildMetricValues(
-              trendData.map((datum) => datum.previousYearTotalQuote),
-              formatCount,
-            ),
-          },
-        ]
-      : []),
-    {
-      id: "total-sales",
-      label: "Total Sales",
-      values: buildMetricValues(
-        trendData.map((datum) => datum.totalSales),
-        formatCount,
-      ),
-    },
-    ...(showPreviousYearRows
-      ? [
-          {
-            id: "previous-year-total-sales",
-            label: "Prev Yr Sales",
-            values: buildMetricValues(
-              trendData.map((datum) => datum.previousYearTotalSales),
-              formatCount,
-            ),
-          },
-        ]
-      : []),
-    {
-      id: "conversion-rate",
-      label: "Conversion %",
-      values: buildMetricValues(
-        trendData.map((datum) => datum.conversionRate),
-        formatPercent,
-      ),
-    },
-    ...(showPreviousYearRows
-      ? [
-          {
-            id: "previous-year-conversion-rate",
-            label: "Prev Yr Conv %",
-            values: buildMetricValues(
-              trendData.map((datum) => datum.previousYearConversionRate),
-              formatPercent,
-            ),
-          },
-        ]
-      : []),
-    {
-      id: "avg-time-to-convert",
-      label: "Avg. Time to Convert",
-      values: buildMetricValues(
-        trendData.map((datum) => datum.averageTimeToConvertDays),
-        formatDays,
-        "lower-is-better",
-      ),
-    },
-  ];
+  const metricRows: QuoteMetricRow[] = tableData.rows.map((row) => ({
+    id: row.id,
+    label: row.label,
+    values: row.values.map((value, index) => (
+      <span className={style.metricValue} key={`${row.id}-${index}`}>
+        <span
+          aria-hidden="true"
+          className={`${style.metricTrendIndicator} ${
+            value.trend === "flat"
+              ? style.metricTrendNeutral
+              : value.trend === "up"
+                ? style.metricTrendUp
+                : style.metricTrendDown
+          } ${
+            value.tone === "positive"
+              ? style.metricTrendTonePositive
+              : value.tone === "negative"
+                ? style.metricTrendToneNegative
+                : ""
+          }`}
+        />
+        <span className={style.metricValueText}>{value.display}</span>
+      </span>
+    )),
+  }));
 
   return (
     <Table
       className={style.metricsTable}
       columns={monthColumns}
       layout="fixed"
-      minWidth={expanded ? "48rem" : "42rem"}
-      mobileMinWidth={expanded ? "48rem" : "42rem"}
+      minWidth={tableMinWidth}
+      mobileMinWidth={tableMinWidth}
       rowKey={(row) => row.id}
       rows={metricRows}
       size="small"

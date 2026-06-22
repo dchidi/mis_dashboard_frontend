@@ -1,0 +1,696 @@
+.root {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.eyebrow {
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.libraryPage,
+.builderPage {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.libraryHero,
+.heroCard,
+.configCard,
+.sidebarCard {
+  display: grid;
+  gap: 1rem;
+}
+
+.libraryHeroCopy,
+.cardHeader,
+.sidebarHeader {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.libraryTitle,
+.heroTitle,
+.cardTitle,
+.sidebarTitle {
+  color: var(--text-h);
+  font-size: 1.28rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  margin: 0;
+}
+
+.libraryCopy,
+.heroCopy,
+.cardCopy,
+.configSectionCopy,
+.choiceMeta,
+.toggleMeta,
+.feedbackText,
+.savedSetupMeta,
+.emptyState {
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.reportGrid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.reportCard {
+  align-items: center;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.024), rgba(255, 255, 255, 0.014));
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 1.25rem;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 1rem;
+  min-height: 13rem;
+  padding: 1.25rem;
+  text-align: left;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
+  width: 100%;
+}
+
+.reportCard:hover {
+  background:
+    radial-gradient(circle at top left, rgba(138, 116, 232, 0.12), transparent 58%),
+    rgba(255, 255, 255, 0.04);
+  border-color: rgba(138, 116, 232, 0.24);
+  box-shadow: 0 24px 40px rgba(11, 8, 21, 0.24);
+  transform: translateY(-2px);
+}
+
+.reportCardIcon {
+  align-items: center;
+  background:
+    radial-gradient(circle at top left, rgba(138, 116, 232, 0.16), transparent 60%),
+    rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(138, 116, 232, 0.14);
+  border-radius: 1rem;
+  color: var(--text-h);
+  display: inline-flex;
+  font-size: 1.28rem;
+  height: 3rem;
+  justify-content: center;
+  width: 3rem;
+}
+
+.reportCardBody {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.reportScopeBadge {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  padding: 0.34rem 0.54rem;
+  text-transform: uppercase;
+  width: fit-content;
+}
+
+.reportScopePolicy {
+  background: rgba(100, 191, 147, 0.12);
+  border: 1px solid rgba(100, 191, 147, 0.22);
+  color: rgba(157, 232, 195, 0.96);
+}
+
+.reportScopeQuote {
+  background: rgba(138, 116, 232, 0.13);
+  border: 1px solid rgba(138, 116, 232, 0.22);
+  color: rgba(201, 192, 255, 0.96);
+}
+
+.reportCardTitle {
+  color: var(--text-h);
+  font-size: 1.04rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.reportCardDescription {
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.builderTopBar {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.topBarActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  justify-content: flex-end;
+}
+
+.backButton,
+.primaryAction,
+.secondaryAction,
+.secondaryActionStrong,
+.ghostButton,
+.savedSetupButton,
+.savedSetupButtonDanger {
+  align-items: center;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 700;
+  gap: 0.45rem;
+  justify-content: center;
+  line-height: 1;
+  min-height: 2.4rem;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.backButton,
+.secondaryAction,
+.ghostButton,
+.savedSetupButton,
+.savedSetupButtonDanger {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text-h);
+  padding: 0.68rem 0.92rem;
+}
+
+.ghostButtonActive {
+  background:
+    radial-gradient(circle at top left, rgba(138, 116, 232, 0.14), transparent 58%),
+    rgba(255, 255, 255, 0.05);
+  border-color: rgba(138, 116, 232, 0.22);
+}
+
+.primaryAction,
+.secondaryActionStrong {
+  background:
+    radial-gradient(circle at top left, rgba(138, 116, 232, 0.22), transparent 58%),
+    linear-gradient(180deg, rgba(76, 67, 126, 0.95), rgba(55, 48, 96, 0.98));
+  border: 1px solid rgba(138, 116, 232, 0.24);
+  color: #f6f2ff;
+  padding: 0.68rem 1rem;
+}
+
+.savedSetupButtonDanger {
+  min-width: 2.4rem;
+  padding-inline: 0.72rem;
+}
+
+.backButton:hover,
+.secondaryAction:hover,
+.ghostButton:hover,
+.savedSetupButton:hover,
+.savedSetupButtonDanger:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(138, 116, 232, 0.18);
+  transform: translateY(-1px);
+}
+
+.primaryAction:hover,
+.secondaryActionStrong:hover {
+  box-shadow: 0 18px 30px rgba(37, 30, 69, 0.24);
+  transform: translateY(-1px);
+}
+
+.allSelectionBox {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(163, 172, 187, 0.5);
+  border-radius: 0.3rem;
+  color: transparent;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  font-weight: 800;
+  height: 1rem;
+  justify-content: center;
+  width: 1rem;
+}
+
+.allSelectionBoxActive {
+  background: rgba(138, 116, 232, 0.92);
+  border-color: rgba(138, 116, 232, 0.92);
+  color: #f6f2ff;
+}
+
+.heroCard {
+  align-items: start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.heroCardCopy {
+  display: grid;
+  gap: 0.55rem;
+  max-width: 44rem;
+}
+
+.heroMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.heroBadge,
+.defaultBadge {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  color: var(--text-h);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  min-height: 2rem;
+  padding: 0.45rem 0.72rem;
+}
+
+.builderLayout {
+  align-items: start;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.28fr) minmax(19rem, 0.82fr);
+}
+
+.builderMain,
+.builderSidebar,
+.multiSectionStack,
+.toggleStack,
+.savedSetupList,
+.columnList,
+.summaryList {
+  display: grid;
+  gap: 1rem;
+}
+
+.configIntroRow {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 1fr);
+}
+
+.configSection {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.setupRow,
+.configSectionHeader,
+.savedSetupItem,
+.savedSetupTitleRow,
+.savedSetupActions {
+  align-items: center;
+  display: flex;
+  gap: 0.85rem;
+  justify-content: space-between;
+}
+
+.inputGroup {
+  display: grid;
+  flex: 1;
+  gap: 0.45rem;
+}
+
+.inputLabel,
+.configSectionTitle,
+.toggleLabel,
+.choiceLabel,
+.savedSetupName,
+.summaryRowValue {
+  color: var(--text-h);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.textInput {
+  appearance: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015));
+  border: 1px solid rgba(107, 99, 117, 0.18);
+  border-radius: 0.95rem;
+  color: var(--text-h);
+  font: inherit;
+  min-height: 3rem;
+  outline: none;
+  padding: 0.82rem 0.95rem;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.textInput:focus {
+  border-color: rgba(138, 116, 232, 0.32);
+  box-shadow: 0 0 0 3px rgba(138, 116, 232, 0.1);
+}
+
+.textInput::placeholder {
+  color: rgba(163, 172, 187, 0.72);
+}
+
+.setupInput {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.setupActions {
+  flex: 0 0 auto;
+}
+
+.feedbackText {
+  color: rgba(185, 199, 255, 0.94);
+}
+
+.datePickerWrap {
+  display: grid;
+}
+
+.inlineDatePicker {
+  width: 100%;
+}
+
+.radioGrid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.radioCard,
+.checkboxCard {
+  align-items: flex-start;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.024), rgba(255, 255, 255, 0.012));
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 1rem;
+  cursor: pointer;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 0.9rem;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.radioCard:hover,
+.checkboxCard:hover,
+.radioCardActive,
+.checkboxCardActive {
+  background:
+    radial-gradient(circle at top left, rgba(138, 116, 232, 0.12), transparent 58%),
+    rgba(255, 255, 255, 0.045);
+  border-color: rgba(138, 116, 232, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(138, 116, 232, 0.08);
+  transform: translateY(-1px);
+}
+
+.choiceInput,
+.toggleInput {
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  width: 1px;
+}
+
+.radioIcon,
+.checkboxIcon {
+  align-items: center;
+  border: 1px solid rgba(163, 172, 187, 0.5);
+  display: inline-flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  margin-top: 0.15rem;
+}
+
+.radioIcon {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 999px;
+  height: 1.05rem;
+  width: 1.05rem;
+}
+
+.radioCardActive .radioIcon {
+  border-color: rgba(138, 116, 232, 0.9);
+  box-shadow: inset 0 0 0 0.27rem rgba(138, 116, 232, 0.92);
+}
+
+.checkboxIcon {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 0.3rem;
+  color: #f6f2ff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  height: 1.05rem;
+  width: 1.05rem;
+}
+
+.checkboxCardActive .checkboxIcon {
+  background: rgba(138, 116, 232, 0.92);
+  border-color: rgba(138, 116, 232, 0.92);
+}
+
+.choiceContent {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.checkboxGrid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.toggleRow {
+  align-items: center;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.024), rgba(255, 255, 255, 0.012));
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 1rem;
+  cursor: pointer;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 0.95rem 1rem;
+}
+
+.toggleCopy {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.toggleControl {
+  display: inline-flex;
+  position: relative;
+}
+
+.toggleTrack {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  display: inline-flex;
+  height: 1.6rem;
+  padding: 0.16rem;
+  transition: background-color 180ms ease, border-color 180ms ease;
+  width: 3rem;
+}
+
+.toggleThumb {
+  background: #d4d8e3;
+  border-radius: 999px;
+  display: block;
+  height: 1.08rem;
+  transform: translateX(0);
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease;
+  width: 1.08rem;
+}
+
+.toggleInput:checked + .toggleTrack {
+  background: rgba(138, 116, 232, 0.28);
+  border-color: rgba(138, 116, 232, 0.32);
+}
+
+.toggleInput:checked + .toggleTrack .toggleThumb {
+  background: #f6f2ff;
+  transform: translateX(1.34rem);
+}
+
+.summaryList {
+  gap: 0.72rem;
+}
+
+.summaryRow {
+  align-items: start;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  gap: 0.85rem;
+  justify-content: space-between;
+  padding-bottom: 0.72rem;
+}
+
+.summaryRow:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.summaryRowLabel {
+  color: var(--text);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.savedSetupItem {
+  align-items: flex-start;
+}
+
+.savedSetupCopy {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.savedSetupActions {
+  flex: 0 0 auto;
+}
+
+.defaultBadge {
+  min-height: 1.65rem;
+  padding: 0.34rem 0.58rem;
+}
+
+.columnList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.columnChip {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 0.82rem;
+  color: var(--text-h);
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 0.56rem 0.72rem;
+}
+
+@media (max-width: 1280px) {
+  .reportGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .builderLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .configIntroRow {
+    grid-template-columns: 1fr;
+  }
+
+  .builderSidebar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .radioGrid,
+  .checkboxGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 920px) {
+  .builderTopBar,
+  .heroCard,
+  .setupRow,
+  .configSectionHeader,
+  .savedSetupItem {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .heroMeta,
+  .topBarActions,
+  .setupActions,
+  .savedSetupActions {
+    justify-content: flex-start;
+  }
+
+  .builderSidebar {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .reportGrid,
+  .radioGrid,
+  .checkboxGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .libraryTitle,
+  .heroTitle,
+  .cardTitle,
+  .sidebarTitle {
+    font-size: 1.06rem;
+  }
+
+  .reportCard {
+    min-height: 11rem;
+  }
+
+  .toggleRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

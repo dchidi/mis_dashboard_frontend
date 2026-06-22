@@ -19,9 +19,15 @@ import Card from "../../../ui/card/Card";
 import InsightPanel, { type InsightPanelItem } from "../../../ui/insight_panel";
 import InsightButton from "../../../ui/insight_button";
 import Table, { type TableColumn } from "../../../ui/table/Table";
-import { quoteByCountryData, type QuoteByCountryDatum } from "../data";
-import { getMetricViewDescriptor } from "../metricView";
-import { trendSeriesOptions } from "../QuotePerformance/config";
+import {
+  type QuoteByCountryCardData,
+  type QuoteByCountryViewRow,
+} from "../data";
+import {
+  getMetricViewDescriptor,
+  type MetricViewVariant,
+} from "../metricView";
+import { getTrendSeriesOptions } from "../QuotePerformance/config";
 import type { TrendSeriesKey } from "../QuotePerformance/types";
 import type { AttritionComponentProps } from "../type";
 import style from "./QuoteByCountry.module.css";
@@ -29,22 +35,6 @@ import style from "./QuoteByCountry.module.css";
 const formatCount = (value: number) => value.toLocaleString();
 const formatPercent = (value: number) => `${value}%`;
 const formatGrowth = (value: number) => `${value > 0 ? "+" : ""}${value}%`;
-
-interface QuoteByCountryChartDatum extends QuoteByCountryDatum {
-  countryCode: string;
-  metricLabel: string;
-  metricValue: number;
-  salesShare: number;
-  totalSales: number;
-}
-
-const countryAbbreviationMap: Record<QuoteByCountryDatum["country"], string> = {
-  France: "FR",
-  Germany: "DE",
-  Ireland: "IE",
-  Sweden: "SE",
-  UK: "UK",
-};
 
 const renderGrowthValue = (growth: number) => {
   const GrowthIcon =
@@ -64,188 +54,53 @@ const renderGrowthValue = (growth: number) => {
   );
 };
 
-const joinCountryCodes = (rows: QuoteByCountryChartDatum[]) =>
-  rows.map((row) => row.countryCode).join(", ");
-
 interface QuoteByCountryProps extends AttritionComponentProps {
   activeTrendSeriesKey: TrendSeriesKey;
-  data?: QuoteByCountryDatum[];
+  data?: QuoteByCountryCardData;
+  metricViewVariant?: MetricViewVariant;
 }
 
 const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
   activeTrendSeriesKey,
   className,
-  data = quoteByCountryData,
+  data,
+  metricViewVariant = "quote",
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const modalRef = useRef<HTMLDivElement | null>(null);
+  const trendSeriesOptions = getTrendSeriesOptions(metricViewVariant);
   const activeTrendSeries =
     trendSeriesOptions.find((series) => series.key === activeTrendSeriesKey) ??
     trendSeriesOptions[0];
-  const metricDescriptor = getMetricViewDescriptor(activeTrendSeriesKey);
-  const countryRowsWithSales = data.map((row) => ({
-    ...row,
-    totalSales: Math.max(1, Math.round((row.totalQuote * row.conversionRate) / 100)),
-  }));
-  const totalSales = countryRowsWithSales.reduce(
-    (sum, row) => sum + row.totalSales,
-    0,
+  const metricDescriptor = getMetricViewDescriptor(
+    activeTrendSeriesKey,
+    metricViewVariant,
   );
-  const chartData: QuoteByCountryChartDatum[] = countryRowsWithSales.map((row) => {
-    const metricValue =
-      activeTrendSeriesKey === "conversionRate"
-        ? row.conversionRate
-        : activeTrendSeriesKey === "totalSales"
-          ? row.totalSales
-          : row.totalQuote;
+  const primaryMetricLabel =
+    metricViewVariant === "policy" ? "Policy" : "Quote";
+  const primaryShareLabel =
+    metricViewVariant === "policy" ? "Policy Share" : "Quote Share";
+  if (!data) {
+    return null;
+  }
+  const activeView = data[activeTrendSeriesKey];
 
-    return {
-      ...row,
-      countryCode:
-        countryAbbreviationMap[row.country] ?? row.country.slice(0, 2),
-      metricLabel: activeTrendSeries.valueFormatter(metricValue),
-      metricValue,
-      salesShare:
-        totalSales === 0
-          ? 0
-          : Number(((row.totalSales / totalSales) * 100).toFixed(1)),
-    };
-  });
-  const metricSortedRows = [...chartData].sort(
-    (left, right) => right.metricValue - left.metricValue,
-  );
-  const quoteShareSortedRows = [...chartData].sort(
-    (left, right) => right.quoteShare - left.quoteShare,
-  );
-  const salesShareSortedRows = [...chartData].sort(
-    (left, right) => right.salesShare - left.salesShare,
-  );
-  const leader = metricSortedRows[0];
-  const trailer = metricSortedRows[metricSortedRows.length - 1];
-  const belowConversionThresholdRows = chartData.filter(
-    (row) => row.conversionRate < 2.5,
-  );
-  const topTwoQuoteShare = Number(
-    quoteShareSortedRows
-      .slice(0, 2)
-      .reduce((sum, row) => sum + row.quoteShare, 0)
-      .toFixed(1),
-  );
-  const topTwoSalesShare = Number(
-    salesShareSortedRows
-      .slice(0, 2)
-      .reduce((sum, row) => sum + row.salesShare, 0)
-      .toFixed(1),
-  );
-  const averageConversion = Number(
-    (
-      chartData.reduce((sum, row) => sum + row.conversionRate, 0) /
-      Math.max(chartData.length, 1)
-    ).toFixed(1),
-  );
-  const conversionSpread = Number(
-    ((leader?.conversionRate ?? 0) - (trailer?.conversionRate ?? 0)).toFixed(1),
-  );
-  const underIndexRow = chartData.reduce((current, row) => {
-    const currentDelta = current.salesShare - current.quoteShare;
-    const nextDelta = row.salesShare - row.quoteShare;
+  if (!activeView || !activeView.tableRows.length) {
+    return null;
+  }
 
-    return nextDelta < currentDelta ? row : current;
-  }, chartData[0]);
-  const insights: InsightPanelItem[] =
-    activeTrendSeriesKey === "conversionRate"
-      ? [
-          {
-            id: "best-conversion",
-            label: "Best Conversion",
-            note: `${leader.countryCode} converts ${(
-              leader.conversionRate - averageConversion
-            ).toFixed(1)} pts above the market average.`,
-            tone: "positive",
-            value: `${leader.countryCode} ${formatPercent(leader.conversionRate)}`,
-          },
-          {
-            id: "conversion-spread",
-            label: "Spread",
-            note: `${leader.countryCode} to ${trailer.countryCode} is the current conversion performance gap.`,
-            tone: "neutral",
-            value: `${conversionSpread} pts`,
-          },
-          {
-            id: "conversion-watchlist",
-            label: "Watchlist",
-            note:
-              belowConversionThresholdRows.length > 0
-                ? `${joinCountryCodes(belowConversionThresholdRows)} sit below the 2.5% conversion threshold.`
-                : "Every country is holding above the 2.5% conversion threshold.",
-            tone: belowConversionThresholdRows.length > 0 ? "negative" : "positive",
-            value:
-              belowConversionThresholdRows.length > 0
-                ? `${belowConversionThresholdRows.length} markets below 2.5%`
-                : "No markets below 2.5%",
-          },
-        ]
-      : activeTrendSeriesKey === "totalSales"
-        ? [
-            {
-              id: "converted-leader",
-              label: "Lead Market",
-              note: `${leader.countryCode} drives ${formatPercent(leader.salesShare)} of sales volume.`,
-              tone: "positive",
-              value: `${leader.countryCode} ${formatCount(leader.totalSales)}`,
-            },
-            {
-              id: "converted-concentration",
-              label: "Top 2 Mix",
-              note: `${salesShareSortedRows[0]?.countryCode ?? ""} and ${salesShareSortedRows[1]?.countryCode ?? ""} account for most sales volume.`,
-              tone: "neutral",
-              value: `${formatPercent(topTwoSalesShare)}`,
-            },
-            {
-              id: "converted-under-index",
-              label: "Under-indexing",
-              note: `${underIndexRow.countryCode} converts ${formatPercent(underIndexRow.salesShare)} of sales from ${formatPercent(underIndexRow.quoteShare)} of quotes.`,
-              tone: "negative",
-              value: `${underIndexRow.countryCode} ${(
-                underIndexRow.salesShare - underIndexRow.quoteShare
-              ).toFixed(1)} pts`,
-            },
-          ]
-        : [
-            {
-              id: "quoted-leader",
-              label: "Lead Market",
-              note: `${leader.countryCode} contributes ${formatPercent(leader.quoteShare)} of quoted volume.`,
-              tone: "positive",
-              value: `${leader.countryCode} ${formatCount(leader.totalQuote)}`,
-            },
-            {
-              id: "quoted-concentration",
-              label: "Top 2 Mix",
-              note: `${quoteShareSortedRows[0]?.countryCode ?? ""} and ${quoteShareSortedRows[1]?.countryCode ?? ""} account for most quote intake.`,
-              tone: "neutral",
-              value: `${formatPercent(topTwoQuoteShare)}`,
-            },
-            {
-              id: "quoted-watchlist",
-              label: "Low Conversion",
-              note: `${trailer.countryCode} has the weakest conversion against current quote volume.`,
-              tone: "negative",
-              value: `${trailer.countryCode} ${formatPercent(trailer.conversionRate)}`,
-            },
-          ];
   const renderQuoteCountryTooltip = ({
     active,
     payload,
   }: {
     active?: boolean;
-    payload?: ReadonlyArray<{ payload?: QuoteByCountryChartDatum }>;
+    payload?: ReadonlyArray<{ payload?: QuoteByCountryViewRow }>;
   }) => {
     if (!active || !payload?.length) {
       return null;
     }
 
-    const datum = payload[0].payload as QuoteByCountryChartDatum | undefined;
+    const datum = payload[0].payload as QuoteByCountryViewRow | undefined;
     if (!datum) {
       return null;
     }
@@ -259,7 +114,7 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
         </div>
         {activeTrendSeriesKey !== "totalQuote" ? (
           <div className={style.tooltipRow}>
-            <span>Total Quote</span>
+            <span>{`Total ${primaryMetricLabel}`}</span>
             <strong>{formatCount(datum.totalQuote)}</strong>
           </div>
         ) : null}
@@ -271,7 +126,9 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
         ) : null}
         <div className={style.tooltipRow}>
           <span>
-            {activeTrendSeriesKey === "totalSales" ? "Sales Share" : "Quote Share"}
+            {activeTrendSeriesKey === "totalSales"
+              ? "Sales Share"
+              : primaryShareLabel}
           </span>
           <strong>
             {formatPercent(
@@ -288,7 +145,7 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
       </div>
     );
   };
-  const countryColumns: TableColumn<QuoteByCountryChartDatum>[] =
+  const countryColumns: TableColumn<QuoteByCountryViewRow>[] =
     activeTrendSeriesKey === "conversionRate"
       ? [
           {
@@ -308,7 +165,7 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
           },
           {
             cellAlign: "right",
-            header: "Total Quote",
+            header: `Total ${primaryMetricLabel}`,
             headerAlign: "right",
             key: "total-quote",
             render: (row) => formatCount(row.totalQuote),
@@ -383,7 +240,7 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
             },
             {
               cellAlign: "right",
-              header: "Total Quote",
+              header: `Total ${primaryMetricLabel}`,
               headerAlign: "right",
               key: "total-quote",
               render: (row) => formatCount(row.totalQuote),
@@ -391,7 +248,7 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
             },
             {
               cellAlign: "right",
-              header: "Quote Share",
+              header: primaryShareLabel,
               headerAlign: "right",
               key: "quote-share",
               render: (row) => formatPercent(row.quoteShare),
@@ -447,7 +304,7 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
       minWidth={minWidth}
       mobileMinWidth={mobileMinWidth}
       rowKey={(row) => row.country}
-      rows={chartData}
+      rows={activeView.tableRows}
       size="small"
       stickySpacerWidth="0.55rem"
     />
@@ -459,7 +316,7 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
         <BarChart
           accessibilityLayer={false}
           barCategoryGap={expanded ? "12%" : "8%"}
-          data={chartData}
+          data={activeView.chartData}
           margin={{
             top: 8,
             right: 0,
@@ -554,7 +411,7 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
 
                   <InsightPanel
                     accentRgb={activeTrendSeries.accentRgb}
-                    items={insights}
+                    items={activeView.insights as InsightPanelItem[]}
                   />
                 </div>
 

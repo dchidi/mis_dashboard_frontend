@@ -8,7 +8,9 @@ import ComparisonAreaGraph from "../../../ui/graph/area_graph/ComparisonAreaGrap
 import DoubleLineGraph from "../../../ui/graph/line_graph/DoubleLineGraph";
 import {
   type BrandContributionDatum,
+  type CumulativeTrendDatum,
   type PetTypeMixDatum,
+  type QuoteMetricTableData,
   type QuoteTrendDatum,
 } from "../data";
 import {
@@ -21,68 +23,14 @@ import QuoteMetrics from "./QuoteMetrics";
 import PetTypeMixLegend from "./PetTypeMixLegend";
 import TrendSeriesSelector from "./TrendSeriesSelector";
 import type { TrendSeriesKey, TrendSeriesOption } from "./types";
+import type { MetricViewVariant } from "../metricView";
 import style from "./QuotePerformance.module.css";
-
-const renderBrandTooltip = ({
-  active,
-  payload,
-}: SingleBarGraphTooltipProps) => {
-  if (!active || !payload?.length) {
-    return null;
-  }
-
-  const datum = payload[0].payload as BrandContributionDatum | undefined;
-  if (!datum) {
-    return null;
-  }
-
-  return (
-    <div className={style.tooltip}>
-      <div className={style.tooltipTitle}>{datum.brand}</div>
-      <div className={style.tooltipRow}>
-        <span>Quote Volume</span>
-        <strong>{formatCount(datum.quoteCount)}</strong>
-      </div>
-      <div className={style.tooltipRow}>
-        <span>Contribution</span>
-        <strong>{formatPercent(datum.share)}</strong>
-      </div>
-    </div>
-  );
-};
-
-const renderPetTypeTooltip = ({
-  active,
-  payload,
-}: SingleDonutChartTooltipProps) => {
-  if (!active || !payload?.length) {
-    return null;
-  }
-
-  const datum = payload[0].payload as PetTypeMixDatum | undefined;
-  if (!datum) {
-    return null;
-  }
-
-  return (
-    <div className={style.tooltip}>
-      <div className={style.tooltipTitle}>{datum.petType}</div>
-      <div className={style.tooltipRow}>
-        <span>Quotes</span>
-        <strong>{formatCount(datum.quoteCount)}</strong>
-      </div>
-      <div className={style.tooltipRow}>
-        <span>Mix</span>
-        <strong>{formatPercent(datum.share)}</strong>
-      </div>
-    </div>
-  );
-};
 
 interface QuoteTrendVisualProps {
   activeTrendSeries: TrendSeriesOption;
   activeTrendSeriesKey: TrendSeriesKey;
   expanded: boolean;
+  metricsTableData: QuoteMetricTableData;
   onTrendSeriesChange: (key: TrendSeriesKey) => void;
   showSeriesSelector?: boolean;
   trendData: QuoteTrendDatum[];
@@ -92,6 +40,7 @@ export const QuoteTrendVisual: React.FC<QuoteTrendVisualProps> = ({
   activeTrendSeries,
   activeTrendSeriesKey,
   expanded,
+  metricsTableData,
   onTrendSeriesChange,
   showSeriesSelector = true,
   trendData,
@@ -142,8 +91,7 @@ export const QuoteTrendVisual: React.FC<QuoteTrendVisualProps> = ({
       {expanded ? (
         <QuoteMetrics
           expanded
-          showPreviousYearRows
-          trendData={trendData}
+          tableData={metricsTableData}
         />
       ) : null}
     </>
@@ -153,7 +101,39 @@ export const QuoteTrendVisual: React.FC<QuoteTrendVisualProps> = ({
 export const BrandContributionVisual: React.FC<{
   data?: BrandContributionDatum[];
   expanded: boolean;
-}> = ({ data = [], expanded }) => {
+  metricViewVariant?: MetricViewVariant;
+}> = ({ data = [], expanded, metricViewVariant = "quote" }) => {
+  const primaryMetricLabel =
+    metricViewVariant === "policy" ? "Policy Volume" : "Quote Volume";
+
+  const renderVariantTooltip = ({
+    active,
+    payload,
+  }: SingleBarGraphTooltipProps) => {
+    if (!active || !payload?.length) {
+      return null;
+    }
+
+    const datum = payload[0].payload as BrandContributionDatum | undefined;
+    if (!datum) {
+      return null;
+    }
+
+    return (
+      <div className={style.tooltip}>
+        <div className={style.tooltipTitle}>{datum.brand}</div>
+        <div className={style.tooltipRow}>
+          <span>{primaryMetricLabel}</span>
+          <strong>{formatCount(datum.quoteCount)}</strong>
+        </div>
+        <div className={style.tooltipRow}>
+          <span>Contribution</span>
+          <strong>{formatPercent(datum.share)}</strong>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <SingleBarGraph
       barSize={22}
@@ -171,7 +151,7 @@ export const BrandContributionVisual: React.FC<{
       hideNumericAxis={false}
       numericTickFormatter={formatAxisCount}
       orientation="horizontal"
-      renderTooltip={renderBrandTooltip}
+      renderTooltip={renderVariantTooltip}
       showTooltip
       valueKey="quoteCount"
     />
@@ -180,8 +160,9 @@ export const BrandContributionVisual: React.FC<{
 
 export const ConversionTrendVisual: React.FC<{
   expanded: boolean;
+  metricsTableData: QuoteMetricTableData;
   trendData: QuoteTrendDatum[];
-}> = ({ expanded, trendData }) => {
+}> = ({ expanded, metricsTableData, trendData }) => {
   return (
     <>
       <DoubleLineGraph
@@ -218,7 +199,61 @@ export const ConversionTrendVisual: React.FC<{
         xAxisPadding={{ left: 10, right: 10 }}
         yAxisWidth={56}
       />
-      {expanded ? <QuoteMetrics expanded trendData={trendData} /> : null}
+      {expanded ? <QuoteMetrics expanded tableData={metricsTableData} /> : null}
+    </>
+  );
+};
+
+export const CumulativeTrendVisual: React.FC<{
+  expanded: boolean;
+  metricsTableData: QuoteMetricTableData;
+  trendData: CumulativeTrendDatum[];
+  valueSuffix?: string;
+  yAxisWidth?: number;
+}> = ({
+  expanded,
+  metricsTableData,
+  trendData,
+  valueSuffix = "",
+  yAxisWidth = 56,
+}) => {
+  return (
+    <>
+      <DoubleLineGraph
+        chartMargin={{ top: 8, right: 16, left: 10, bottom: 28 }}
+        className={expanded ? style.analysisAreaChart : style.chart}
+        data={trendData}
+        lines={[
+          {
+            color: "#5ac4ab",
+            dataKey: "currentCumulative",
+            name: "Current Year",
+            strokeWidth: 3,
+          },
+          {
+            color: "#9aa3bc",
+            dataKey: "previousYearCumulative",
+            name: "Previous Year",
+            strokeDasharray: "6 5",
+            strokeWidth: 2.2,
+          },
+        ]}
+        legendAlign="center"
+        legendIconSize={8}
+        legendVerticalAlign="bottom"
+        legendWrapperStyle={{
+          fontSize: "0.6rem",
+          lineHeight: 1.1,
+          paddingTop: 12,
+        }}
+        showDots
+        showLegend
+        valueSuffix={valueSuffix}
+        xDataKey="month"
+        xAxisPadding={{ left: 10, right: 10 }}
+        yAxisWidth={yAxisWidth}
+      />
+      {expanded ? <QuoteMetrics expanded tableData={metricsTableData} /> : null}
     </>
   );
 };
@@ -226,8 +261,45 @@ export const ConversionTrendVisual: React.FC<{
 export const PetTypeMixVisual: React.FC<{
   data?: PetTypeMixDatum[];
   expanded: boolean;
-}> = ({ data = [], expanded }) => {
-  const totalQuotes = data.reduce((sum, entry) => sum + entry.quoteCount, 0);
+  metricViewVariant?: MetricViewVariant;
+  totalQuote: number;
+}> = ({
+  data = [],
+  expanded,
+  metricViewVariant = "quote",
+  totalQuote,
+}) => {
+  const centerLabel =
+    metricViewVariant === "policy" ? "Total Policy" : "Total Quote";
+  const tooltipMetricLabel =
+    metricViewVariant === "policy" ? "Policies" : "Quotes";
+  const renderVariantTooltip = ({
+    active,
+    payload,
+  }: SingleDonutChartTooltipProps) => {
+    if (!active || !payload?.length) {
+      return null;
+    }
+
+    const datum = payload[0].payload as PetTypeMixDatum | undefined;
+    if (!datum) {
+      return null;
+    }
+
+    return (
+      <div className={style.tooltip}>
+        <div className={style.tooltipTitle}>{datum.petType}</div>
+        <div className={style.tooltipRow}>
+          <span>{tooltipMetricLabel}</span>
+          <strong>{formatCount(datum.quoteCount)}</strong>
+        </div>
+        <div className={style.tooltipRow}>
+          <span>Mix</span>
+          <strong>{formatPercent(datum.share)}</strong>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div
@@ -246,13 +318,13 @@ export const PetTypeMixVisual: React.FC<{
           nameKey="petType"
           outerRadius="100%"
           paddingAngle={4}
-          renderTooltip={renderPetTypeTooltip}
+          renderTooltip={renderVariantTooltip}
           showTooltip
         />
         <div className={style.centerStat}>
-          <span className={style.centerLabel}>Total Quote</span>
+          <span className={style.centerLabel}>{centerLabel}</span>
           <strong className={style.centerValue}>
-            {formatCount(totalQuotes)}
+            {formatCount(totalQuote)}
           </strong>
         </div>
       </div>

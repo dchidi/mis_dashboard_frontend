@@ -6,27 +6,49 @@ import { RiDownloadCloud2Line } from "react-icons/ri";
 import { SlCalender } from "react-icons/sl";
 import style from "./DashboardLayout.module.css";
 import Menu, { type DashboardMenuItem } from "../../ui/menu/Menu";
+import { getReportingPeriodPresets } from "../../../utils/reportingPeriodPresets";
+
+export type DashboardDateRange = [string | null, string | null];
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
+  downloadAriaLabel?: string;
+  downloadDisabled?: boolean;
   headerProfile?: React.ReactNode;
   menuItems?: DashboardMenuItem[];
+  onDownload?: () => void;
+  onReportingPeriodChange?: (value: DashboardDateRange) => void;
+  reportingPeriod?: DashboardDateRange;
+  showReportingPeriodControl?: boolean;
   title?: string;
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   children,
+  downloadAriaLabel = "Download dashboard",
+  downloadDisabled = false,
   headerProfile,
   menuItems,
+  onDownload,
+  onReportingPeriodChange,
+  reportingPeriod,
+  showReportingPeriodControl = true,
   title,
 }) => {
   const isMobile = useMediaQuery("(max-width: 640px)") ?? false;
-  const [reportingPeriod, setReportingPeriod] = useState<
-    [string | null, string | null]
-  >([
-    dayjs().startOf("month").format("YYYY-MM-DD"),
-    dayjs().format("YYYY-MM-DD"),
-  ]);
+  const [internalReportingPeriod, setInternalReportingPeriod] =
+    useState<DashboardDateRange>([
+      dayjs().startOf("month").format("YYYY-MM-DD"),
+      dayjs().format("YYYY-MM-DD"),
+    ]);
+  const resolvedReportingPeriod = reportingPeriod ?? internalReportingPeriod;
+  const handleReportingPeriodChange = (value: DashboardDateRange) => {
+    if (reportingPeriod === undefined) {
+      setInternalReportingPeriod(value);
+    }
+
+    onReportingPeriodChange?.(value);
+  };
 
   return (
     <div className={style.root}>
@@ -37,73 +59,42 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
 
           <div className={style.actions}>
-            <DatePickerInput
-              aria-label="Select reporting period"
-              className={style.datePicker}
-              clearable
-              dropdownType={isMobile ? "modal" : "popover"}
-              leftSection={<SlCalender />}
-              leftSectionPointerEvents="none"
-              onChange={setReportingPeriod}
-              placeholder="Select period"
-              presets={[
-                {
-                  label: "This month",
-                  value: [
-                    dayjs().startOf("month").format("YYYY-MM-DD"),
-                    dayjs().format("YYYY-MM-DD"),
-                  ],
-                },
-                {
-                  label: "Last month",
-                  value: [
-                    dayjs()
-                      .subtract(1, "month")
-                      .startOf("month")
-                      .format("YYYY-MM-DD"),
-                    dayjs()
-                      .subtract(1, "month")
-                      .endOf("month")
-                      .format("YYYY-MM-DD"),
-                  ],
-                },
-                {
-                  label: "Last 30 days",
-                  value: [
-                    dayjs().subtract(29, "day").format("YYYY-MM-DD"),
-                    dayjs().format("YYYY-MM-DD"),
-                  ],
-                },
-                {
-                  label: "Year to date",
-                  value: [
-                    dayjs().startOf("year").format("YYYY-MM-DD"),
-                    dayjs().format("YYYY-MM-DD"),
-                  ],
-                },
-              ]}
-              styles={{
-                input: {
-                  backgroundColor: "rgba(255, 255, 255, 0.04)",
-                  border: "1px solid rgba(107, 99, 117, 0.18)",
-                  borderRadius: "999px",
-                  color: "var(--text-h)",
-                  fontSize: "0.84rem",
-                  fontWeight: 600,
-                  height: isMobile ? "2rem" : "2.2rem",
-                },
-                label: { display: "none" },
-                section: {
-                  color: "var(--text)",
-                },
-              }}
-              type="range"
-              value={reportingPeriod}
-              valueFormat="DD MMM YYYY"
-            />
+            {showReportingPeriodControl ? (
+              <DatePickerInput
+                aria-label="Select reporting period"
+                className={style.datePicker}
+                clearable
+                dropdownType={isMobile ? "modal" : "popover"}
+                leftSection={<SlCalender />}
+                leftSectionPointerEvents="none"
+                onChange={handleReportingPeriodChange}
+                placeholder="Select period"
+                presets={getReportingPeriodPresets()}
+                styles={{
+                  input: {
+                    backgroundColor: "rgba(255, 255, 255, 0.04)",
+                    border: "1px solid rgba(107, 99, 117, 0.18)",
+                    borderRadius: "999px",
+                    color: "var(--text-h)",
+                    fontSize: "0.84rem",
+                    fontWeight: 600,
+                    height: isMobile ? "2rem" : "2.2rem",
+                  },
+                  label: { display: "none" },
+                  section: {
+                    color: "var(--text)",
+                  },
+                }}
+                type="range"
+                value={resolvedReportingPeriod}
+                valueFormat="DD MMM YYYY"
+              />
+            ) : null}
             <button
-              aria-label="Download dashboard"
+              aria-label={downloadAriaLabel}
               className={style.iconButton}
+              disabled={downloadDisabled}
+              onClick={onDownload}
               type="button"
             >
               <RiDownloadCloud2Line />
