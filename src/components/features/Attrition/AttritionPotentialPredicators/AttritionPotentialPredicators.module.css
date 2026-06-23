@@ -186,6 +186,35 @@
   width: 100%;
 }
 
+.reasonTableSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.reasonTableHeader {
+  align-items: center;
+  display: flex;
+  gap: 0.9rem;
+  justify-content: space-between;
+}
+
+.reasonTableTitle {
+  color: var(--text-h);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.reasonTableMeta {
+  color: var(--text);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
 .expandedTableRegion table th,
 .expandedTableRegion table td {
   padding: 0.58rem 0.7rem;
@@ -198,6 +227,31 @@
 .expandedTableRegion table td,
 .expandedTableRegion table tbody th {
   font-size: 0.74rem;
+}
+
+.growthValue {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 600;
+  gap: 0.22rem;
+  justify-content: flex-end;
+}
+
+.growthIcon {
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.growthPositive {
+  color: #53d3ab;
+}
+
+.growthNegative {
+  color: #de8368;
+}
+
+.growthNeutral {
+  color: rgba(202, 209, 227, 0.86);
 }
 
 .modalOverlay {
@@ -341,6 +395,11 @@
   }
 
   .modalTitleRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .reasonTableHeader {
     align-items: flex-start;
     flex-direction: column;
   }

@@ -46,6 +46,7 @@ import {
   type QuoteWorkflowCardData,
   type QuoteWorkflowTabKey,
   type WorkflowBarChartDatum,
+  type WorkflowReasonTableRow,
 } from "./data";
 import {
   getMetricViewDescriptor,
@@ -1973,6 +1974,108 @@ const buildWorkflowBarInsights = (
   ];
 };
 
+interface WorkflowReasonTemplate {
+  id: string;
+  reason: string;
+  share: number;
+  yoyChange: number;
+}
+
+interface WorkflowReasonTableResult {
+  rows: WorkflowReasonTableRow[];
+  topShare: number;
+}
+
+const getWorkflowReasonTrend = (
+  value: number,
+): WorkflowReasonTableRow["yoyTrend"] =>
+  value > 0 ? "up" : value < 0 ? "down" : "flat";
+
+const buildWorkflowReasonTableData = (
+  total: number,
+  templates: WorkflowReasonTemplate[],
+  limit = 10,
+): WorkflowReasonTableResult => {
+  if (total <= 0) {
+    return {
+      rows: templates.slice(0, limit).map((template) => ({
+        count: 0,
+        id: template.id,
+        reason: template.reason,
+        share: 0,
+        yoyChange: template.yoyChange,
+        yoyTrend: getWorkflowReasonTrend(template.yoyChange),
+      })),
+      topShare: 0,
+    };
+  }
+
+  const seededRows = templates.map((template, index) => {
+    const rawCount = (total * template.share) / 100;
+    const count = Math.floor(rawCount);
+
+    return {
+      ...template,
+      count,
+      fraction: rawCount - count,
+      index,
+    };
+  });
+
+  let remainingCount =
+    total - seededRows.reduce((sum, row) => sum + row.count, 0);
+
+  const rankedByFraction = [...seededRows].sort((left, right) => {
+    if (right.fraction === left.fraction) {
+      return left.index - right.index;
+    }
+
+    return right.fraction - left.fraction;
+  });
+
+  for (let index = 0; index < rankedByFraction.length && remainingCount > 0; index += 1) {
+    rankedByFraction[index].count += 1;
+    remainingCount -= 1;
+  }
+
+  const countsById = new Map(
+    rankedByFraction.map((row) => [row.id, row.count]),
+  );
+
+  const rows = templates
+    .map((template, index) => {
+      const count = countsById.get(template.id) ?? 0;
+
+      return {
+        count,
+        id: template.id,
+        index,
+        reason: template.reason,
+        share: Number(((count / total) * 100).toFixed(1)),
+        yoyChange: template.yoyChange,
+        yoyTrend: getWorkflowReasonTrend(template.yoyChange),
+      };
+    })
+    .sort((left, right) => {
+      if (right.count === left.count) {
+        return left.index - right.index;
+      }
+
+      return right.count - left.count;
+    })
+    .slice(0, limit)
+    .map(({ index: _index, ...row }) => row);
+
+  const topShare = Number(
+    rows.reduce((sum, row) => sum + row.share, 0).toFixed(1),
+  );
+
+  return {
+    rows,
+    topShare,
+  };
+};
+
 const buildWorkflowBarView = ({
   accentRgb,
   contextLabel,
@@ -1980,6 +2083,8 @@ const buildWorkflowBarView = ({
   key,
   label,
   metricLabel,
+  reasonTableShare,
+  reasonTableRows,
   rows,
   subtitle,
   title,
@@ -1990,6 +2095,8 @@ const buildWorkflowBarView = ({
   key: QuoteWorkflowTabKey;
   label: string;
   metricLabel: string;
+  reasonTableShare?: number;
+  reasonTableRows?: WorkflowReasonTableRow[];
   rows: Array<{ country: string; value: number }>;
   subtitle: string;
   title: string;
@@ -2010,6 +2117,8 @@ const buildWorkflowBarView = ({
     kind: "bar" as const,
     label,
     metricLabel,
+    reasonTableShare,
+    reasonTableRows,
     subtitle,
     title,
   };
@@ -2055,6 +2164,160 @@ const buildPolicyWorkflowCardData = (
     country: row.country,
     value: Math.max(3, Math.round((lapsedTotals.get(row.country) ?? 0) * 0.88)),
   }));
+  const pendingReasonTable = buildWorkflowReasonTableData(
+    pendingRows.reduce((sum, row) => sum + row.value, 0),
+    [
+      {
+        id: "pending-awaiting-docs",
+        reason: "Awaiting Documents",
+        share: 17,
+        yoyChange: 8.4,
+      },
+      {
+        id: "pending-payment-check",
+        reason: "Payment Validation",
+        share: 14,
+        yoyChange: -2.8,
+      },
+      {
+        id: "pending-referral-review",
+        reason: "Referral Review",
+        share: 12,
+        yoyChange: 5.1,
+      },
+      {
+        id: "pending-customer-contact",
+        reason: "Customer Callback",
+        share: 10,
+        yoyChange: 1.7,
+      },
+      {
+        id: "pending-risk-check",
+        reason: "Risk Checks",
+        share: 9,
+        yoyChange: -4.3,
+      },
+      {
+        id: "pending-address-check",
+        reason: "Address Verification",
+        share: 8,
+        yoyChange: 3.6,
+      },
+      {
+        id: "pending-underwriter-review",
+        reason: "Underwriter Review",
+        share: 7,
+        yoyChange: 6.8,
+      },
+      {
+        id: "pending-policy-amendment",
+        reason: "Policy Amendment",
+        share: 6,
+        yoyChange: -1.5,
+      },
+      {
+        id: "pending-banking-confirmation",
+        reason: "Banking Confirmation",
+        share: 5,
+        yoyChange: 2.4,
+      },
+      {
+        id: "pending-manual-qc",
+        reason: "Manual QA",
+        share: 4,
+        yoyChange: -0.9,
+      },
+      {
+        id: "pending-customer-query",
+        reason: "Customer Query",
+        share: 4,
+        yoyChange: 4.2,
+      },
+      {
+        id: "pending-compliance-hold",
+        reason: "Compliance Hold",
+        share: 4,
+        yoyChange: -3.1,
+      },
+    ],
+  );
+  const cancelledReasonTable = buildWorkflowReasonTableData(
+    cancelledRows.reduce((sum, row) => sum + row.value, 0),
+    [
+      {
+        id: "cancelled-non-payment",
+        reason: "Non-payment",
+        share: 18,
+        yoyChange: 11.2,
+      },
+      {
+        id: "cancelled-customer-request",
+        reason: "Customer Request",
+        share: 14,
+        yoyChange: -3.6,
+      },
+      {
+        id: "cancelled-underwriting",
+        reason: "Underwriting Decline",
+        share: 12,
+        yoyChange: 4.8,
+      },
+      {
+        id: "cancelled-duplicate",
+        reason: "Duplicate Cover",
+        share: 10,
+        yoyChange: -1.9,
+      },
+      {
+        id: "cancelled-pricing",
+        reason: "Pricing Objection",
+        share: 9,
+        yoyChange: 6.1,
+      },
+      {
+        id: "cancelled-renewal-overlap",
+        reason: "Renewal Overlap",
+        share: 8,
+        yoyChange: 2.7,
+      },
+      {
+        id: "cancelled-risk-change",
+        reason: "Risk Profile Change",
+        share: 7,
+        yoyChange: 5.3,
+      },
+      {
+        id: "cancelled-admin-error",
+        reason: "Admin Error",
+        share: 6,
+        yoyChange: -2.2,
+      },
+      {
+        id: "cancelled-claim-history",
+        reason: "Claims History",
+        share: 5,
+        yoyChange: 3.9,
+      },
+      {
+        id: "cancelled-fraud-check",
+        reason: "Fraud Review",
+        share: 4,
+        yoyChange: 1.1,
+      },
+      {
+        id: "cancelled-data-mismatch",
+        reason: "Data Mismatch",
+        share: 4,
+        yoyChange: -1.4,
+      },
+      {
+        id: "cancelled-other",
+        reason: "Other",
+        share: 3,
+        yoyChange: 0.6,
+      },
+    ],
+  );
 
   return {
     idBase: "policy-workflow",
@@ -2078,6 +2341,8 @@ const buildPolicyWorkflowCardData = (
         key: "pending-policies",
         label: "Pending",
         metricLabel: "Pending Policies",
+        reasonTableRows: pendingReasonTable.rows,
+        reasonTableShare: pendingReasonTable.topShare,
         rows: pendingRows,
         subtitle: "Current pending policy queue by country.",
         title: "Pending Policies",
@@ -2089,6 +2354,8 @@ const buildPolicyWorkflowCardData = (
         key: "cancelled-policies",
         label: "Cancelled",
         metricLabel: "Cancelled Policies",
+        reasonTableRows: cancelledReasonTable.rows,
+        reasonTableShare: cancelledReasonTable.topShare,
         rows: cancelledRows,
         subtitle: "Cancelled policies by country within the selected scope.",
         title: "Cancelled Policies",

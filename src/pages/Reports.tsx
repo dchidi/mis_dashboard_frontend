@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dayjs from "dayjs";
 import { DatePickerInput } from "@mantine/dates";
 import { useMediaQuery } from "@mantine/hooks";
@@ -7,6 +7,7 @@ import type { IconType } from "react-icons";
 import {
   RiAddLine,
   RiArrowLeftLine,
+  RiArrowRightLine,
   RiDeleteBin6Line,
   RiDownloadCloud2Line,
   RiFileTextLine,
@@ -44,7 +45,13 @@ type ReportId =
   | "converted-quote";
 
 type ReportScope = "Policy" | "Quote";
-type OutputProfile = "operational" | "finance" | "executive";
+type StandardOutputProfile = "operational" | "finance" | "executive";
+type FreePolicyOutputProfile =
+  | "active-converted"
+  | "active-not-converted"
+  | "lapsed-converted"
+  | "lapsed-not-converted";
+type OutputProfile = StandardOutputProfile | FreePolicyOutputProfile;
 
 interface ReportRow {
   [key: string]: string | number;
@@ -75,6 +82,7 @@ interface SavedReportSetup {
   isDefault: boolean;
   name: string;
   outputProfile: OutputProfile;
+  outputProfileVersion?: 2;
   reportId: ReportId;
   reportingPeriod: DashboardDateRange;
   savedAt: string;
@@ -106,7 +114,7 @@ const defaultDateRange: DashboardDateRange = [
   dayjs().format("YYYY-MM-DD"),
 ];
 
-const outputProfileOptions: RadioOption<OutputProfile>[] = [
+const standardOutputProfileOptions: RadioOption<OutputProfile>[] = [
   {
     description: "Full row-level extract for operational teams and follow-up.",
     label: "Operational Detail",
@@ -123,6 +131,68 @@ const outputProfileOptions: RadioOption<OutputProfile>[] = [
     value: "executive",
   },
 ];
+
+const freePolicyOutputProfileOptions: RadioOption<OutputProfile>[] = [
+  {
+    description: "Free-policy records that converted and are still active.",
+    label: "Active Converted",
+    value: "active-converted",
+  },
+  {
+    description: "Policies still active but not yet converted out of free access.",
+    label: "Active Not Converted",
+    value: "active-not-converted",
+  },
+  {
+    description: "Policies that lapsed after converting from the free-policy stage.",
+    label: "Lapsed Converted",
+    value: "lapsed-converted",
+  },
+  {
+    description: "Policies that lapsed before converting out of free access.",
+    label: "Lapsed Not Converted",
+    value: "lapsed-not-converted",
+  },
+];
+
+const freePolicyStatusByProfile: Record<FreePolicyOutputProfile, string> = {
+  "active-converted": "Active Converted",
+  "active-not-converted": "Active Not Converted",
+  "lapsed-converted": "Lapsed Converted",
+  "lapsed-not-converted": "Lapsed Not Converted",
+};
+
+const isFreePolicyOutputProfile = (
+  value: OutputProfile,
+): value is FreePolicyOutputProfile =>
+  value === "active-converted" ||
+  value === "active-not-converted" ||
+  value === "lapsed-converted" ||
+  value === "lapsed-not-converted";
+
+const getOutputProfileOptions = (
+  reportId: ReportId | null,
+): RadioOption<OutputProfile>[] =>
+  reportId === "free-policy"
+    ? freePolicyOutputProfileOptions
+    : standardOutputProfileOptions;
+
+const getDefaultOutputProfile = (reportId?: ReportId | null): OutputProfile =>
+  reportId === "free-policy" ? "active-converted" : "operational";
+
+const normalizeSavedOutputProfile = (
+  setup: SavedReportSetup,
+): SavedReportSetup["outputProfile"] => {
+  if (
+    setup.reportId === "free-policy" &&
+    setup.outputProfile === "lapsed-not-converted" &&
+    setup.outputProfileVersion !== 2
+  ) {
+    return "lapsed-converted";
+  }
+
+  return setup.outputProfile;
+};
 
 const getAllOptionValues = <T extends string>(options: SelectionOption<T>[]) =>
   options.map((option) => option.value);
@@ -256,7 +326,14 @@ const reportDefinitions: ReportDefinition[] = [
           "Free Days": 14 + index,
           "Pet Type": values.petType,
           "Policy Number": `FP-${1000 + index}`,
-          Status: index % 2 === 0 ? "In Free Period" : "Converted",
+          Status:
+            index % 4 === 0
+              ? "Active Converted"
+              : index % 4 === 1
+                ? "Active Not Converted"
+                : index % 4 === 2
+                  ? "Lapsed Converted"
+                  : "Lapsed Not Converted",
         }),
       ),
   },
@@ -698,6 +775,7 @@ const deriveOutputColumns = (
 const Reports: React.FC = () => {
   const navigate = useNavigate();
   const isMobile = useMediaQuery("(max-width: 640px)") ?? false;
+  const outputProfileRailRef = useRef<HTMLDivElement | null>(null);
   const [activeReportId, setActiveReportId] = useState<ReportId | null>(null);
   const [reportingPeriod, setReportingPeriod] =
     useState<DashboardDateRange>(defaultDateRange);
@@ -719,9 +797,17 @@ const Reports: React.FC = () => {
   const [activeSetupId, setActiveSetupId] = useState<string | null>(null);
   const [setupName, setSetupName] = useState("");
   const [builderFeedback, setBuilderFeedback] = useState<string | null>(null);
+  const [canScrollOutputProfilesLeft, setCanScrollOutputProfilesLeft] =
+    useState(false);
+  const [canScrollOutputProfilesRight, setCanScrollOutputProfilesRight] =
+    useState(false);
 
   const activeReport =
     reportDefinitions.find((report) => report.id === activeReportId) ?? null;
+  const activeOutputProfileOptions = useMemo(
+    () => getOutputProfileOptions(activeReport?.id ?? null),
+    [activeReport?.id],
+  );
   const activeRows = useMemo(
     () =>
       activeReport &&
@@ -743,6 +829,18 @@ const Reports: React.FC = () => {
       selectedPetTypes,
     ],
   );
+  const exportRows = useMemo(() => {
+    if (
+      activeReport?.id !== "free-policy" ||
+      !isFreePolicyOutputProfile(outputProfile)
+    ) {
+      return activeRows;
+    }
+
+    return activeRows.filter(
+      (row) => row.Status === freePolicyStatusByProfile[outputProfile],
+    );
+  }, [activeReport?.id, activeRows, outputProfile]);
   const activeOutputColumns = useMemo(
     () =>
       activeReport
@@ -806,10 +904,50 @@ const Reports: React.FC = () => {
       id: "profile",
       label: "Profile",
       value:
-        outputProfileOptions.find((option) => option.value === outputProfile)?.label ??
-        "Operational Detail",
+        activeOutputProfileOptions.find((option) => option.value === outputProfile)
+          ?.label ?? activeOutputProfileOptions[0]?.label ?? "Operational Detail",
     },
   ];
+
+  useEffect(() => {
+    if (
+      activeOutputProfileOptions.some((option) => option.value === outputProfile)
+    ) {
+      return;
+    }
+
+    setOutputProfile(getDefaultOutputProfile(activeReport?.id));
+  }, [activeOutputProfileOptions, activeReport?.id, outputProfile]);
+
+  useEffect(() => {
+    if (activeReport?.id !== "free-policy") {
+      setCanScrollOutputProfilesLeft(false);
+      setCanScrollOutputProfilesRight(false);
+      return;
+    }
+
+    const railNode = outputProfileRailRef.current;
+    if (!railNode) {
+      setCanScrollOutputProfilesLeft(false);
+      setCanScrollOutputProfilesRight(false);
+      return;
+    }
+
+    const syncScrollState = () => {
+      const maxScrollLeft = railNode.scrollWidth - railNode.clientWidth;
+      setCanScrollOutputProfilesLeft(railNode.scrollLeft > 8);
+      setCanScrollOutputProfilesRight(maxScrollLeft - railNode.scrollLeft > 8);
+    };
+
+    syncScrollState();
+    railNode.addEventListener("scroll", syncScrollState, { passive: true });
+    window.addEventListener("resize", syncScrollState);
+
+    return () => {
+      railNode.removeEventListener("scroll", syncScrollState);
+      window.removeEventListener("resize", syncScrollState);
+    };
+  }, [activeOutputProfileOptions.length, activeReport?.id]);
 
   useEffect(() => {
     try {
@@ -827,6 +965,9 @@ const Reports: React.FC = () => {
       setSavedSetups(
         parsedValue.map((setup) => ({
           ...setup,
+          outputProfile: normalizeSavedOutputProfile(setup),
+          outputProfileVersion:
+            setup.reportId === "free-policy" ? 2 : setup.outputProfileVersion,
           selectedBrands:
             setup.selectionModelVersion === 2
               ? setup.selectedBrands
@@ -865,7 +1006,7 @@ const Reports: React.FC = () => {
     setSelectedCountries([...allCountryValues]);
     setSelectedBrands([...allBrandValues]);
     setSelectedPetTypes([...allPetTypeValues]);
-    setOutputProfile("operational");
+    setOutputProfile(getDefaultOutputProfile(reportId));
     setIncludeIdentifiers(true);
     setIncludeHeaders(true);
     setSaveAsDefault(false);
@@ -913,6 +1054,19 @@ const Reports: React.FC = () => {
     setBuilderFeedback(null);
   };
 
+  const scrollOutputProfileCards = (direction: "left" | "right") => {
+    const railNode = outputProfileRailRef.current;
+    if (!railNode) {
+      return;
+    }
+
+    const scrollAmount = Math.max(railNode.clientWidth * 0.74, 260);
+    railNode.scrollBy({
+      behavior: "smooth",
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+    });
+  };
+
   const handleSaveSetup = () => {
     if (!activeReport) {
       return;
@@ -927,6 +1081,7 @@ const Reports: React.FC = () => {
       isDefault: saveAsDefault,
       name: resolvedName,
       outputProfile,
+      outputProfileVersion: activeReport.id === "free-policy" ? 2 : undefined,
       reportId: activeReport.id,
       reportingPeriod,
       savedAt: new Date().toISOString(),
@@ -997,7 +1152,7 @@ const Reports: React.FC = () => {
       return;
     }
 
-    const csvRows = activeRows.map((row) =>
+    const csvRows = exportRows.map((row) =>
       activeOutputColumns.map((column) => csvEscape(row[column] ?? "")).join(","),
     );
     const csv = [
@@ -1099,9 +1254,6 @@ const Reports: React.FC = () => {
                 <span className={style.heroBadge}>{activeReport.scope}</span>
                 <span className={style.heroBadge}>
                   {savedSetupsForActiveReport.length} saved setups
-                </span>
-                <span className={style.heroBadge}>
-                  {activeOutputColumns.length} output columns
                 </span>
               </div>
             </Card>
@@ -1207,35 +1359,93 @@ const Reports: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className={style.radioGrid}>
-                    {outputProfileOptions.map((option) => {
-                      const isChecked = outputProfile === option.value;
+                  {activeReport?.id === "free-policy" ? (
+                    <div className={style.radioRailShell}>
+                      <button
+                        aria-label="Scroll output profiles left"
+                        className={style.radioScrollButton}
+                        disabled={!canScrollOutputProfilesLeft}
+                        onClick={() => scrollOutputProfileCards("left")}
+                        type="button"
+                      >
+                        <RiArrowLeftLine />
+                      </button>
 
-                      return (
-                        <label
-                          className={`${style.radioCard} ${
-                            isChecked ? style.radioCardActive : ""
-                          }`}
-                          key={option.value}
-                        >
-                          <input
-                            checked={isChecked}
-                            className={style.choiceInput}
-                            name="output-profile"
-                            onChange={() => setOutputProfile(option.value)}
-                            type="radio"
-                          />
-                          <span className={style.radioIcon} />
-                          <span className={style.choiceContent}>
-                            <span className={style.choiceLabel}>{option.label}</span>
-                            <span className={style.choiceMeta}>
-                              {option.description}
+                      <div className={style.radioRailViewport}>
+                        <div className={style.radioRail} ref={outputProfileRailRef}>
+                          {activeOutputProfileOptions.map((option) => {
+                            const isChecked = outputProfile === option.value;
+
+                            return (
+                              <label
+                                className={`${style.radioCard} ${
+                                  isChecked ? style.radioCardActive : ""
+                                }`}
+                                key={option.value}
+                              >
+                                <input
+                                  checked={isChecked}
+                                  className={style.choiceInput}
+                                  name="output-profile"
+                                  onChange={() => setOutputProfile(option.value)}
+                                  type="radio"
+                                />
+                                <span className={style.radioIcon} />
+                                <span className={style.choiceContent}>
+                                  <span className={style.choiceLabel}>
+                                    {option.label}
+                                  </span>
+                                  <span className={style.choiceMeta}>
+                                    {option.description}
+                                  </span>
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <button
+                        aria-label="Scroll output profiles right"
+                        className={style.radioScrollButton}
+                        disabled={!canScrollOutputProfilesRight}
+                        onClick={() => scrollOutputProfileCards("right")}
+                        type="button"
+                      >
+                        <RiArrowRightLine />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className={style.radioGrid}>
+                      {activeOutputProfileOptions.map((option) => {
+                        const isChecked = outputProfile === option.value;
+
+                        return (
+                          <label
+                            className={`${style.radioCard} ${
+                              isChecked ? style.radioCardActive : ""
+                            }`}
+                            key={option.value}
+                          >
+                            <input
+                              checked={isChecked}
+                              className={style.choiceInput}
+                              name="output-profile"
+                              onChange={() => setOutputProfile(option.value)}
+                              type="radio"
+                            />
+                            <span className={style.radioIcon} />
+                            <span className={style.choiceContent}>
+                              <span className={style.choiceLabel}>{option.label}</span>
+                              <span className={style.choiceMeta}>
+                                {option.description}
+                              </span>
                             </span>
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
                 </Card>
 
                 <Card className={style.configCard}>
@@ -1434,21 +1644,6 @@ const Reports: React.FC = () => {
                         No saved setup yet for this report.
                       </div>
                     )}
-                  </div>
-                </Card>
-
-                <Card className={style.sidebarCard}>
-                  <div className={style.sidebarHeader}>
-                    <p className={style.eyebrow}>Columns</p>
-                    <h3 className={style.sidebarTitle}>Export Preview</h3>
-                  </div>
-
-                  <div className={style.columnList}>
-                    {activeOutputColumns.map((column) => (
-                      <span className={style.columnChip} key={column}>
-                        {column}
-                      </span>
-                    ))}
                   </div>
                 </Card>
               </aside>

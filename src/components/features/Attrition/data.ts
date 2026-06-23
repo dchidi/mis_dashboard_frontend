@@ -228,6 +228,15 @@ export interface WorkflowBarChartDatum {
   valueLabel: string;
 }
 
+export interface WorkflowReasonTableRow {
+  count: number;
+  id: string;
+  reason: string;
+  share: number;
+  yoyChange: number;
+  yoyTrend: "down" | "flat" | "up";
+}
+
 export interface LapsedQuoteChartDatum extends QuoteAgingByCountryDatum {
   countryCode: string;
   total: number;
@@ -255,6 +264,8 @@ export interface WorkflowBarViewData
   extends QuoteWorkflowBaseViewData {
   chartData: WorkflowBarChartDatum[];
   kind: "bar";
+  reasonTableRows?: WorkflowReasonTableRow[];
+  reasonTableShare?: number;
 }
 
 export type QuoteWorkflowViewData =

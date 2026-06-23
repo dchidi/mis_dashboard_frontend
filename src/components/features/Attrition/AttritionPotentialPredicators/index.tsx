@@ -10,7 +10,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { FaXmark } from "react-icons/fa6";
+import {
+  FaCaretDown,
+  FaCaretRight,
+  FaCaretUp,
+  FaXmark,
+} from "react-icons/fa6";
 import Card from "../../../ui/card/Card";
 import InsightPanel, { type InsightPanelItem } from "../../../ui/insight_panel";
 import InsightButton from "../../../ui/insight_button";
@@ -25,6 +30,7 @@ import {
   type QuoteWorkflowCardData,
   type QuoteWorkflowTabKey,
   type WorkflowBarChartDatum,
+  type WorkflowReasonTableRow,
 } from "../data";
 import type { AttritionComponentProps } from "../type";
 import { formatAxisCount } from "../../../../utils/formatters";
@@ -35,6 +41,30 @@ interface QuoteWorkflowProps extends AttritionComponentProps {
 }
 
 const formatCount = (value: number) => value.toLocaleString();
+const formatPercent = (value: number) => `${value}%`;
+const formatChangePercent = (value: number) => `${value > 0 ? "+" : ""}${value}%`;
+
+const renderWorkflowChangeValue = (row: WorkflowReasonTableRow) => {
+  const ChangeIcon =
+    row.yoyTrend === "up"
+      ? FaCaretUp
+      : row.yoyTrend === "down"
+        ? FaCaretDown
+        : FaCaretRight;
+  const toneClassName =
+    row.yoyTrend === "up"
+      ? style.growthPositive
+      : row.yoyTrend === "down"
+        ? style.growthNegative
+        : style.growthNeutral;
+
+  return (
+    <span className={`${style.growthValue} ${toneClassName}`}>
+      <ChangeIcon aria-hidden="true" className={style.growthIcon} />
+      {formatChangePercent(row.yoyChange)}
+    </span>
+  );
+};
 
 const quoteWorkflowColumns: TableColumn<QuoteAgingByCountryDatum>[] = [
   {
@@ -67,6 +97,40 @@ const quoteWorkflowColumns: TableColumn<QuoteAgingByCountryDatum>[] = [
     key: "bucket-61-90",
     render: (row) => formatCount(row.bucket61To90),
     width: "24%",
+  },
+];
+
+const workflowReasonColumns: TableColumn<WorkflowReasonTableRow>[] = [
+  {
+    key: "reason",
+    header: "Reason",
+    isRowHeader: true,
+    render: (row) => row.reason,
+    width: "38%",
+  },
+  {
+    cellAlign: "right",
+    header: "Count",
+    headerAlign: "right",
+    key: "count",
+    render: (row) => formatCount(row.count),
+    width: "18%",
+  },
+  {
+    cellAlign: "right",
+    header: "Share",
+    headerAlign: "right",
+    key: "share",
+    render: (row) => formatPercent(row.share),
+    width: "18%",
+  },
+  {
+    cellAlign: "right",
+    header: "YoY %",
+    headerAlign: "right",
+    key: "yoy",
+    render: renderWorkflowChangeValue,
+    width: "26%",
   },
 ];
 
@@ -320,6 +384,40 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({ className, data }) => {
     />
   );
 
+  const reasonTable = (
+    rows: WorkflowReasonTableRow[],
+    minWidth: string,
+    mobileMinWidth: string,
+    className?: string,
+  ) => (
+    <Table
+      className={className ?? style.tableRegion}
+      columns={workflowReasonColumns}
+      layout="fixed"
+      minWidth={minWidth}
+      mobileMinWidth={mobileMinWidth}
+      rowKey={(row) => row.id}
+      rows={rows}
+      size="small"
+      stickySpacerWidth="0.55rem"
+    />
+  );
+
+  const reasonTableSection = (
+    rows: WorkflowReasonTableRow[],
+    topShare: number,
+  ) => (
+    <div className={style.reasonTableSection}>
+      <div className={style.reasonTableHeader}>
+        <span className={style.reasonTableTitle}>Top 10 Reasons</span>
+        <span className={style.reasonTableMeta}>
+          {`${formatPercent(topShare)} top 10 share`}
+        </span>
+      </div>
+      {reasonTable(rows, "36rem", "36rem", style.expandedTableRegion)}
+    </div>
+  );
+
   const panelContentBody =
     activeTabData.kind === "bar"
       ? renderBarChart(activeTabData.chartData, false)
@@ -387,7 +485,12 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({ className, data }) => {
                       "42rem",
                       style.expandedTableRegion,
                     )
-                  : null}
+                  : activeTabData.reasonTableRows?.length
+                    ? reasonTableSection(
+                        activeTabData.reasonTableRows,
+                        activeTabData.reasonTableShare ?? 0,
+                      )
+                    : null}
               </div>
             </div>
           </div>,

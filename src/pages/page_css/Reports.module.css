@@ -311,7 +311,6 @@
 .multiSectionStack,
 .toggleStack,
 .savedSetupList,
-.columnList,
 .summaryList {
   display: grid;
   gap: 1rem;
@@ -407,6 +406,69 @@
   display: grid;
   gap: 0.75rem;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.radioRailShell {
+  align-items: center;
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.radioRailViewport {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.radioRail {
+  display: grid;
+  gap: 0.75rem;
+  grid-auto-columns: minmax(17.5rem, calc((100% - 1.5rem) / 3));
+  grid-auto-flow: column;
+  overflow-x: auto;
+  padding: 0.08rem 0.08rem 0.18rem;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.radioRail::-webkit-scrollbar {
+  display: none;
+}
+
+.radioScrollButton {
+  align-items: center;
+  background:
+    radial-gradient(circle at top left, rgba(138, 116, 232, 0.18), transparent 62%),
+    rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(138, 116, 232, 0.16);
+  border-radius: 999px;
+  color: var(--text-h);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 1rem;
+  height: 2.85rem;
+  justify-content: center;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease;
+  width: 2.85rem;
+}
+
+.radioScrollButton:hover:not(:disabled) {
+  border-color: rgba(138, 116, 232, 0.28);
+  box-shadow: 0 16px 26px rgba(17, 13, 30, 0.24);
+  transform: translateY(-1px);
+}
+
+.radioScrollButton:disabled {
+  cursor: default;
+  opacity: 0.34;
+  transform: none;
 }
 
 .radioCard,
@@ -600,25 +662,6 @@
   padding: 0.34rem 0.58rem;
 }
 
-.columnList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.columnChip {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015));
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 0.82rem;
-  color: var(--text-h);
-  display: inline-flex;
-  font-size: 0.78rem;
-  font-weight: 600;
-  line-height: 1.2;
-  padding: 0.56rem 0.72rem;
-}
-
 @media (max-width: 1280px) {
   .reportGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -639,6 +682,10 @@
   .radioGrid,
   .checkboxGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .radioRail {
+    grid-auto-columns: minmax(17rem, calc((100% - 0.75rem) / 2));
   }
 }
 
@@ -671,6 +718,10 @@
     grid-template-columns: 1fr;
   }
 
+  .radioRail {
+    grid-auto-columns: minmax(15rem, 100%);
+  }
+
   .summaryRow {
     align-items: flex-start;
     flex-direction: column;
@@ -687,6 +738,15 @@
 
   .reportCard {
     min-height: 11rem;
+  }
+
+  .radioRailShell {
+    gap: 0.6rem;
+  }
+
+  .radioScrollButton {
+    height: 2.65rem;
+    width: 2.65rem;
   }
 
   .toggleRow {
