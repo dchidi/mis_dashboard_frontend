@@ -267,6 +267,10 @@
   color: #f6f2ff;
 }
 
+.loadingIcon {
+  animation: spin 700ms linear infinite;
+}
+
 .closeButton:hover,
 .secondaryAction:hover {
   background: rgba(255, 255, 255, 0.06);
@@ -323,6 +327,16 @@
 
 .feedbackText {
   color: rgba(185, 199, 255, 0.94);
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 1280px) {

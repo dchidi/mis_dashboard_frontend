@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import dayjs from "dayjs";
 import { MultiSelect } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
@@ -10,12 +10,14 @@ import {
   RiDownloadCloud2Line,
   RiFileTextLine,
   RiLineChartLine,
+  RiLoader4Line,
   RiShieldCheckLine,
 } from "react-icons/ri";
 import DashboardLayout, {
   type DashboardDateRange,
 } from "../components/layout/DashboardLayout/DashboardLayout";
 import DashboardProfileMenu from "../components/ui/dashboard_profile_menu/DashboardProfileMenu";
+import V2EtlModal from "../components/ui/etl_modal/V2EtlModal";
 import { dashboardMenuItems } from "../config/dashboardMenu";
 import {
   brandFilterOptions,
@@ -27,6 +29,15 @@ import {
 } from "../components/features/Attrition/dashboardState";
 import type { PremiumCurrencyCode } from "../components/features/Attrition/data";
 import type { TrendSeriesKey } from "../components/features/Attrition/QuotePerformance/types";
+import {
+  downloadFreePolicyReport,
+  fetchFreePolicyFilters,
+  type FreePolicyFilterOption,
+  type FreePolicyOutputProfile,
+} from "../services/freePolicyV2";
+import { useAuth } from "../context/AuthContext";
+import { useV2EtlRunner } from "../features/etl/useV2EtlRunner";
+import { getUserNameParts } from "../utils/auth";
 import { getReportingPeriodPresets } from "../utils/reportingPeriodPresets";
 import style from "./page_css/Reports.module.css";
 
@@ -46,11 +57,6 @@ type ReportId =
   | "converted-quote";
 
 type ReportScope = "Policy" | "Quote" | "Account" | "Claims";
-type FreePolicyOutputProfile =
-  | "active-converted"
-  | "active-not-converted"
-  | "lapsed-converted"
-  | "lapsed-not-converted";
 
 interface ReportRow {
   [key: string]: string | number;
@@ -104,6 +110,18 @@ interface PolicyReportOption {
   reportId: ReportId;
 }
 
+interface PolicyLibraryOption {
+  description: string;
+  label: string;
+  value: "free-policy" | "paid-policy";
+}
+
+interface FreePolicyFilterOptionsState {
+  brands: FreePolicyFilterOption[];
+  countries: FreePolicyFilterOption[];
+  petTypes: FreePolicyFilterOption[];
+}
+
 const defaultDateRange: DashboardDateRange = [
   dayjs().startOf("month").format("YYYY-MM-DD"),
   dayjs().format("YYYY-MM-DD"),
@@ -111,33 +129,35 @@ const defaultDateRange: DashboardDateRange = [
 
 const freePolicyProfileOptions: FreePolicyProfileOption[] = [
   {
-    description: "Free-policy records that converted and are still active.",
+    description:
+      "Free-policy records that converted to paid policy and are still active.",
     label: "Active Converted",
     value: "active-converted",
   },
   {
-    description: "Policies still active but not yet converted out of free access.",
+    description:
+      "Free-policy records that converted to paid policy regardless of the current paid-policy status.",
+    label: "Converted Policies",
+    value: "all-converted",
+  },
+  {
+    description:
+      "Policies still active but not yet converted out of free cover.",
     label: "Active Not Converted",
     value: "active-not-converted",
   },
   {
-    description: "Policies that lapsed after converting from the free-policy stage.",
-    label: "Lapsed Converted",
-    value: "lapsed-converted",
+    description:
+      "Free-policy records cancelled before converting into a paid policy.",
+    label: "Cancelled Not Converted",
+    value: "cancelled-not-converted",
   },
   {
-    description: "Policies that lapsed before converting out of free access.",
+    description: "Policies that lapsed before converting out of free cover.",
     label: "Lapsed Not Converted",
     value: "lapsed-not-converted",
   },
 ];
-
-const freePolicyStatusByProfile: Record<FreePolicyOutputProfile, string> = {
-  "active-converted": "Active Converted",
-  "active-not-converted": "Active Not Converted",
-  "lapsed-converted": "Lapsed Converted",
-  "lapsed-not-converted": "Lapsed Not Converted",
-};
 
 const quoteReportOptions: QuoteReportOption[] = [
   {
@@ -148,7 +168,7 @@ const quoteReportOptions: QuoteReportOption[] = [
   },
   {
     description:
-      "Pending quote queue with age and current stage for the selected markets.",
+      "Pending quote queue with age and current stage for the selected regions.",
     label: "Pending Quote",
     reportId: "pending-quote",
   },
@@ -160,19 +180,22 @@ const quoteReportOptions: QuoteReportOption[] = [
   },
 ];
 
-const policyReportOptions: PolicyReportOption[] = [
+const policyLibraryOptions: PolicyLibraryOption[] = [
   {
     description:
-      "Free-policy access and effective-date movement across the selected markets.",
+      "Free-policy access and effective-date movement across the selected regions.",
     label: "Free Policy",
-    reportId: "free-policy",
+    value: "free-policy",
   },
   {
     description:
-      "Converted policies with status, activation date, and premium ready for export.",
-    label: "Converted Policy",
-    reportId: "converted-policy",
+      "Converted, active, cancelled, expired, pending, and referred policy exports grouped under paid policy.",
+    label: "Paid Policy",
+    value: "paid-policy",
   },
+];
+
+const paidPolicyReportOptions: PolicyReportOption[] = [
   {
     description:
       "Active policies by market, brand, and pet type, with renewal timing included.",
@@ -226,20 +249,65 @@ const getAllOptionValues = <T extends string>(options: SelectionOption<T>[]) =>
 const allCountryValues = getAllOptionValues(countryFilterOptions);
 const allBrandValues = getAllOptionValues(brandFilterOptions);
 const allPetTypeValues = getAllOptionValues(petTypeFilterOptions);
+const staticCountrySelectOptions = countryFilterOptions.map((option) => ({
+  label: option.label,
+  value: option.value,
+}));
+const staticBrandSelectOptions = brandFilterOptions.map((option) => ({
+  label: option.label,
+  value: option.value,
+}));
+const staticPetTypeSelectOptions = petTypeFilterOptions.map((option) => ({
+  label: option.label,
+  value: option.value,
+}));
+const emptyFreePolicyFilterOptions: FreePolicyFilterOptionsState = {
+  brands: [],
+  countries: [],
+  petTypes: [],
+};
+
+const getFilterOptionValues = (options: FreePolicyFilterOption[]) =>
+  options.map((option) => option.value);
+
+const areSameValueLists = (left: string[], right: string[]) =>
+  left.length === right.length &&
+  left.every((value, index) => value === right[index]);
+
+const reconcileSelectedValues = (
+  selectedValues: string[],
+  availableOptions: FreePolicyFilterOption[],
+) => {
+  const availableValues = new Set(getFilterOptionValues(availableOptions));
+  const intersectedValues = selectedValues.filter((value) =>
+    availableValues.has(value),
+  );
+  const dedupedIntersectedValues = Array.from(new Set(intersectedValues));
+  const nextValues = dedupedIntersectedValues.length
+    ? dedupedIntersectedValues
+    : getFilterOptionValues(availableOptions);
+
+  return areSameValueLists(selectedValues, nextValues)
+    ? selectedValues
+    : nextValues;
+};
 
 const pickValues = (selected: string[], fallback: SelectionOption<string>[]) =>
-  selected.length ? selected : fallback.map((option) => option.label).slice(0, 3);
+  selected.length
+    ? selected
+    : fallback.map((option) => option.label).slice(0, 3);
 
 const csvEscape = (value: string | number) => {
   const stringValue = String(value);
   if (/[",\n]/.test(stringValue)) {
-    return `"${stringValue.replace(/"/g, "\"\"")}"`;
+    return `"${stringValue.replace(/"/g, '""')}"`;
   }
 
   return stringValue;
 };
 
-const formatCurrencyAmount = (value: number) => `\u00A3${value.toLocaleString()}`;
+const formatCurrencyAmount = (value: number) =>
+  `\u00A3${value.toLocaleString()}`;
 
 const buildReportRows = (
   context: ReportBuildContext,
@@ -259,7 +327,12 @@ const buildReportRows = (
   const petTypes = pickValues(context.petTypes, petTypeFilterOptions);
   const [, endDate] = context.dateRange;
   const baseDate = endDate ? dayjs(endDate) : dayjs();
-  const rowCount = Math.max(countries.length, brands.length, petTypes.length, 4);
+  const rowCount = Math.max(
+    countries.length,
+    brands.length,
+    petTypes.length,
+    4,
+  );
 
   return Array.from({ length: rowCount }, (_, index) => {
     const row = rowFactory(index, {
@@ -288,7 +361,7 @@ const reportDefinitions: ReportDefinition[] = [
       "Status",
     ],
     description:
-      "Free-policy access and effective-date movement across the selected markets.",
+      "Free-policy access and effective-date movement across the selected regions.",
     fileStem: "free_policy",
     icon: RiShieldCheckLine,
     id: "free-policy",
@@ -319,7 +392,7 @@ const reportDefinitions: ReportDefinition[] = [
               : index % 4 === 1
                 ? "Active Not Converted"
                 : index % 4 === 2
-                  ? "Lapsed Converted"
+                  ? "Cancelled Not Converted"
                   : "Lapsed Not Converted",
         }),
       ),
@@ -398,7 +471,7 @@ const reportDefinitions: ReportDefinition[] = [
       "Claim Value",
     ],
     description:
-      "Claim-level result extract with status, claim date, and value across selected markets.",
+      "Claim-level result extract with status, claim date, and value across selected regions.",
     fileStem: "claims_report",
     icon: RiFileTextLine,
     id: "claims",
@@ -422,11 +495,7 @@ const reportDefinitions: ReportDefinition[] = [
           "Claim Date": values.date,
           "Claim Number": `CL-${9200 + index}`,
           "Claim Status":
-            index % 3 === 0
-              ? "Open"
-              : index % 3 === 1
-                ? "In Review"
-                : "Closed",
+            index % 3 === 0 ? "Open" : index % 3 === 1 ? "In Review" : "Closed",
           "Claim Value": formatCurrencyAmount(180 + index * 54),
           Country: values.country,
           "Pet Type": values.petType,
@@ -606,8 +675,7 @@ const reportDefinitions: ReportDefinition[] = [
               : index % 3 === 1
                 ? "Claims history"
                 : "Manual underwriting",
-          "Review Status":
-            index % 2 === 0 ? "In review" : "Awaiting decision",
+          "Review Status": index % 2 === 0 ? "In review" : "Awaiting decision",
         }),
       ),
   },
@@ -746,7 +814,7 @@ const reportDefinitions: ReportDefinition[] = [
       "Stage",
     ],
     description:
-      "Pending quote queue with age and current stage for the selected markets.",
+      "Pending quote queue with age and current stage for the selected regions.",
     fileStem: "pending_quote",
     icon: RiLineChartLine,
     id: "pending-quote",
@@ -969,11 +1037,15 @@ const datePickerStyles = {
 
 const Reports: React.FC = () => {
   const navigate = useNavigate();
+  const { isAdmin, logout, user } = useAuth();
   const isMobile = useMediaQuery("(max-width: 640px)") ?? false;
   const [isFreePolicyTypeModalOpen, setIsFreePolicyTypeModalOpen] =
     useState(false);
   const [isPolicyTypeModalOpen, setIsPolicyTypeModalOpen] = useState(false);
+  const [isPaidPolicyTypeModalOpen, setIsPaidPolicyTypeModalOpen] =
+    useState(false);
   const [isQuoteTypeModalOpen, setIsQuoteTypeModalOpen] = useState(false);
+  const etlRunner = useV2EtlRunner();
   const [activeFilterModal, setActiveFilterModal] =
     useState<ReportFilterModalState | null>(null);
   const [reportingPeriod, setReportingPeriod] =
@@ -988,15 +1060,32 @@ const Reports: React.FC = () => {
     ...allPetTypeValues,
   ]);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [isDownloadInProgress, setIsDownloadInProgress] = useState(false);
+  const [freePolicyFilterOptions, setFreePolicyFilterOptions] =
+    useState<FreePolicyFilterOptionsState>(emptyFreePolicyFilterOptions);
+  const [isFreePolicyFilterBootstrapLoading, setIsFreePolicyFilterBootstrapLoading] =
+    useState(false);
+  const [isFreePolicyBrandOptionsLoading, setIsFreePolicyBrandOptionsLoading] =
+    useState(false);
+  const [isFreePolicyPetTypeOptionsLoading, setIsFreePolicyPetTypeOptionsLoading] =
+    useState(false);
+  const [freePolicyFiltersError, setFreePolicyFiltersError] = useState<
+    string | null
+  >(null);
+  const freePolicyBrandRequestRef = useRef<AbortController | null>(null);
+  const freePolicyPetTypeRequestRef = useRef<AbortController | null>(null);
 
   const activeReport = useMemo(
     () =>
       activeFilterModal
-        ? reportDefinitions.find((report) => report.id === activeFilterModal.reportId) ??
-          null
+        ? (reportDefinitions.find(
+            (report) => report.id === activeFilterModal.reportId,
+          ) ?? null)
         : null,
     [activeFilterModal],
   );
+  const isFreePolicyReportActive =
+    activeReport?.id === "free-policy" && Boolean(activeFilterModal?.profile);
   const standaloneLibraryReports = useMemo(
     () =>
       reportDefinitions.filter(
@@ -1004,15 +1093,35 @@ const Reports: React.FC = () => {
       ),
     [],
   );
+  const countryOptionsData = isFreePolicyReportActive
+    ? freePolicyFilterOptions.countries
+    : staticCountrySelectOptions;
+  const brandOptionsData = isFreePolicyReportActive
+    ? freePolicyFilterOptions.brands
+    : staticBrandSelectOptions;
+  const petTypeOptionsData = isFreePolicyReportActive
+    ? freePolicyFilterOptions.petTypes
+    : staticPetTypeSelectOptions;
+  const isFreePolicyFiltersBusy =
+    isFreePolicyFilterBootstrapLoading ||
+    isFreePolicyBrandOptionsLoading ||
+    isFreePolicyPetTypeOptionsLoading;
 
   const canDownload = Boolean(
     activeReport &&
-      reportingPeriod[0] &&
-      reportingPeriod[1] &&
-      selectedCountries.length &&
-      selectedBrands.length &&
-      selectedPetTypes.length,
+    reportingPeriod[0] &&
+    reportingPeriod[1] &&
+    selectedCountries.length &&
+    selectedBrands.length &&
+    selectedPetTypes.length &&
+    (!isFreePolicyReportActive ||
+      (!isFreePolicyFiltersBusy &&
+        !freePolicyFiltersError &&
+        countryOptionsData.length &&
+        brandOptionsData.length &&
+        petTypeOptionsData.length)),
   );
+  const { firstName, lastName } = getUserNameParts(user);
 
   const resetFilters = () => {
     setReportingPeriod(defaultDateRange);
@@ -1020,14 +1129,84 @@ const Reports: React.FC = () => {
     setSelectedBrands([...allBrandValues]);
     setSelectedPetTypes([...allPetTypeValues]);
     setFeedbackMessage(null);
+    setIsDownloadInProgress(false);
+    setFreePolicyFiltersError(null);
+    setIsFreePolicyBrandOptionsLoading(false);
+    setIsFreePolicyPetTypeOptionsLoading(false);
   };
 
-  const closeAllModals = () => {
-    setIsFreePolicyTypeModalOpen(false);
+  const stopFreePolicyRequests = () => {
+    freePolicyBrandRequestRef.current?.abort();
+    freePolicyPetTypeRequestRef.current?.abort();
+    setIsFreePolicyFilterBootstrapLoading(false);
+    setIsFreePolicyBrandOptionsLoading(false);
+    setIsFreePolicyPetTypeOptionsLoading(false);
+  };
+
+  const closePolicyLibraryModal = () => {
     setIsPolicyTypeModalOpen(false);
+    setIsPaidPolicyTypeModalOpen(false);
+    setIsFreePolicyTypeModalOpen(false);
+    setFeedbackMessage(null);
+    setIsDownloadInProgress(false);
+    setFreePolicyFiltersError(null);
+  };
+
+  const closePaidPolicyTypeModal = () => {
+    setIsPaidPolicyTypeModalOpen(false);
+    setFeedbackMessage(null);
+    setIsDownloadInProgress(false);
+    setFreePolicyFiltersError(null);
+  };
+
+  const closeFreePolicyTypeModal = () => {
+    stopFreePolicyRequests();
+    setIsFreePolicyTypeModalOpen(false);
+    setFeedbackMessage(null);
+    setIsDownloadInProgress(false);
+    setFreePolicyFiltersError(null);
+  };
+
+  const closeQuoteTypeModal = () => {
     setIsQuoteTypeModalOpen(false);
+    setFeedbackMessage(null);
+    setIsDownloadInProgress(false);
+    setFreePolicyFiltersError(null);
+  };
+
+  const closeFilterModal = () => {
+    stopFreePolicyRequests();
     setActiveFilterModal(null);
     setFeedbackMessage(null);
+    setIsDownloadInProgress(false);
+    setFreePolicyFiltersError(null);
+  };
+
+  const closeTopmostModal = () => {
+    if (activeFilterModal) {
+      closeFilterModal();
+      return;
+    }
+
+    if (isFreePolicyTypeModalOpen) {
+      closeFreePolicyTypeModal();
+      return;
+    }
+
+    if (isPaidPolicyTypeModalOpen) {
+      closePaidPolicyTypeModal();
+      return;
+    }
+
+    if (isPolicyTypeModalOpen) {
+      closePolicyLibraryModal();
+      return;
+    }
+
+    if (isQuoteTypeModalOpen) {
+      closeQuoteTypeModal();
+      return;
+    }
   };
 
   useEffect(() => {
@@ -1043,7 +1222,7 @@ const Reports: React.FC = () => {
     const originalOverflow = document.body.style.overflow;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        closeAllModals();
+        closeTopmostModal();
       }
     };
 
@@ -1057,9 +1236,249 @@ const Reports: React.FC = () => {
   }, [
     activeFilterModal,
     isFreePolicyTypeModalOpen,
+    isPaidPolicyTypeModalOpen,
     isPolicyTypeModalOpen,
     isQuoteTypeModalOpen,
   ]);
+
+  useEffect(() => {
+    if (!isFreePolicyReportActive) {
+      freePolicyBrandRequestRef.current?.abort();
+      freePolicyPetTypeRequestRef.current?.abort();
+      setFreePolicyFilterOptions(emptyFreePolicyFilterOptions);
+      setIsFreePolicyFilterBootstrapLoading(false);
+      setIsFreePolicyBrandOptionsLoading(false);
+      setIsFreePolicyPetTypeOptionsLoading(false);
+      setFreePolicyFiltersError(null);
+      return;
+    }
+
+    const abortController = new AbortController();
+
+    setIsFreePolicyFilterBootstrapLoading(true);
+    setFreePolicyFiltersError(null);
+
+    void fetchFreePolicyFilters({ signal: abortController.signal })
+      .then((filters) => {
+        startTransition(() => {
+          setFreePolicyFilterOptions(filters);
+          setSelectedCountries(getFilterOptionValues(filters.countries));
+          setSelectedBrands(getFilterOptionValues(filters.brands));
+          setSelectedPetTypes(getFilterOptionValues(filters.petTypes));
+        });
+      })
+      .catch((error: unknown) => {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        startTransition(() => {
+          setFreePolicyFilterOptions(emptyFreePolicyFilterOptions);
+          setSelectedCountries([]);
+          setSelectedBrands([]);
+          setSelectedPetTypes([]);
+        });
+        setFreePolicyFiltersError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load free policy filters.",
+        );
+      })
+      .finally(() => {
+        if (!abortController.signal.aborted) {
+          setIsFreePolicyFilterBootstrapLoading(false);
+        }
+      });
+
+    return () => {
+      abortController.abort();
+    };
+  }, [isFreePolicyReportActive, activeFilterModal?.profile]);
+
+  const handleCountrySelectionChange = (nextCountries: string[]) => {
+    setFeedbackMessage(null);
+
+    if (!isFreePolicyReportActive) {
+      setSelectedCountries(nextCountries);
+      return;
+    }
+
+    setSelectedCountries(nextCountries);
+    setFreePolicyFiltersError(null);
+    freePolicyBrandRequestRef.current?.abort();
+    freePolicyPetTypeRequestRef.current?.abort();
+
+    if (!nextCountries.length) {
+      setIsFreePolicyBrandOptionsLoading(false);
+      setIsFreePolicyPetTypeOptionsLoading(false);
+      startTransition(() => {
+        setFreePolicyFilterOptions((currentOptions) => ({
+          ...currentOptions,
+          brands: [],
+          petTypes: [],
+        }));
+        setSelectedBrands([]);
+        setSelectedPetTypes([]);
+      });
+      return;
+    }
+
+    const abortController = new AbortController();
+    freePolicyBrandRequestRef.current = abortController;
+    freePolicyPetTypeRequestRef.current = abortController;
+    setIsFreePolicyBrandOptionsLoading(true);
+    setIsFreePolicyPetTypeOptionsLoading(true);
+
+    void (async () => {
+      try {
+        const brandScopedFilters = await fetchFreePolicyFilters({
+          countryCodes: nextCountries,
+          signal: abortController.signal,
+        });
+
+        const availableBrandValues = getFilterOptionValues(
+          brandScopedFilters.brands,
+        );
+        const nextSelectedBrands = reconcileSelectedValues(
+          selectedBrands,
+          brandScopedFilters.brands,
+        );
+
+        let nextPetTypeOptions = brandScopedFilters.petTypes;
+
+        if (
+          nextSelectedBrands.length &&
+          !areSameValueLists(nextSelectedBrands, availableBrandValues)
+        ) {
+          const petTypeScopedFilters = await fetchFreePolicyFilters({
+            brands: nextSelectedBrands,
+            countryCodes: nextCountries,
+            signal: abortController.signal,
+          });
+          nextPetTypeOptions = petTypeScopedFilters.petTypes;
+        }
+
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        startTransition(() => {
+          setFreePolicyFilterOptions((currentOptions) => ({
+            brands: brandScopedFilters.brands,
+            countries:
+              currentOptions.countries.length > 0
+                ? currentOptions.countries
+                : brandScopedFilters.countries,
+            petTypes: nextPetTypeOptions,
+          }));
+          setSelectedBrands(nextSelectedBrands);
+          setSelectedPetTypes((currentValues) =>
+            reconcileSelectedValues(currentValues, nextPetTypeOptions),
+          );
+        });
+      } catch (error: unknown) {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        setFreePolicyFiltersError(
+          error instanceof Error
+            ? error.message
+            : "Failed to refresh free policy brands.",
+        );
+      } finally {
+        if (freePolicyBrandRequestRef.current === abortController) {
+          freePolicyBrandRequestRef.current = null;
+        }
+        if (freePolicyPetTypeRequestRef.current === abortController) {
+          freePolicyPetTypeRequestRef.current = null;
+        }
+        if (!abortController.signal.aborted) {
+          setIsFreePolicyBrandOptionsLoading(false);
+          setIsFreePolicyPetTypeOptionsLoading(false);
+        }
+      }
+    })();
+  };
+
+  const handleBrandSelectionChange = (nextBrands: string[]) => {
+    setFeedbackMessage(null);
+
+    if (!isFreePolicyReportActive) {
+      setSelectedBrands(nextBrands);
+      return;
+    }
+
+    setSelectedBrands(nextBrands);
+    setFreePolicyFiltersError(null);
+    freePolicyPetTypeRequestRef.current?.abort();
+
+    if (!nextBrands.length) {
+      setIsFreePolicyPetTypeOptionsLoading(false);
+      startTransition(() => {
+        setFreePolicyFilterOptions((currentOptions) => ({
+          ...currentOptions,
+          petTypes: [],
+        }));
+        setSelectedPetTypes([]);
+      });
+      return;
+    }
+
+    const abortController = new AbortController();
+    freePolicyPetTypeRequestRef.current = abortController;
+    setIsFreePolicyPetTypeOptionsLoading(true);
+
+    void fetchFreePolicyFilters({
+      brands: nextBrands,
+      countryCodes: selectedCountries,
+      signal: abortController.signal,
+    })
+      .then((filters) => {
+        startTransition(() => {
+          setFreePolicyFilterOptions((currentOptions) => ({
+            ...currentOptions,
+            petTypes: filters.petTypes,
+          }));
+          setSelectedPetTypes((currentValues) =>
+            reconcileSelectedValues(currentValues, filters.petTypes),
+          );
+        });
+      })
+      .catch((error: unknown) => {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        setFreePolicyFiltersError(
+          error instanceof Error
+            ? error.message
+            : "Failed to refresh free policy pet types.",
+        );
+      })
+      .finally(() => {
+        if (freePolicyPetTypeRequestRef.current === abortController) {
+          freePolicyPetTypeRequestRef.current = null;
+        }
+        if (!abortController.signal.aborted) {
+          setIsFreePolicyPetTypeOptionsLoading(false);
+        }
+      });
+  };
+
+  const handlePetTypeSelectionChange = (nextPetTypes: string[]) => {
+    setFeedbackMessage(null);
+    setSelectedPetTypes(nextPetTypes);
+  };
 
   const handleReportCardClick = (report: ReportDefinition) => {
     resetFilters();
@@ -1080,21 +1499,45 @@ const Reports: React.FC = () => {
   const handleQuoteLibraryClick = () => {
     resetFilters();
     setIsQuoteTypeModalOpen(true);
+    setIsPolicyTypeModalOpen(false);
+    setIsPaidPolicyTypeModalOpen(false);
+    setIsFreePolicyTypeModalOpen(false);
+    setActiveFilterModal(null);
   };
 
   const handlePolicyLibraryClick = () => {
     resetFilters();
     setIsPolicyTypeModalOpen(true);
+    setIsPaidPolicyTypeModalOpen(false);
+    setIsFreePolicyTypeModalOpen(false);
+    setIsQuoteTypeModalOpen(false);
+    setActiveFilterModal(null);
+  };
+
+  const handlePolicyLibraryTypeClick = (
+    value: PolicyLibraryOption["value"],
+  ) => {
+    resetFilters();
+
+    if (value === "free-policy") {
+      setIsPaidPolicyTypeModalOpen(false);
+      setIsFreePolicyTypeModalOpen(true);
+      return;
+    }
+
+    setIsFreePolicyTypeModalOpen(false);
+    setIsPaidPolicyTypeModalOpen(true);
   };
 
   const handleFreePolicyTypeClick = (profile: FreePolicyOutputProfile) => {
-    const option = freePolicyProfileOptions.find((entry) => entry.value === profile);
+    const option = freePolicyProfileOptions.find(
+      (entry) => entry.value === profile,
+    );
     if (!option) {
       return;
     }
 
     resetFilters();
-    setIsFreePolicyTypeModalOpen(false);
     setActiveFilterModal({
       badgeLabel: "Policy",
       description: option.description,
@@ -1105,13 +1548,14 @@ const Reports: React.FC = () => {
   };
 
   const handleQuoteTypeClick = (reportId: ReportId) => {
-    const option = quoteReportOptions.find((entry) => entry.reportId === reportId);
+    const option = quoteReportOptions.find(
+      (entry) => entry.reportId === reportId,
+    );
     if (!option) {
       return;
     }
 
     resetFilters();
-    setIsQuoteTypeModalOpen(false);
     setActiveFilterModal({
       badgeLabel: "Quote",
       description: option.description,
@@ -1121,20 +1565,15 @@ const Reports: React.FC = () => {
     });
   };
 
-  const handlePolicyTypeClick = (reportId: ReportId) => {
-    const option = policyReportOptions.find((entry) => entry.reportId === reportId);
+  const handlePaidPolicyTypeClick = (reportId: ReportId) => {
+    const option = paidPolicyReportOptions.find(
+      (entry) => entry.reportId === reportId,
+    );
     if (!option) {
       return;
     }
 
     resetFilters();
-    setIsPolicyTypeModalOpen(false);
-
-    if (option.reportId === "free-policy") {
-      setIsFreePolicyTypeModalOpen(true);
-      return;
-    }
-
     setActiveFilterModal({
       badgeLabel: "Policy",
       description: option.description,
@@ -1144,90 +1583,130 @@ const Reports: React.FC = () => {
     });
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!activeReport || !activeFilterModal || !canDownload) {
       return;
     }
 
-    const rows = activeReport.buildRows({
-      brands: selectedBrands,
-      countries: selectedCountries,
-      dateRange: reportingPeriod,
-      petTypes: selectedPetTypes,
-    });
-    const filteredRows =
-      activeReport.id === "free-policy" && activeFilterModal.profile
-        ? rows.filter(
-            (row) =>
-              row.Status ===
-              freePolicyStatusByProfile[activeFilterModal.profile as FreePolicyOutputProfile],
-          )
-        : rows;
-    const csvRows = filteredRows.map((row) =>
-      activeReport.columns.map((column) => csvEscape(row[column] ?? "")).join(","),
-    );
-    const csv = [activeReport.columns.map(csvEscape).join(","), ...csvRows].join("\n");
     const [start, end] = reportingPeriod;
-    const fileNameSuffix = activeFilterModal.profile
-      ? `_${activeFilterModal.profile.replace(/-/g, "_")}`
-      : "";
-    const fileName = `${activeReport.fileStem}${fileNameSuffix}_${start ?? "start"}_${end ?? "end"}.csv`;
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
+    if (!start || !end) {
+      return;
+    }
 
-    link.href = url;
-    link.setAttribute("download", fileName);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-    setFeedbackMessage(`Downloaded ${activeFilterModal.title}.`);
+    setIsDownloadInProgress(true);
+    setFeedbackMessage(`Downloading ${activeFilterModal.title}...`);
+
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
+
+    if (activeReport.id === "free-policy" && activeFilterModal.profile) {
+      try {
+        await downloadFreePolicyReport({
+          brands: selectedBrands,
+          countryCodes: selectedCountries,
+          endDate: end,
+          petTypes: selectedPetTypes,
+          profile: activeFilterModal.profile,
+          startDate: start,
+        });
+        setFeedbackMessage(`Downloaded ${activeFilterModal.title}.`);
+      } catch (error) {
+        setFeedbackMessage(
+          error instanceof Error
+            ? error.message
+            : `Failed to download ${activeFilterModal.title}.`,
+        );
+      } finally {
+        setIsDownloadInProgress(false);
+      }
+      return;
+    }
+
+    try {
+      const rows = activeReport.buildRows({
+        brands: selectedBrands,
+        countries: selectedCountries,
+        dateRange: reportingPeriod,
+        petTypes: selectedPetTypes,
+      });
+      const csvRows = rows.map((row) =>
+        activeReport.columns
+          .map((column) => csvEscape(row[column] ?? ""))
+          .join(","),
+      );
+      const csv = [
+        activeReport.columns.map(csvEscape).join(","),
+        ...csvRows,
+      ].join("\n");
+      const fileNameSuffix = activeFilterModal.profile
+        ? `_${activeFilterModal.profile.replace(/-/g, "_")}`
+        : "";
+      const fileName = `${activeReport.fileStem}${fileNameSuffix}_${start ?? "start"}_${end ?? "end"}.csv`;
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      setFeedbackMessage(`Downloaded ${activeFilterModal.title}.`);
+    } finally {
+      setIsDownloadInProgress(false);
+    }
   };
 
   return (
-    <DashboardLayout
-      downloadAriaLabel="Download report"
-      downloadDisabled
-      headerProfile={
-        <DashboardProfileMenu
-          activeCurrencyCode={"GBP" as PremiumCurrencyCode}
-          activeMetricKey={"totalQuote" as TrendSeriesKey}
-          availableBrands={brandFilterOptions}
-          availableCountries={countryFilterOptions}
-          availableCurrencies={currencyFilterOptions}
-          availableMetrics={metricFilterOptions}
-          availablePetTypes={petTypeFilterOptions}
-          firstName="Chidi"
-          lastName="Duru"
-          onActiveCurrencyChange={() => undefined}
-          onActiveMetricChange={() => undefined}
-          onBrandsChange={() => undefined}
-          onCountriesChange={() => undefined}
-          onManageUsers={() => navigate("/manage_users")}
-          onLogout={() => navigate("/")}
-          onPetTypesChange={() => undefined}
-          onRunEtl={() => undefined}
-          selectedBrands={[]}
-          selectedCountries={[]}
-          selectedPetTypes={[]}
-          showFilterControls={false}
-          showRunEtlControl={false}
-        />
-      }
-      menuItems={dashboardMenuItems}
-      showReportingPeriodControl={false}
-      title="Reports"
-    >
-      <div className={style.root}>
+    <>
+      <DashboardLayout
+        downloadAriaLabel="Download report"
+        downloadDisabled
+        headerProfile={
+          <DashboardProfileMenu
+            activeCurrencyCode={"GBP" as PremiumCurrencyCode}
+            activeMetricKey={"totalQuote" as TrendSeriesKey}
+            availableBrands={brandFilterOptions}
+            availableCountries={countryFilterOptions}
+            availableCurrencies={currencyFilterOptions}
+            availableMetrics={metricFilterOptions}
+            availablePetTypes={petTypeFilterOptions}
+            firstName={firstName}
+            isEtlRunning={etlRunner.isEtlRunning}
+            lastName={lastName}
+            onActiveCurrencyChange={() => undefined}
+            onActiveMetricChange={() => undefined}
+            onBrandsChange={() => undefined}
+            onCountriesChange={() => undefined}
+            onManageUsers={() => navigate("/manage_users")}
+            onLogout={logout}
+            onPetTypesChange={() => undefined}
+            onRunEtl={etlRunner.openModal}
+            selectedBrands={[]}
+            selectedCountries={[]}
+            selectedPetTypes={[]}
+            showFilterControls={false}
+            showManageUsersControl={isAdmin}
+            showRunEtlControl={isAdmin}
+          />
+        }
+        menuItems={dashboardMenuItems}
+        showReportingPeriodControl={false}
+        title="Reports"
+      >
+        <div className={style.root}>
         <div className={style.libraryPage}>
           <div className={style.libraryHero}>
             <div className={style.libraryHeroCopy}>
               <p className={style.eyebrow}>Report Library</p>
-              <h2 className={style.libraryTitle}>Choose a report to download</h2>
+              <h2 className={style.libraryTitle}>
+                Choose a report to download
+              </h2>
               <p className={style.libraryCopy}>
-                Select a report card, choose the filters you need, and download the
-                extract directly.
+                Select a report card, choose the filters you need, and download
+                the extract directly.
               </p>
             </div>
           </div>
@@ -1276,13 +1755,16 @@ const Reports: React.FC = () => {
               </span>
 
               <div className={style.reportCardBody}>
-                <span className={`${style.reportScopeBadge} ${style.reportScopePolicy}`}>
+                <span
+                  className={`${style.reportScopeBadge} ${style.reportScopePolicy}`}
+                >
                   Policy
                 </span>
-                <strong className={style.reportCardTitle}>Policy Reports</strong>
+                <strong className={style.reportCardTitle}>
+                  Policy Reports
+                </strong>
                 <span className={style.reportCardDescription}>
-                  Free policy, converted policy, and active policy exports in one
-                  grouped flow.
+                  Free policy and paid policy exports in one grouped flow.
                 </span>
               </div>
             </button>
@@ -1297,20 +1779,23 @@ const Reports: React.FC = () => {
               </span>
 
               <div className={style.reportCardBody}>
-                <span className={`${style.reportScopeBadge} ${style.reportScopeQuote}`}>
+                <span
+                  className={`${style.reportScopeBadge} ${style.reportScopeQuote}`}
+                >
                   Quote
                 </span>
                 <strong className={style.reportCardTitle}>Quote Reports</strong>
                 <span className={style.reportCardDescription}>
-                  Converted, pending, and lapsed quote exports in one grouped flow.
+                  Converted, pending, and lapsed quote exports in one grouped
+                  flow.
                 </span>
               </div>
             </button>
           </div>
         </div>
 
-        {isFreePolicyTypeModalOpen ? (
-          <div className={style.modalOverlay} onClick={closeAllModals}>
+        {isFreePolicyTypeModalOpen && !activeFilterModal ? (
+          <div className={style.modalOverlay} onClick={closeFreePolicyTypeModal}>
             <div
               aria-labelledby="free-policy-type-modal-title"
               aria-modal="true"
@@ -1321,19 +1806,22 @@ const Reports: React.FC = () => {
               <div className={style.modalHeader}>
                 <div className={style.modalHeaderCopy}>
                   <p className={style.modalEyebrow}>Free Policy</p>
-                  <h3 className={style.modalTitle} id="free-policy-type-modal-title">
+                  <h3
+                    className={style.modalTitle}
+                    id="free-policy-type-modal-title"
+                  >
                     Choose policy type
                   </h3>
                   <p className={style.modalDescription}>
-                    Select the exact free-policy extract you want before choosing
-                    filters.
+                    Select the exact free-policy extract you want before
+                    choosing filters.
                   </p>
                 </div>
 
                 <button
                   aria-label="Close free policy type modal"
                   className={style.closeButton}
-                  onClick={closeAllModals}
+                  onClick={closeFreePolicyTypeModal}
                   type="button"
                 >
                   <RiCloseLine />
@@ -1349,7 +1837,9 @@ const Reports: React.FC = () => {
                     type="button"
                   >
                     <span className={style.policyTypeTag}>Free Policy</span>
-                    <strong className={style.policyTypeCardTitle}>{option.label}</strong>
+                    <strong className={style.policyTypeCardTitle}>
+                      {option.label}
+                    </strong>
                     <span className={style.policyTypeCardDescription}>
                       {option.description}
                     </span>
@@ -1360,8 +1850,67 @@ const Reports: React.FC = () => {
           </div>
         ) : null}
 
-        {isPolicyTypeModalOpen ? (
-          <div className={style.modalOverlay} onClick={closeAllModals}>
+        {isPaidPolicyTypeModalOpen && !activeFilterModal ? (
+          <div className={style.modalOverlay} onClick={closePaidPolicyTypeModal}>
+            <div
+              aria-labelledby="paid-policy-type-modal-title"
+              aria-modal="true"
+              className={`${style.modal} ${style.selectionModal}`}
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+            >
+              <div className={style.modalHeader}>
+                <div className={style.modalHeaderCopy}>
+                  <p className={style.modalEyebrow}>Paid Policy</p>
+                  <h3
+                    className={style.modalTitle}
+                    id="paid-policy-type-modal-title"
+                  >
+                    Choose policy type
+                  </h3>
+                  <p className={style.modalDescription}>
+                    Select the paid-policy extract you want before choosing
+                    filters.
+                  </p>
+                </div>
+
+                <button
+                  aria-label="Close paid policy type modal"
+                  className={style.closeButton}
+                  onClick={closePaidPolicyTypeModal}
+                  type="button"
+                >
+                  <RiCloseLine />
+                </button>
+              </div>
+
+              <div className={style.policyTypeGrid}>
+                {paidPolicyReportOptions.map((option) => (
+                  <button
+                    className={style.policyTypeCard}
+                    key={option.reportId}
+                    onClick={() => handlePaidPolicyTypeClick(option.reportId)}
+                    type="button"
+                  >
+                    <span className={style.policyTypeTag}>Paid Policy</span>
+                    <strong className={style.policyTypeCardTitle}>
+                      {option.label}
+                    </strong>
+                    <span className={style.policyTypeCardDescription}>
+                      {option.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {isPolicyTypeModalOpen &&
+        !isPaidPolicyTypeModalOpen &&
+        !isFreePolicyTypeModalOpen &&
+        !activeFilterModal ? (
+          <div className={style.modalOverlay} onClick={closePolicyLibraryModal}>
             <div
               aria-labelledby="policy-type-modal-title"
               aria-modal="true"
@@ -1383,7 +1932,7 @@ const Reports: React.FC = () => {
                 <button
                   aria-label="Close policy report type modal"
                   className={style.closeButton}
-                  onClick={closeAllModals}
+                  onClick={closePolicyLibraryModal}
                   type="button"
                 >
                   <RiCloseLine />
@@ -1391,15 +1940,17 @@ const Reports: React.FC = () => {
               </div>
 
               <div className={style.policyTypeGrid}>
-                {policyReportOptions.map((option) => (
+                {policyLibraryOptions.map((option) => (
                   <button
                     className={style.policyTypeCard}
-                    key={option.reportId}
-                    onClick={() => handlePolicyTypeClick(option.reportId)}
+                    key={option.value}
+                    onClick={() => handlePolicyLibraryTypeClick(option.value)}
                     type="button"
                   >
                     <span className={style.policyTypeTag}>Policy</span>
-                    <strong className={style.policyTypeCardTitle}>{option.label}</strong>
+                    <strong className={style.policyTypeCardTitle}>
+                      {option.label}
+                    </strong>
                     <span className={style.policyTypeCardDescription}>
                       {option.description}
                     </span>
@@ -1410,8 +1961,8 @@ const Reports: React.FC = () => {
           </div>
         ) : null}
 
-        {isQuoteTypeModalOpen ? (
-          <div className={style.modalOverlay} onClick={closeAllModals}>
+        {isQuoteTypeModalOpen && !activeFilterModal ? (
+          <div className={style.modalOverlay} onClick={closeQuoteTypeModal}>
             <div
               aria-labelledby="quote-type-modal-title"
               aria-modal="true"
@@ -1433,7 +1984,7 @@ const Reports: React.FC = () => {
                 <button
                   aria-label="Close quote report type modal"
                   className={style.closeButton}
-                  onClick={closeAllModals}
+                  onClick={closeQuoteTypeModal}
                   type="button"
                 >
                   <RiCloseLine />
@@ -1449,7 +2000,9 @@ const Reports: React.FC = () => {
                     type="button"
                   >
                     <span className={style.policyTypeTag}>Quote</span>
-                    <strong className={style.policyTypeCardTitle}>{option.label}</strong>
+                    <strong className={style.policyTypeCardTitle}>
+                      {option.label}
+                    </strong>
                     <span className={style.policyTypeCardDescription}>
                       {option.description}
                     </span>
@@ -1461,7 +2014,7 @@ const Reports: React.FC = () => {
         ) : null}
 
         {activeFilterModal && activeReport ? (
-          <div className={style.modalOverlay} onClick={closeAllModals}>
+          <div className={style.modalOverlay} onClick={closeFilterModal}>
             <div
               aria-labelledby="report-filter-modal-title"
               aria-modal="true"
@@ -1485,7 +2038,10 @@ const Reports: React.FC = () => {
                       </span>
                     ) : null}
                   </div>
-                  <h3 className={style.modalTitle} id="report-filter-modal-title">
+                  <h3
+                    className={style.modalTitle}
+                    id="report-filter-modal-title"
+                  >
                     {activeFilterModal.title}
                   </h3>
                   <p className={style.modalDescription}>
@@ -1496,7 +2052,7 @@ const Reports: React.FC = () => {
                 <button
                   aria-label="Close report filter modal"
                   className={style.closeButton}
-                  onClick={closeAllModals}
+                  onClick={closeFilterModal}
                   type="button"
                 >
                   <RiCloseLine />
@@ -1505,9 +2061,14 @@ const Reports: React.FC = () => {
 
               <div className={style.formIntro}>
                 <p className={style.formHint}>
-                  All filter groups start selected by default. Refine only what you
-                  need, then download the report.
+                  All filter groups start selected by default. Refine only what
+                  you need, then download the report.
                 </p>
+                {isFreePolicyReportActive && freePolicyFiltersError ? (
+                  <span className={style.feedbackText}>
+                    {freePolicyFiltersError}
+                  </span>
+                ) : null}
               </div>
 
               <div className={style.filterGrid}>
@@ -1533,13 +2094,24 @@ const Reports: React.FC = () => {
                   <MultiSelect
                     aria-label="Select countries"
                     clearable
-                    comboboxProps={{ shadow: "md", withinPortal: true, zIndex: 2600 }}
-                    data={countryFilterOptions.map((option) => ({
-                      label: option.label,
-                      value: option.value,
-                    }))}
-                    nothingFoundMessage="No country found"
-                    onChange={setSelectedCountries}
+                    comboboxProps={{
+                      shadow: "md",
+                      withinPortal: true,
+                      zIndex: 2600,
+                    }}
+                    data={countryOptionsData}
+                    disabled={
+                      isFreePolicyReportActive &&
+                      (isFreePolicyFilterBootstrapLoading ||
+                        !countryOptionsData.length)
+                    }
+                    nothingFoundMessage={
+                      isFreePolicyReportActive &&
+                      isFreePolicyFilterBootstrapLoading
+                        ? "Loading countries..."
+                        : "No country found"
+                    }
+                    onChange={handleCountrySelectionChange}
                     placeholder="Select countries"
                     searchable
                     styles={countrySelectionInputStyles}
@@ -1552,13 +2124,27 @@ const Reports: React.FC = () => {
                   <MultiSelect
                     aria-label="Select brands"
                     clearable
-                    comboboxProps={{ shadow: "md", withinPortal: true, zIndex: 2600 }}
-                    data={brandFilterOptions.map((option) => ({
-                      label: option.label,
-                      value: option.value,
-                    }))}
-                    nothingFoundMessage="No brand found"
-                    onChange={setSelectedBrands}
+                    comboboxProps={{
+                      shadow: "md",
+                      withinPortal: true,
+                      zIndex: 2600,
+                    }}
+                    data={brandOptionsData}
+                    disabled={
+                      isFreePolicyReportActive &&
+                      (isFreePolicyFilterBootstrapLoading ||
+                        isFreePolicyBrandOptionsLoading ||
+                        !selectedCountries.length ||
+                        !brandOptionsData.length)
+                    }
+                    nothingFoundMessage={
+                      isFreePolicyReportActive &&
+                      (isFreePolicyFilterBootstrapLoading ||
+                        isFreePolicyBrandOptionsLoading)
+                        ? "Loading brands..."
+                        : "No brand found"
+                    }
+                    onChange={handleBrandSelectionChange}
                     placeholder="Select brands"
                     searchable
                     styles={brandSelectionInputStyles}
@@ -1571,13 +2157,27 @@ const Reports: React.FC = () => {
                   <MultiSelect
                     aria-label="Select pet types"
                     clearable
-                    comboboxProps={{ shadow: "md", withinPortal: true, zIndex: 2600 }}
-                    data={petTypeFilterOptions.map((option) => ({
-                      label: option.label,
-                      value: option.value,
-                    }))}
-                    nothingFoundMessage="No pet type found"
-                    onChange={setSelectedPetTypes}
+                    comboboxProps={{
+                      shadow: "md",
+                      withinPortal: true,
+                      zIndex: 2600,
+                    }}
+                    data={petTypeOptionsData}
+                    disabled={
+                      isFreePolicyReportActive &&
+                      (isFreePolicyFilterBootstrapLoading ||
+                        isFreePolicyPetTypeOptionsLoading ||
+                        !selectedBrands.length ||
+                        !petTypeOptionsData.length)
+                    }
+                    nothingFoundMessage={
+                      isFreePolicyReportActive &&
+                      (isFreePolicyFilterBootstrapLoading ||
+                        isFreePolicyPetTypeOptionsLoading)
+                        ? "Loading pet types..."
+                        : "No pet type found"
+                    }
+                    onChange={handlePetTypeSelectionChange}
                     placeholder="Select pet types"
                     searchable
                     styles={petTypeSelectionInputStyles}
@@ -1593,26 +2193,54 @@ const Reports: React.FC = () => {
               <div className={style.modalActions}>
                 <button
                   className={style.secondaryAction}
-                  onClick={closeAllModals}
+                  onClick={closeFilterModal}
                   type="button"
                 >
                   Close
                 </button>
                 <button
                   className={style.primaryAction}
-                  disabled={!canDownload}
+                  disabled={!canDownload || isDownloadInProgress}
                   onClick={handleDownload}
                   type="button"
                 >
-                  <RiDownloadCloud2Line />
-                  Download Report
+                  {isDownloadInProgress ? (
+                    <RiLoader4Line className={style.loadingIcon} />
+                  ) : (
+                    <RiDownloadCloud2Line />
+                  )}
+                  {isDownloadInProgress ? "Downloading..." : "Download Report"}
                 </button>
               </div>
             </div>
           </div>
         ) : null}
-      </div>
-    </DashboardLayout>
+        </div>
+      </DashboardLayout>
+
+      <V2EtlModal
+        activeRouteOption={etlRunner.activeRouteOption}
+        completedAt={etlRunner.completedAt}
+        dateRange={etlRunner.dateRange}
+        etlEvents={etlRunner.etlEvents}
+        etlHeadline={etlRunner.etlHeadline}
+        etlJobs={etlRunner.etlJobs}
+        isOpen={etlRunner.isEtlModalOpen}
+        isRunning={etlRunner.isEtlRunning}
+        isStatusLoading={etlRunner.isStatusLoading}
+        onClose={etlRunner.closeModal}
+        onDateRangeChange={etlRunner.setDateRange}
+        onResetDateRange={etlRunner.resetDateRange}
+        onResetState={etlRunner.resetEtlState}
+        onRun={() => void etlRunner.runSelectedEtl()}
+        onSelectRoute={etlRunner.setSelectedRouteKey}
+        routeOptions={etlRunner.routeOptions}
+        selectedRouteKey={etlRunner.selectedRouteKey}
+        startedAt={etlRunner.startedAt}
+        statusError={etlRunner.statusError}
+        statusSummary={etlRunner.statusSummary}
+      />
+    </>
   );
 };
 

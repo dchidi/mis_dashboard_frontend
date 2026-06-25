@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   PremiumOverview,
@@ -20,7 +20,11 @@ import type { PremiumCurrencyCode } from "../components/features/Attrition/data"
 import type { TrendSeriesKey } from "../components/features/Attrition/QuotePerformance/types";
 import DashboardLayout from "../components/layout/DashboardLayout/DashboardLayout";
 import DashboardProfileMenu from "../components/ui/dashboard_profile_menu/DashboardProfileMenu";
+import V2EtlModal from "../components/ui/etl_modal/V2EtlModal";
 import { dashboardMenuItems } from "../config/dashboardMenu";
+import { useAuth } from "../context/AuthContext";
+import { useV2EtlRunner } from "../features/etl/useV2EtlRunner";
+import { getUserNameParts } from "../utils/auth";
 import style from "./page_css/QuoteDashboard.module.css";
 
 interface DashboardChartViewProps {
@@ -69,6 +73,7 @@ const renderChartView = ({
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { isAdmin, logout, user } = useAuth();
   const [activeTrendSeriesKey, setActiveTrendSeriesKey] =
     useState<TrendSeriesKey>("totalQuote");
   const [activeCurrencyCode, setActiveCurrencyCode] =
@@ -76,7 +81,7 @@ const Dashboard: React.FC = () => {
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedPetTypes, setSelectedPetTypes] = useState<string[]>([]);
-  const [isEtlRunning, setIsEtlRunning] = useState(false);
+  const etlRunner = useV2EtlRunner();
   const dashboardData = useMemo(
     () =>
       buildQuoteDashboardData({
@@ -86,57 +91,71 @@ const Dashboard: React.FC = () => {
       }),
     [selectedBrands, selectedCountries, selectedPetTypes],
   );
-
-  useEffect(() => {
-    if (!isEtlRunning) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setIsEtlRunning(false);
-    }, 2400);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [isEtlRunning]);
+  const { firstName, lastName } = getUserNameParts(user);
 
   return (
-    <DashboardLayout
-      headerProfile={
-        <DashboardProfileMenu
-          activeCurrencyCode={activeCurrencyCode}
-          activeMetricKey={activeTrendSeriesKey}
-          availableBrands={brandFilterOptions}
-          availableCountries={countryFilterOptions}
-          availableCurrencies={currencyFilterOptions}
-          availableMetrics={metricFilterOptions}
-          availablePetTypes={petTypeFilterOptions}
-          firstName="Chidi"
-          isEtlRunning={isEtlRunning}
-          lastName="Duru"
-          onActiveCurrencyChange={setActiveCurrencyCode}
-          onActiveMetricChange={setActiveTrendSeriesKey}
-          onBrandsChange={setSelectedBrands}
-          onCountriesChange={setSelectedCountries}
-          onManageUsers={() => navigate("/manage_users")}
-          onLogout={() => navigate("/")}
-          onPetTypesChange={setSelectedPetTypes}
-          onRunEtl={() => setIsEtlRunning(true)}
-          selectedBrands={selectedBrands}
-          selectedCountries={selectedCountries}
-          selectedPetTypes={selectedPetTypes}
-        />
-      }
-      menuItems={dashboardMenuItems}
-      title="Quote Dashboard"
-    >
-      {renderChartView({
-        activeTrendSeriesKey,
-        dashboardData,
-        onTrendSeriesChange: setActiveTrendSeriesKey,
-      })}
-    </DashboardLayout>
+    <>
+      <DashboardLayout
+        headerProfile={
+          <DashboardProfileMenu
+            activeCurrencyCode={activeCurrencyCode}
+            activeMetricKey={activeTrendSeriesKey}
+            availableBrands={brandFilterOptions}
+            availableCountries={countryFilterOptions}
+            availableCurrencies={currencyFilterOptions}
+            availableMetrics={metricFilterOptions}
+            availablePetTypes={petTypeFilterOptions}
+            firstName={firstName}
+            isEtlRunning={etlRunner.isEtlRunning}
+            lastName={lastName}
+            onActiveCurrencyChange={setActiveCurrencyCode}
+            onActiveMetricChange={setActiveTrendSeriesKey}
+            onBrandsChange={setSelectedBrands}
+            onCountriesChange={setSelectedCountries}
+            onManageUsers={() => navigate("/manage_users")}
+            onLogout={logout}
+            onPetTypesChange={setSelectedPetTypes}
+            onRunEtl={etlRunner.openModal}
+            selectedBrands={selectedBrands}
+            selectedCountries={selectedCountries}
+            selectedPetTypes={selectedPetTypes}
+            showManageUsersControl={isAdmin}
+            showRunEtlControl={isAdmin}
+          />
+        }
+        menuItems={dashboardMenuItems}
+        title="Quote Dashboard"
+      >
+        {renderChartView({
+          activeTrendSeriesKey,
+          dashboardData,
+          onTrendSeriesChange: setActiveTrendSeriesKey,
+        })}
+      </DashboardLayout>
+
+      <V2EtlModal
+        activeRouteOption={etlRunner.activeRouteOption}
+        completedAt={etlRunner.completedAt}
+        dateRange={etlRunner.dateRange}
+        etlEvents={etlRunner.etlEvents}
+        etlHeadline={etlRunner.etlHeadline}
+        etlJobs={etlRunner.etlJobs}
+        isOpen={etlRunner.isEtlModalOpen}
+        isRunning={etlRunner.isEtlRunning}
+        isStatusLoading={etlRunner.isStatusLoading}
+        onClose={etlRunner.closeModal}
+        onDateRangeChange={etlRunner.setDateRange}
+        onResetDateRange={etlRunner.resetDateRange}
+        onResetState={etlRunner.resetEtlState}
+        onRun={() => void etlRunner.runSelectedEtl()}
+        onSelectRoute={etlRunner.setSelectedRouteKey}
+        routeOptions={etlRunner.routeOptions}
+        selectedRouteKey={etlRunner.selectedRouteKey}
+        startedAt={etlRunner.startedAt}
+        statusError={etlRunner.statusError}
+        statusSummary={etlRunner.statusSummary}
+      />
+    </>
   );
 };
 export default Dashboard;

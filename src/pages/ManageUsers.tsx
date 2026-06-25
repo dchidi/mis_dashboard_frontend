@@ -22,6 +22,8 @@ import {
 import type { PremiumCurrencyCode } from "../components/features/Attrition/data";
 import type { TrendSeriesKey } from "../components/features/Attrition/QuotePerformance/types";
 import style from "./page_css/ManageUsers.module.css";
+import { useAuth } from "../context/AuthContext";
+import { getUserNameParts } from "../utils/auth";
 
 type UserRole = "Admin" | "Analyst" | "Executive" | "Viewer";
 type UserStatus = "Active" | "Password change required";
@@ -81,6 +83,7 @@ const formatToday = () =>
 
 const ManageUsers: React.FC = () => {
   const navigate = useNavigate();
+  const { isAdmin, logout, user } = useAuth();
   const [users, setUsers] = useState<UserRow[]>(initialUsers);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -98,6 +101,7 @@ const ManageUsers: React.FC = () => {
       users.filter((user) => user.status === "Password change required").length,
     [users],
   );
+  const { firstName, lastName } = getUserNameParts(user);
 
   useEffect(() => {
     if (!isRoleMenuOpen) {
@@ -282,20 +286,21 @@ const ManageUsers: React.FC = () => {
           availableCurrencies={currencyFilterOptions}
           availableMetrics={metricFilterOptions}
           availablePetTypes={petTypeFilterOptions}
-          firstName="Chidi"
-          lastName="Duru"
+          firstName={firstName}
+          lastName={lastName}
           onActiveCurrencyChange={() => undefined}
           onActiveMetricChange={() => undefined}
           onBrandsChange={() => undefined}
           onCountriesChange={() => undefined}
           onManageUsers={() => navigate("/manage_users")}
-          onLogout={() => navigate("/")}
+          onLogout={logout}
           onPetTypesChange={() => undefined}
           onRunEtl={() => undefined}
           selectedBrands={[]}
           selectedCountries={[]}
           selectedPetTypes={[]}
           showFilterControls={false}
+          showManageUsersControl={isAdmin}
           showRunEtlControl={false}
           userManagementActive
         />
