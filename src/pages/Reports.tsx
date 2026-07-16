@@ -2801,6 +2801,7 @@ const Reports: React.FC = () => {
                         accentRgb="95, 158, 132"
                         activeKey={selectedIsFreeProduct}
                         ariaLabel="Select free product filter"
+                        className={style.segmentedFieldControl}
                         onChange={handleIsFreeProductChange}
                         options={quoteFreeProductPillOptions}
                       />
@@ -2812,6 +2813,7 @@ const Reports: React.FC = () => {
                         accentRgb="154, 120, 184"
                         activeKey={selectedSendDocumentOnEmail}
                         ariaLabel="Select document delivery filter"
+                        className={style.segmentedFieldControl}
                         onChange={handleSendDocumentOnEmailChange}
                         options={quoteDocumentDeliveryPillOptions}
                       />
@@ -2823,6 +2825,7 @@ const Reports: React.FC = () => {
                         accentRgb="108, 117, 186"
                         activeKey={selectedExistingClient}
                         ariaLabel="Select client type filter"
+                        className={style.segmentedFieldControl}
                         onChange={handleExistingClientChange}
                         options={quoteClientTypePillOptions}
                       />
@@ -2853,6 +2856,7 @@ const Reports: React.FC = () => {
                         accentRgb="167, 126, 97"
                         activeKey={selectedReceivedSource}
                         ariaLabel="Select quote source filter"
+                        className={style.segmentedFieldControl}
                         onChange={handleReceivedSourceChange}
                         options={quoteReceivedSourcePillOptions}
                       />
