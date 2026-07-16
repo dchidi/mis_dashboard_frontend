@@ -4,20 +4,20 @@ import {
   isAuthenticationErrorStatus,
 } from "./auth";
 
-export interface V2FreePolicyEtlRegionResult {
+export interface V2EtlRegionResult {
   country_code: string;
   country_name: string;
   rows_extracted: number;
 }
 
-export interface V2FreePolicyEtlRunResponse {
+export interface V2EtlRunResponse {
   load_status: Record<string, unknown>;
   meta: Record<string, unknown>;
-  regions: V2FreePolicyEtlRegionResult[];
+  regions: V2EtlRegionResult[];
   rows_loaded: number;
 }
 
-export interface V2FreePolicyEtlStatusResponse {
+export interface V2EtlStatusResponse {
   current_date: string;
   is_current: boolean;
   last_loaded_at: string | null;
@@ -40,6 +40,8 @@ export interface V2EtlRunSequenceResponse {
   jobs: V2EtlJobRunResponse[];
   sequence: string;
 }
+
+export type V2EtlJobApiKey = "free-policy" | "quote";
 
 interface V2EtlRequestParams {
   endDate: string;
@@ -84,9 +86,6 @@ const authenticatedFetch = async <T>(
   const authToken = authStorage.getToken();
   const url = buildUrl(path, params);
 
-  if (authToken) {
-    url.searchParams.set("auth_token", authToken);
-  }
 
   let response: Response;
   try {
@@ -122,11 +121,14 @@ const authenticatedFetch = async <T>(
 
 export const etlV2Service = {
   getFreePolicyStatus: (signal?: AbortSignal) =>
-    authenticatedFetch<V2FreePolicyEtlStatusResponse>(
+    authenticatedFetch<V2EtlStatusResponse>(
       "/free-policy/status",
       undefined,
       signal,
     ),
+
+  getQuoteStatus: (signal?: AbortSignal) =>
+    authenticatedFetch<V2EtlStatusResponse>("/quote/status", undefined, signal),
 
   runAll: ({ endDate, signal, startDate }: V2EtlRequestParams) =>
     authenticatedFetch<V2EtlRunSequenceResponse>(
@@ -139,7 +141,7 @@ export const etlV2Service = {
     ),
 
   runFreePolicy: ({ endDate, signal, startDate }: V2EtlRequestParams) =>
-    authenticatedFetch<V2FreePolicyEtlRunResponse>(
+    authenticatedFetch<V2EtlRunResponse>(
       "/free-policy/run",
       {
         end_date: endDate,
@@ -147,4 +149,15 @@ export const etlV2Service = {
       },
       signal,
     ),
+
+  runQuote: ({ endDate, signal, startDate }: V2EtlRequestParams) =>
+    authenticatedFetch<V2EtlRunResponse>(
+      "/quote/run",
+      {
+        end_date: endDate,
+        start_date: startDate,
+      },
+      signal,
+    ),
 };
+

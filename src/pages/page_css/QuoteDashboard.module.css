@@ -17,6 +17,285 @@
   min-width: 0;
 }
 
+.skeletonCard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  height: 100%;
+  min-height: 0;
+}
+
+.skeletonHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.skeletonIcon {
+  border-radius: 999px;
+  flex: 0 0 auto;
+  height: 2.75rem;
+  width: 2.75rem;
+}
+
+.skeletonSignal {
+  border-radius: 1rem;
+  flex: 0 0 auto;
+  height: 3.5rem;
+  width: 5.2rem;
+}
+
+.skeletonSummary {
+  border-radius: 0.9rem;
+  flex: 0 0 auto;
+  height: 2.7rem;
+  width: 5.6rem;
+}
+
+.skeletonCountryChart {
+  align-items: flex-end;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  height: 100%;
+  min-height: 22rem;
+  padding: 1rem 0 0.15rem;
+}
+
+.skeletonCountryColumn {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.skeletonCountryBar {
+  border-radius: 0.8rem 0.8rem 0.25rem 0.25rem;
+  width: 100%;
+}
+
+.skeletonAxisLabel {
+  border-radius: 999px;
+  height: 0.7rem;
+  width: 2rem;
+}
+
+.skeletonPillRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.skeletonPill,
+.skeletonPillActive {
+  border-radius: 999px;
+  height: 2.7rem;
+  width: 8rem;
+}
+
+.skeletonPillActive {
+  width: 9.5rem;
+}
+
+.skeletonWidePill,
+.skeletonWidePillActive {
+  border-radius: 999px;
+  height: 2.7rem;
+  width: 12rem;
+}
+
+.skeletonWidePillActive {
+  width: 14rem;
+}
+
+.skeletonWorkflowBars {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1.15rem;
+  justify-content: center;
+  min-height: 19rem;
+  padding: 0.25rem 0;
+}
+
+.skeletonWorkflowRow {
+  align-items: center;
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: 2.4rem minmax(0, 1fr);
+}
+
+.skeletonWorkflowBar {
+  border-radius: 999px;
+  height: 2rem;
+  min-width: 4rem;
+}
+
+.skeletonPremiumStack {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.skeletonPremiumSection {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.03),
+    rgba(255, 255, 255, 0.015)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 1.5rem;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
+  padding: 1.2rem;
+}
+
+.skeletonPremiumSectionHeader {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.skeletonDot {
+  border-radius: 999px;
+  height: 0.95rem;
+  width: 0.95rem;
+}
+
+.skeletonDonutWrap {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  min-height: 10rem;
+}
+
+.skeletonDonut {
+  border-radius: 999px;
+  height: min(11.5rem, 38vw);
+  max-height: 11.5rem;
+  max-width: 11.5rem;
+  min-height: 8.25rem;
+  min-width: 8.25rem;
+  width: min(11.5rem, 38vw);
+}
+
+.skeletonMetricTable {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.skeletonMetricRow {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.skeletonMetricLabel {
+  height: 0.95rem;
+  width: 44%;
+}
+
+.skeletonMetricValue {
+  height: 0.95rem;
+  width: 24%;
+}
+
+.skeletonTrendPanel {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.025),
+    rgba(255, 255, 255, 0.01)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 1.45rem;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-height: 0;
+  padding: 1rem;
+}
+
+.skeletonTrendToolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.skeletonTrendChart {
+  border-radius: 1.15rem;
+  flex: 1;
+  min-height: 24rem;
+}
+
+.skeletonProductList {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.skeletonProductRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.skeletonProductMeta {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.skeletonProductLabel {
+  height: 0.9rem;
+  width: 42%;
+}
+
+.skeletonProductValue {
+  height: 0.9rem;
+  width: 18%;
+}
+
+.skeletonProductBar {
+  border-radius: 999px;
+  height: 0.8rem;
+}
+
+.skeletonPromoTable {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.skeletonPromoHeaderRow,
+.skeletonPromoRow {
+  align-items: center;
+  display: flex;
+  gap: 0.8rem;
+}
+
+.skeletonPromoHeaderCell {
+  border-radius: 999px;
+  height: 0.8rem;
+}
+
+.skeletonPromoCell {
+  height: 1rem;
+}
+
 .countryCard {
   grid-area: country;
 }
@@ -41,6 +320,39 @@
   grid-area: promo;
 }
 
+.statusBanner,
+.statusNote,
+.emptyState {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 1rem;
+  padding: 0.9rem 1rem;
+}
+
+.statusBanner,
+.emptyState {
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text-h);
+}
+
+.statusBanner {
+  margin: 0 10px;
+}
+
+.statusNote {
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+  margin: 0 10px;
+}
+
+.emptyState {
+  margin: 0 10px;
+  min-height: 14rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
 @media (max-width: 920px) {
   .root {
     gap: 16px;
@@ -57,5 +369,13 @@
   .section {
     height: auto;
     min-height: auto;
+  }
+
+  .skeletonCountryChart {
+    min-height: 18rem;
+  }
+
+  .skeletonTrendChart {
+    min-height: 18rem;
   }
 }

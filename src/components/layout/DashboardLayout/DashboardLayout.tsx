@@ -1,12 +1,14 @@
 import { useState } from "react";
-import dayjs from "dayjs";
 import { DatePickerInput } from "@mantine/dates";
 import { useMediaQuery } from "@mantine/hooks";
 import { RiDownloadCloud2Line } from "react-icons/ri";
 import { SlCalender } from "react-icons/sl";
 import style from "./DashboardLayout.module.css";
 import Menu, { type DashboardMenuItem } from "../../ui/menu/Menu";
-import { getReportingPeriodPresets } from "../../../utils/reportingPeriodPresets";
+import {
+  getMonthToDateReportingPeriod,
+  getReportingPeriodPresets,
+} from "../../../utils/reportingPeriodPresets";
 
 export type DashboardDateRange = [string | null, string | null];
 
@@ -37,10 +39,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 }) => {
   const isMobile = useMediaQuery("(max-width: 640px)") ?? false;
   const [internalReportingPeriod, setInternalReportingPeriod] =
-    useState<DashboardDateRange>([
-      dayjs().startOf("month").format("YYYY-MM-DD"),
-      dayjs().format("YYYY-MM-DD"),
-    ]);
+    useState<DashboardDateRange>(getMonthToDateReportingPeriod);
   const resolvedReportingPeriod = reportingPeriod ?? internalReportingPeriod;
   const handleReportingPeriodChange = (value: DashboardDateRange) => {
     if (reportingPeriod === undefined) {
@@ -85,6 +84,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                     color: "var(--text)",
                   },
                 }}
+                allowSingleDateInRange
                 type="range"
                 value={resolvedReportingPeriod}
                 valueFormat="DD MMM YYYY"

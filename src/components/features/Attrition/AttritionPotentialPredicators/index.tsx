@@ -245,7 +245,7 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({ className, data }) => {
         <div className={style.tooltipTitle}>{datum.country}</div>
         <div className={style.tooltipRow}>
           <span>{activeTabData.metricLabel}</span>
-          <strong>{formatCount(datum.value)}</strong>
+          <strong>{datum.valueLabel}</strong>
         </div>
       </div>
     );
@@ -266,7 +266,11 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({ className, data }) => {
       gridStroke="rgba(107, 99, 117, 0.18)"
       hideNumericAxis={false}
       labelKey="valueLabel"
-      numericTickFormatter={formatAxisCount}
+      numericTickFormatter={
+        activeTabData.kind === "bar" && activeTabData.numericTickKind === "percent"
+          ? formatPercent
+          : formatAxisCount
+      }
       orientation="horizontal"
       renderTooltip={renderBarChartTooltip}
       showTooltip

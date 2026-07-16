@@ -17,6 +17,9 @@ import DashboardLayout, {
   type DashboardDateRange,
 } from "../components/layout/DashboardLayout/DashboardLayout";
 import DashboardProfileMenu from "../components/ui/dashboard_profile_menu/DashboardProfileMenu";
+import SegmentedTabs, {
+  type SegmentedTabOption,
+} from "../components/ui/segmented_tabs";
 import V2EtlModal from "../components/ui/etl_modal/V2EtlModal";
 import { dashboardMenuItems } from "../config/dashboardMenu";
 import {
@@ -35,16 +38,30 @@ import {
   type FreePolicyFilterOption,
   type FreePolicyOutputProfile,
 } from "../services/freePolicyV2";
+import {
+  downloadQuoteReport,
+  fetchQuoteFilters,
+  fetchQuoteReportProfiles,
+  type QuoteBinaryFilterValue,
+  type QuoteFilterOption,
+  type QuoteReceivedSourceValue,
+  type QuoteReportProfile,
+  type QuoteReportSummaryItem,
+} from "../services/quoteV2";
 import { useAuth } from "../context/AuthContext";
 import { useV2EtlRunner } from "../features/etl/useV2EtlRunner";
 import { getUserNameParts } from "../utils/auth";
-import { getReportingPeriodPresets } from "../utils/reportingPeriodPresets";
+import {
+  getMonthToDateReportingPeriod,
+  getReportingPeriodPresets,
+} from "../utils/reportingPeriodPresets";
 import style from "./page_css/Reports.module.css";
 
 type ReportId =
   | "debtors"
   | "claims"
   | "free-policy"
+  | "total-quote"
   | "converted-quotes"
   | "converted-policy"
   | "active-policy"
@@ -101,7 +118,8 @@ interface FreePolicyProfileOption {
 interface QuoteReportOption {
   description: string;
   label: string;
-  reportId: ReportId;
+  reportId: QuoteReportProfile;
+  rowCount?: number;
 }
 
 interface PolicyReportOption {
@@ -122,12 +140,21 @@ interface FreePolicyFilterOptionsState {
   petTypes: FreePolicyFilterOption[];
 }
 
-const defaultDateRange: DashboardDateRange = [
-  dayjs().startOf("month").format("YYYY-MM-DD"),
-  dayjs().format("YYYY-MM-DD"),
-];
+interface QuoteFilterOptionsState {
+  brands: QuoteFilterOption[];
+  countries: QuoteFilterOption[];
+  petTypes: QuoteFilterOption[];
+}
+
+const defaultDateRange: DashboardDateRange = getMonthToDateReportingPeriod();
 
 const freePolicyProfileOptions: FreePolicyProfileOption[] = [
+  {
+    description:
+      "All free-policy records created within the selected reporting period.",
+    label: "Total Free Policies",
+    value: "total-free-policies",
+  },
   {
     description:
       "Free-policy records that converted to paid policy and are still active.",
@@ -159,11 +186,11 @@ const freePolicyProfileOptions: FreePolicyProfileOption[] = [
   },
 ];
 
-const quoteReportOptions: QuoteReportOption[] = [
+const quoteReportOptionDefinitions: QuoteReportOption[] = [
   {
     description:
       "Quoted business that converted, with premium movement across the chosen period.",
-    label: "Converted Quotes",
+    label: "Converted Quote",
     reportId: "converted-quotes",
   },
   {
@@ -178,7 +205,36 @@ const quoteReportOptions: QuoteReportOption[] = [
     label: "Lapsed Quote",
     reportId: "lapsed-quote",
   },
+  {
+    description:
+      "Full quote extract across the selected filters, including status and quoted premium.",
+    label: "Total Quote",
+    reportId: "total-quote",
+  },
 ];
+
+const quoteReportOptionsById = new Map<QuoteReportProfile, QuoteReportOption>(
+  quoteReportOptionDefinitions.map((option) => [option.reportId, option]),
+);
+
+const buildQuoteReportOptions = (
+  profiles: QuoteReportSummaryItem[],
+): QuoteReportOption[] =>
+  profiles.flatMap((profile) => {
+    const option = quoteReportOptionsById.get(profile.profile);
+    if (!option) {
+      return [];
+    }
+
+    return [
+      {
+        ...option,
+        description: profile.description || option.description,
+        label: profile.label || option.label,
+        rowCount: profile.count,
+      },
+    ];
+  });
 
 const policyLibraryOptions: PolicyLibraryOption[] = [
   {
@@ -266,6 +322,42 @@ const emptyFreePolicyFilterOptions: FreePolicyFilterOptionsState = {
   countries: [],
   petTypes: [],
 };
+const emptyQuoteFilterOptions: QuoteFilterOptionsState = {
+  brands: [],
+  countries: [],
+  petTypes: [],
+};
+const defaultQuoteBinaryFilterValue: QuoteBinaryFilterValue = "all";
+const quoteFreeProductPillOptions: readonly SegmentedTabOption<QuoteBinaryFilterValue>[] = [
+  { key: "all", label: "All" },
+  { key: "1", label: "Free Only" },
+  { key: "0", label: "Paid Only" },
+];
+const quoteDocumentDeliveryPillOptions: readonly SegmentedTabOption<QuoteBinaryFilterValue>[] = [
+  { key: "all", label: "All" },
+  { key: "1", label: "Email" },
+  { key: "0", label: "No Email" },
+];
+const quoteClientTypePillOptions: readonly SegmentedTabOption<QuoteBinaryFilterValue>[] = [
+  { key: "all", label: "All" },
+  { key: "1", label: "Existing" },
+  { key: "0", label: "New" },
+];
+const quoteReceivedSourcePillOptions: readonly SegmentedTabOption<QuoteReceivedSourceValue>[] = [
+  { key: "all", label: "All" },
+  { key: "web", label: "Web" },
+  { key: "phone", label: "Phone" },
+];
+const quoteStatusOptions: QuoteFilterOption[] = [
+  { label: "Open", value: "Open" },
+  { label: "Policy Generated", value: "Policy Generated" },
+  { label: "Cancel", value: "Cancel" },
+  { label: "Expired", value: "Expired" },
+  { label: "Referred", value: "Referred" },
+  { label: "Denied", value: "Denied" },
+  { label: "Approved by Underwriter", value: "Approved by Underwriter" },
+];
+const allQuoteStatusValues = quoteStatusOptions.map((option) => option.value);
 
 const getFilterOptionValues = (options: FreePolicyFilterOption[]) =>
   options.map((option) => option.value);
@@ -694,7 +786,7 @@ const reportDefinitions: ReportDefinition[] = [
     fileStem: "converted_quotes",
     icon: RiLineChartLine,
     id: "converted-quotes",
-    label: "Converted Quotes",
+    label: "Converted Quote",
     scope: "Quote",
     buildRows: (context) =>
       buildReportRows(
@@ -716,6 +808,53 @@ const reportDefinitions: ReportDefinition[] = [
           "Pet Type": values.petType,
           Premium: formatCurrencyAmount(245 + index * 18),
           "Quote Reference": `CQ-${2400 + index}`,
+        }),
+      ),
+  },
+  {
+    columns: [
+      "Quote Reference",
+      "Country",
+      "Brand",
+      "Pet Type",
+      "Created Date",
+      "Quote Status",
+      "Quoted Premium",
+    ],
+    description:
+      "Full quote extract across the selected filters, including status and quoted premium.",
+    fileStem: "total_quote",
+    icon: RiLineChartLine,
+    id: "total-quote",
+    label: "Total Quote",
+    scope: "Quote",
+    buildRows: (context) =>
+      buildReportRows(
+        context,
+        [
+          "Quote Reference",
+          "Country",
+          "Brand",
+          "Pet Type",
+          "Created Date",
+          "Quote Status",
+          "Quoted Premium",
+        ],
+        (index, values) => ({
+          Brand: values.brand,
+          Country: values.country,
+          "Created Date": values.date,
+          "Pet Type": values.petType,
+          "Quote Reference": `TQ-${4400 + index}`,
+          "Quote Status":
+            index % 4 === 0
+              ? "Converted"
+              : index % 4 === 1
+                ? "Pending"
+                : index % 4 === 2
+                  ? "Lapsed"
+                  : "Quoted",
+          "Quoted Premium": formatCurrencyAmount(180 + index * 16),
         }),
       ),
   },
@@ -1010,6 +1149,14 @@ const petTypeSelectionInputStyles = createSelectionInputStyles({
   pillText: "#ffeadb",
   sectionColor: "rgba(235, 199, 170, 0.72)",
 });
+const quoteFlagSelectionInputStyles = createSelectionInputStyles({
+  activeOptionBackground: "rgba(143, 108, 173, 0.24)",
+  inputBorder: "rgba(154, 120, 184, 0.22)",
+  pillBackground: "rgba(149, 114, 181, 0.16)",
+  pillBorder: "rgba(204, 176, 232, 0.24)",
+  pillText: "#f3e8ff",
+  sectionColor: "rgba(222, 205, 242, 0.74)",
+});
 
 const datePickerStyles = {
   dropdown: {
@@ -1059,6 +1206,17 @@ const Reports: React.FC = () => {
   const [selectedPetTypes, setSelectedPetTypes] = useState<string[]>([
     ...allPetTypeValues,
   ]);
+  const [selectedIsFreeProduct, setSelectedIsFreeProduct] =
+    useState<QuoteBinaryFilterValue>(defaultQuoteBinaryFilterValue);
+  const [selectedSendDocumentOnEmail, setSelectedSendDocumentOnEmail] =
+    useState<QuoteBinaryFilterValue>(defaultQuoteBinaryFilterValue);
+  const [selectedExistingClient, setSelectedExistingClient] =
+    useState<QuoteBinaryFilterValue>(defaultQuoteBinaryFilterValue);
+  const [selectedQuoteStatuses, setSelectedQuoteStatuses] = useState<string[]>([
+    ...allQuoteStatusValues,
+  ]);
+  const [selectedReceivedSource, setSelectedReceivedSource] =
+    useState<QuoteReceivedSourceValue>("all");
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [isDownloadInProgress, setIsDownloadInProgress] = useState(false);
   const [freePolicyFilterOptions, setFreePolicyFilterOptions] =
@@ -1074,6 +1232,26 @@ const Reports: React.FC = () => {
   >(null);
   const freePolicyBrandRequestRef = useRef<AbortController | null>(null);
   const freePolicyPetTypeRequestRef = useRef<AbortController | null>(null);
+  const [quoteFilterOptions, setQuoteFilterOptions] =
+    useState<QuoteFilterOptionsState>(emptyQuoteFilterOptions);
+  const [isQuoteFilterBootstrapLoading, setIsQuoteFilterBootstrapLoading] =
+    useState(false);
+  const [isQuoteBrandOptionsLoading, setIsQuoteBrandOptionsLoading] =
+    useState(false);
+  const [isQuotePetTypeOptionsLoading, setIsQuotePetTypeOptionsLoading] =
+    useState(false);
+  const [availableQuoteReportOptions, setAvailableQuoteReportOptions] =
+    useState<QuoteReportOption[]>(quoteReportOptionDefinitions);
+  const [isQuoteReportOptionsLoading, setIsQuoteReportOptionsLoading] =
+    useState(false);
+  const [quoteReportOptionsError, setQuoteReportOptionsError] = useState<
+    string | null
+  >(null);
+  const [quoteFiltersError, setQuoteFiltersError] = useState<string | null>(
+    null,
+  );
+  const quoteBrandRequestRef = useRef<AbortController | null>(null);
+  const quotePetTypeRequestRef = useRef<AbortController | null>(null);
 
   const activeReport = useMemo(
     () =>
@@ -1086,6 +1264,12 @@ const Reports: React.FC = () => {
   );
   const isFreePolicyReportActive =
     activeReport?.id === "free-policy" && Boolean(activeFilterModal?.profile);
+  const isQuoteReportActive = Boolean(
+    activeReport &&
+      quoteReportOptionDefinitions.some(
+        (option) => option.reportId === activeReport.id,
+      ),
+  );
   const standaloneLibraryReports = useMemo(
     () =>
       reportDefinitions.filter(
@@ -1095,17 +1279,27 @@ const Reports: React.FC = () => {
   );
   const countryOptionsData = isFreePolicyReportActive
     ? freePolicyFilterOptions.countries
+    : isQuoteReportActive
+      ? quoteFilterOptions.countries
     : staticCountrySelectOptions;
   const brandOptionsData = isFreePolicyReportActive
     ? freePolicyFilterOptions.brands
+    : isQuoteReportActive
+      ? quoteFilterOptions.brands
     : staticBrandSelectOptions;
   const petTypeOptionsData = isFreePolicyReportActive
     ? freePolicyFilterOptions.petTypes
+    : isQuoteReportActive
+      ? quoteFilterOptions.petTypes
     : staticPetTypeSelectOptions;
   const isFreePolicyFiltersBusy =
     isFreePolicyFilterBootstrapLoading ||
     isFreePolicyBrandOptionsLoading ||
     isFreePolicyPetTypeOptionsLoading;
+  const isQuoteFiltersBusy =
+    isQuoteFilterBootstrapLoading ||
+    isQuoteBrandOptionsLoading ||
+    isQuotePetTypeOptionsLoading;
 
   const canDownload = Boolean(
     activeReport &&
@@ -1119,7 +1313,14 @@ const Reports: React.FC = () => {
         !freePolicyFiltersError &&
         countryOptionsData.length &&
         brandOptionsData.length &&
-        petTypeOptionsData.length)),
+        petTypeOptionsData.length)) &&
+    (!isQuoteReportActive ||
+      (!isQuoteFiltersBusy &&
+        !quoteFiltersError &&
+        countryOptionsData.length &&
+        brandOptionsData.length &&
+        petTypeOptionsData.length &&
+        selectedQuoteStatuses.length)),
   );
   const { firstName, lastName } = getUserNameParts(user);
 
@@ -1128,11 +1329,20 @@ const Reports: React.FC = () => {
     setSelectedCountries([...allCountryValues]);
     setSelectedBrands([...allBrandValues]);
     setSelectedPetTypes([...allPetTypeValues]);
+    setSelectedIsFreeProduct(defaultQuoteBinaryFilterValue);
+    setSelectedSendDocumentOnEmail(defaultQuoteBinaryFilterValue);
+    setSelectedExistingClient(defaultQuoteBinaryFilterValue);
+    setSelectedQuoteStatuses([...allQuoteStatusValues]);
+    setSelectedReceivedSource("all");
     setFeedbackMessage(null);
     setIsDownloadInProgress(false);
     setFreePolicyFiltersError(null);
+    setQuoteReportOptionsError(null);
+    setQuoteFiltersError(null);
     setIsFreePolicyBrandOptionsLoading(false);
     setIsFreePolicyPetTypeOptionsLoading(false);
+    setIsQuoteBrandOptionsLoading(false);
+    setIsQuotePetTypeOptionsLoading(false);
   };
 
   const stopFreePolicyRequests = () => {
@@ -1143,6 +1353,14 @@ const Reports: React.FC = () => {
     setIsFreePolicyPetTypeOptionsLoading(false);
   };
 
+  const stopQuoteRequests = () => {
+    quoteBrandRequestRef.current?.abort();
+    quotePetTypeRequestRef.current?.abort();
+    setIsQuoteFilterBootstrapLoading(false);
+    setIsQuoteBrandOptionsLoading(false);
+    setIsQuotePetTypeOptionsLoading(false);
+  };
+
   const closePolicyLibraryModal = () => {
     setIsPolicyTypeModalOpen(false);
     setIsPaidPolicyTypeModalOpen(false);
@@ -1150,6 +1368,8 @@ const Reports: React.FC = () => {
     setFeedbackMessage(null);
     setIsDownloadInProgress(false);
     setFreePolicyFiltersError(null);
+    setQuoteReportOptionsError(null);
+    setQuoteFiltersError(null);
   };
 
   const closePaidPolicyTypeModal = () => {
@@ -1157,6 +1377,8 @@ const Reports: React.FC = () => {
     setFeedbackMessage(null);
     setIsDownloadInProgress(false);
     setFreePolicyFiltersError(null);
+    setQuoteReportOptionsError(null);
+    setQuoteFiltersError(null);
   };
 
   const closeFreePolicyTypeModal = () => {
@@ -1165,21 +1387,29 @@ const Reports: React.FC = () => {
     setFeedbackMessage(null);
     setIsDownloadInProgress(false);
     setFreePolicyFiltersError(null);
+    setQuoteReportOptionsError(null);
+    setQuoteFiltersError(null);
   };
 
   const closeQuoteTypeModal = () => {
+    stopQuoteRequests();
     setIsQuoteTypeModalOpen(false);
     setFeedbackMessage(null);
     setIsDownloadInProgress(false);
     setFreePolicyFiltersError(null);
+    setQuoteReportOptionsError(null);
+    setQuoteFiltersError(null);
   };
 
   const closeFilterModal = () => {
     stopFreePolicyRequests();
+    stopQuoteRequests();
     setActiveFilterModal(null);
     setFeedbackMessage(null);
     setIsDownloadInProgress(false);
     setFreePolicyFiltersError(null);
+    setQuoteReportOptionsError(null);
+    setQuoteFiltersError(null);
   };
 
   const closeTopmostModal = () => {
@@ -1298,11 +1528,225 @@ const Reports: React.FC = () => {
     };
   }, [isFreePolicyReportActive, activeFilterModal?.profile]);
 
+  useEffect(() => {
+    if (!isQuoteTypeModalOpen || activeFilterModal) {
+      setIsQuoteReportOptionsLoading(false);
+      setQuoteReportOptionsError(null);
+      setAvailableQuoteReportOptions(quoteReportOptionDefinitions);
+      return;
+    }
+
+    const [startDate, endDate] = reportingPeriod;
+    if (!startDate || !endDate) {
+      setAvailableQuoteReportOptions(quoteReportOptionDefinitions);
+      return;
+    }
+
+    const abortController = new AbortController();
+
+    setIsQuoteReportOptionsLoading(true);
+    setQuoteReportOptionsError(null);
+
+    void fetchQuoteReportProfiles({
+      endDate,
+      signal: abortController.signal,
+      startDate,
+    })
+      .then((payload) => {
+        const nextOptions = buildQuoteReportOptions(payload.profiles);
+
+        startTransition(() => {
+          setAvailableQuoteReportOptions(
+            nextOptions.length ? nextOptions : quoteReportOptionDefinitions,
+          );
+        });
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+
+        startTransition(() => {
+          setAvailableQuoteReportOptions(quoteReportOptionDefinitions);
+        });
+        setQuoteReportOptionsError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load quote report availability.",
+        );
+      })
+      .finally(() => {
+        if (!abortController.signal.aborted) {
+          setIsQuoteReportOptionsLoading(false);
+        }
+      });
+
+    return () => {
+      abortController.abort();
+    };
+  }, [activeFilterModal, isQuoteTypeModalOpen, reportingPeriod]);
+
+  useEffect(() => {
+    if (!isQuoteReportActive) {
+      quoteBrandRequestRef.current?.abort();
+      quotePetTypeRequestRef.current?.abort();
+      setQuoteFilterOptions(emptyQuoteFilterOptions);
+      setIsQuoteFilterBootstrapLoading(false);
+      setIsQuoteBrandOptionsLoading(false);
+      setIsQuotePetTypeOptionsLoading(false);
+      setQuoteFiltersError(null);
+      return;
+    }
+
+    const abortController = new AbortController();
+
+    setIsQuoteFilterBootstrapLoading(true);
+    setQuoteFiltersError(null);
+
+    void fetchQuoteFilters({ signal: abortController.signal })
+      .then((filters) => {
+        startTransition(() => {
+          setQuoteFilterOptions(filters);
+          setSelectedCountries(getFilterOptionValues(filters.countries));
+          setSelectedBrands(getFilterOptionValues(filters.brands));
+          setSelectedPetTypes(getFilterOptionValues(filters.petTypes));
+        });
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+
+        startTransition(() => {
+          setQuoteFilterOptions(emptyQuoteFilterOptions);
+          setSelectedCountries([]);
+          setSelectedBrands([]);
+          setSelectedPetTypes([]);
+        });
+        setQuoteFiltersError(
+          error instanceof Error ? error.message : "Failed to load quote filters.",
+        );
+      })
+      .finally(() => {
+        if (!abortController.signal.aborted) {
+          setIsQuoteFilterBootstrapLoading(false);
+        }
+      });
+
+    return () => {
+      abortController.abort();
+    };
+  }, [isQuoteReportActive, activeFilterModal?.reportId]);
+
   const handleCountrySelectionChange = (nextCountries: string[]) => {
     setFeedbackMessage(null);
 
     if (!isFreePolicyReportActive) {
+      if (!isQuoteReportActive) {
+        setSelectedCountries(nextCountries);
+        return;
+      }
+
       setSelectedCountries(nextCountries);
+      setQuoteFiltersError(null);
+      quoteBrandRequestRef.current?.abort();
+      quotePetTypeRequestRef.current?.abort();
+
+      if (!nextCountries.length) {
+        setIsQuoteBrandOptionsLoading(false);
+        setIsQuotePetTypeOptionsLoading(false);
+        startTransition(() => {
+          setQuoteFilterOptions((currentOptions) => ({
+            ...currentOptions,
+            brands: [],
+            petTypes: [],
+          }));
+          setSelectedBrands([]);
+          setSelectedPetTypes([]);
+        });
+        return;
+      }
+
+      const quoteAbortController = new AbortController();
+      quoteBrandRequestRef.current = quoteAbortController;
+      quotePetTypeRequestRef.current = quoteAbortController;
+      setIsQuoteBrandOptionsLoading(true);
+      setIsQuotePetTypeOptionsLoading(true);
+
+      void (async () => {
+        try {
+          const brandScopedFilters = await fetchQuoteFilters({
+            countryCodes: nextCountries,
+            signal: quoteAbortController.signal,
+          });
+
+          const availableBrandValues = getFilterOptionValues(
+            brandScopedFilters.brands,
+          );
+          const nextSelectedBrands = reconcileSelectedValues(
+            selectedBrands,
+            brandScopedFilters.brands,
+          );
+
+          let nextPetTypeOptions = brandScopedFilters.petTypes;
+
+          if (
+            nextSelectedBrands.length &&
+            !areSameValueLists(nextSelectedBrands, availableBrandValues)
+          ) {
+            const petTypeScopedFilters = await fetchQuoteFilters({
+              brands: nextSelectedBrands,
+              countryCodes: nextCountries,
+              signal: quoteAbortController.signal,
+            });
+            nextPetTypeOptions = petTypeScopedFilters.petTypes;
+          }
+
+          if (quoteAbortController.signal.aborted) {
+            return;
+          }
+
+          startTransition(() => {
+            setQuoteFilterOptions((currentOptions) => ({
+              brands: brandScopedFilters.brands,
+              countries:
+                currentOptions.countries.length > 0
+                  ? currentOptions.countries
+                  : brandScopedFilters.countries,
+              petTypes: nextPetTypeOptions,
+            }));
+            setSelectedBrands(nextSelectedBrands);
+            setSelectedPetTypes((currentValues) =>
+              reconcileSelectedValues(currentValues, nextPetTypeOptions),
+            );
+          });
+        } catch (error: unknown) {
+          if (
+            error instanceof DOMException &&
+            error.name === "AbortError"
+          ) {
+            return;
+          }
+
+          setQuoteFiltersError(
+            error instanceof Error
+              ? error.message
+              : "Failed to refresh quote brands.",
+          );
+        } finally {
+          if (quoteBrandRequestRef.current === quoteAbortController) {
+            quoteBrandRequestRef.current = null;
+          }
+          if (quotePetTypeRequestRef.current === quoteAbortController) {
+            quotePetTypeRequestRef.current = null;
+          }
+          if (!quoteAbortController.signal.aborted) {
+            setIsQuoteBrandOptionsLoading(false);
+            setIsQuotePetTypeOptionsLoading(false);
+          }
+        }
+      })();
+
       return;
     }
 
@@ -1411,7 +1855,70 @@ const Reports: React.FC = () => {
     setFeedbackMessage(null);
 
     if (!isFreePolicyReportActive) {
+      if (!isQuoteReportActive) {
+        setSelectedBrands(nextBrands);
+        return;
+      }
+
       setSelectedBrands(nextBrands);
+      setQuoteFiltersError(null);
+      quotePetTypeRequestRef.current?.abort();
+
+      if (!nextBrands.length) {
+        setIsQuotePetTypeOptionsLoading(false);
+        startTransition(() => {
+          setQuoteFilterOptions((currentOptions) => ({
+            ...currentOptions,
+            petTypes: [],
+          }));
+          setSelectedPetTypes([]);
+        });
+        return;
+      }
+
+      const quoteAbortController = new AbortController();
+      quotePetTypeRequestRef.current = quoteAbortController;
+      setIsQuotePetTypeOptionsLoading(true);
+
+      void fetchQuoteFilters({
+        brands: nextBrands,
+        countryCodes: selectedCountries,
+        signal: quoteAbortController.signal,
+      })
+        .then((filters) => {
+          startTransition(() => {
+            setQuoteFilterOptions((currentOptions) => ({
+              ...currentOptions,
+              petTypes: filters.petTypes,
+            }));
+            setSelectedPetTypes((currentValues) =>
+              reconcileSelectedValues(currentValues, filters.petTypes),
+            );
+          });
+        })
+        .catch((error: unknown) => {
+          if (
+            error instanceof DOMException &&
+            error.name === "AbortError"
+          ) {
+            return;
+          }
+
+          setQuoteFiltersError(
+            error instanceof Error
+              ? error.message
+              : "Failed to refresh quote pet types.",
+          );
+        })
+        .finally(() => {
+          if (quotePetTypeRequestRef.current === quoteAbortController) {
+            quotePetTypeRequestRef.current = null;
+          }
+          if (!quoteAbortController.signal.aborted) {
+            setIsQuotePetTypeOptionsLoading(false);
+          }
+        });
+
       return;
     }
 
@@ -1477,7 +1984,40 @@ const Reports: React.FC = () => {
 
   const handlePetTypeSelectionChange = (nextPetTypes: string[]) => {
     setFeedbackMessage(null);
+    if (isQuoteReportActive) {
+      setQuoteFiltersError(null);
+    }
     setSelectedPetTypes(nextPetTypes);
+  };
+
+  const handleIsFreeProductChange = (value: QuoteBinaryFilterValue) => {
+    setFeedbackMessage(null);
+    setQuoteFiltersError(null);
+    setSelectedIsFreeProduct(value);
+  };
+
+  const handleSendDocumentOnEmailChange = (value: QuoteBinaryFilterValue) => {
+    setFeedbackMessage(null);
+    setQuoteFiltersError(null);
+    setSelectedSendDocumentOnEmail(value);
+  };
+
+  const handleExistingClientChange = (value: QuoteBinaryFilterValue) => {
+    setFeedbackMessage(null);
+    setQuoteFiltersError(null);
+    setSelectedExistingClient(value);
+  };
+
+  const handleQuoteStatusSelectionChange = (nextStatuses: string[]) => {
+    setFeedbackMessage(null);
+    setQuoteFiltersError(null);
+    setSelectedQuoteStatuses(nextStatuses);
+  };
+
+  const handleReceivedSourceChange = (value: QuoteReceivedSourceValue) => {
+    setFeedbackMessage(null);
+    setQuoteFiltersError(null);
+    setSelectedReceivedSource(value);
   };
 
   const handleReportCardClick = (report: ReportDefinition) => {
@@ -1547,8 +2087,8 @@ const Reports: React.FC = () => {
     });
   };
 
-  const handleQuoteTypeClick = (reportId: ReportId) => {
-    const option = quoteReportOptions.find(
+  const handleQuoteTypeClick = (reportId: QuoteReportProfile) => {
+    const option = availableQuoteReportOptions.find(
       (entry) => entry.reportId === reportId,
     );
     if (!option) {
@@ -1608,6 +2148,34 @@ const Reports: React.FC = () => {
           endDate: end,
           petTypes: selectedPetTypes,
           profile: activeFilterModal.profile,
+          startDate: start,
+        });
+        setFeedbackMessage(`Downloaded ${activeFilterModal.title}.`);
+      } catch (error) {
+        setFeedbackMessage(
+          error instanceof Error
+            ? error.message
+            : `Failed to download ${activeFilterModal.title}.`,
+        );
+      } finally {
+        setIsDownloadInProgress(false);
+      }
+      return;
+    }
+
+    if (isQuoteReportActive) {
+      try {
+        await downloadQuoteReport({
+          brands: selectedBrands,
+          countryCodes: selectedCountries,
+          endDate: end,
+          existingClient: selectedExistingClient,
+          isFreeProduct: selectedIsFreeProduct,
+          petTypes: selectedPetTypes,
+          profile: activeReport.id as QuoteReportProfile,
+          quoteStatuses: selectedQuoteStatuses,
+          receivedSource: selectedReceivedSource,
+          sendDocumentOnEmail: selectedSendDocumentOnEmail,
           startDate: start,
         });
         setFeedbackMessage(`Downloaded ${activeFilterModal.title}.`);
@@ -1979,6 +2547,13 @@ const Reports: React.FC = () => {
                   <p className={style.modalDescription}>
                     Select the quote extract you want before choosing filters.
                   </p>
+                  {quoteReportOptionsError ? (
+                    <p className={style.formHint}>{quoteReportOptionsError}</p>
+                  ) : isQuoteReportOptionsLoading ? (
+                    <p className={style.formHint}>
+                      Checking current month-to-date quote report availability.
+                    </p>
+                  ) : null}
                 </div>
 
                 <button
@@ -1992,7 +2567,7 @@ const Reports: React.FC = () => {
               </div>
 
               <div className={style.policyTypeGrid}>
-                {quoteReportOptions.map((option) => (
+                {availableQuoteReportOptions.map((option) => (
                   <button
                     className={style.policyTypeCard}
                     key={option.reportId}
@@ -2006,6 +2581,13 @@ const Reports: React.FC = () => {
                     <span className={style.policyTypeCardDescription}>
                       {option.description}
                     </span>
+                    {typeof option.rowCount === "number" ? (
+                      <span className={style.policyTypeCardMeta}>
+                        {option.rowCount === 0
+                          ? "0 rows in month to date. You can widen the reporting period after selecting."
+                          : `${option.rowCount.toLocaleString()} ${option.rowCount === 1 ? "row" : "rows"} in month to date`}
+                      </span>
+                    ) : null}
                   </button>
                 ))}
               </div>
@@ -2069,6 +2651,11 @@ const Reports: React.FC = () => {
                     {freePolicyFiltersError}
                   </span>
                 ) : null}
+                {isQuoteReportActive && quoteFiltersError ? (
+                  <span className={style.feedbackText}>
+                    {quoteFiltersError}
+                  </span>
+                ) : null}
               </div>
 
               <div className={style.filterGrid}>
@@ -2083,6 +2670,7 @@ const Reports: React.FC = () => {
                     popoverProps={{ withinPortal: true, zIndex: 2600 }}
                     presets={getReportingPeriodPresets()}
                     styles={datePickerStyles}
+                    allowSingleDateInRange
                     type="range"
                     value={reportingPeriod}
                     valueFormat="DD MMM YYYY"
@@ -2101,13 +2689,17 @@ const Reports: React.FC = () => {
                     }}
                     data={countryOptionsData}
                     disabled={
-                      isFreePolicyReportActive &&
-                      (isFreePolicyFilterBootstrapLoading ||
-                        !countryOptionsData.length)
+                      (isFreePolicyReportActive &&
+                        (isFreePolicyFilterBootstrapLoading ||
+                          !countryOptionsData.length)) ||
+                      (isQuoteReportActive &&
+                        (isQuoteFilterBootstrapLoading ||
+                          !countryOptionsData.length))
                     }
                     nothingFoundMessage={
-                      isFreePolicyReportActive &&
-                      isFreePolicyFilterBootstrapLoading
+                      (isFreePolicyReportActive &&
+                        isFreePolicyFilterBootstrapLoading) ||
+                      (isQuoteReportActive && isQuoteFilterBootstrapLoading)
                         ? "Loading countries..."
                         : "No country found"
                     }
@@ -2131,16 +2723,24 @@ const Reports: React.FC = () => {
                     }}
                     data={brandOptionsData}
                     disabled={
-                      isFreePolicyReportActive &&
-                      (isFreePolicyFilterBootstrapLoading ||
-                        isFreePolicyBrandOptionsLoading ||
-                        !selectedCountries.length ||
-                        !brandOptionsData.length)
+                      (isFreePolicyReportActive &&
+                        (isFreePolicyFilterBootstrapLoading ||
+                          isFreePolicyBrandOptionsLoading ||
+                          !selectedCountries.length ||
+                          !brandOptionsData.length)) ||
+                      (isQuoteReportActive &&
+                        (isQuoteFilterBootstrapLoading ||
+                          isQuoteBrandOptionsLoading ||
+                          !selectedCountries.length ||
+                          !brandOptionsData.length))
                     }
                     nothingFoundMessage={
-                      isFreePolicyReportActive &&
-                      (isFreePolicyFilterBootstrapLoading ||
-                        isFreePolicyBrandOptionsLoading)
+                      (isFreePolicyReportActive &&
+                        (isFreePolicyFilterBootstrapLoading ||
+                          isFreePolicyBrandOptionsLoading)) ||
+                      (isQuoteReportActive &&
+                        (isQuoteFilterBootstrapLoading ||
+                          isQuoteBrandOptionsLoading))
                         ? "Loading brands..."
                         : "No brand found"
                     }
@@ -2164,16 +2764,24 @@ const Reports: React.FC = () => {
                     }}
                     data={petTypeOptionsData}
                     disabled={
-                      isFreePolicyReportActive &&
-                      (isFreePolicyFilterBootstrapLoading ||
-                        isFreePolicyPetTypeOptionsLoading ||
-                        !selectedBrands.length ||
-                        !petTypeOptionsData.length)
+                      (isFreePolicyReportActive &&
+                        (isFreePolicyFilterBootstrapLoading ||
+                          isFreePolicyPetTypeOptionsLoading ||
+                          !selectedBrands.length ||
+                          !petTypeOptionsData.length)) ||
+                      (isQuoteReportActive &&
+                        (isQuoteFilterBootstrapLoading ||
+                          isQuotePetTypeOptionsLoading ||
+                          !selectedBrands.length ||
+                          !petTypeOptionsData.length))
                     }
                     nothingFoundMessage={
-                      isFreePolicyReportActive &&
-                      (isFreePolicyFilterBootstrapLoading ||
-                        isFreePolicyPetTypeOptionsLoading)
+                      (isFreePolicyReportActive &&
+                        (isFreePolicyFilterBootstrapLoading ||
+                          isFreePolicyPetTypeOptionsLoading)) ||
+                      (isQuoteReportActive &&
+                        (isQuoteFilterBootstrapLoading ||
+                          isQuotePetTypeOptionsLoading))
                         ? "Loading pet types..."
                         : "No pet type found"
                     }
@@ -2184,6 +2792,73 @@ const Reports: React.FC = () => {
                     value={selectedPetTypes}
                   />
                 </div>
+
+                {isQuoteReportActive ? (
+                  <>
+                    <div className={style.fieldGroup}>
+                      <span className={style.fieldLabel}>Free Product</span>
+                      <SegmentedTabs
+                        accentRgb="95, 158, 132"
+                        activeKey={selectedIsFreeProduct}
+                        ariaLabel="Select free product filter"
+                        onChange={handleIsFreeProductChange}
+                        options={quoteFreeProductPillOptions}
+                      />
+                    </div>
+
+                    <div className={style.fieldGroup}>
+                      <span className={style.fieldLabel}>Document Delivery</span>
+                      <SegmentedTabs
+                        accentRgb="154, 120, 184"
+                        activeKey={selectedSendDocumentOnEmail}
+                        ariaLabel="Select document delivery filter"
+                        onChange={handleSendDocumentOnEmailChange}
+                        options={quoteDocumentDeliveryPillOptions}
+                      />
+                    </div>
+
+                    <div className={style.fieldGroup}>
+                      <span className={style.fieldLabel}>Client Type</span>
+                      <SegmentedTabs
+                        accentRgb="108, 117, 186"
+                        activeKey={selectedExistingClient}
+                        ariaLabel="Select client type filter"
+                        onChange={handleExistingClientChange}
+                        options={quoteClientTypePillOptions}
+                      />
+                    </div>
+
+                    <div className={style.fieldGroup}>
+                      <span className={style.fieldLabel}>Quote Status</span>
+                      <MultiSelect
+                        aria-label="Select quote statuses"
+                        clearable
+                        comboboxProps={{
+                          shadow: "md",
+                          withinPortal: true,
+                          zIndex: 2600,
+                        }}
+                        data={quoteStatusOptions}
+                        onChange={handleQuoteStatusSelectionChange}
+                        placeholder="Select quote statuses"
+                        searchable
+                        styles={quoteFlagSelectionInputStyles}
+                        value={selectedQuoteStatuses}
+                      />
+                    </div>
+
+                    <div className={style.fieldGroup}>
+                      <span className={style.fieldLabel}>Quote Source</span>
+                      <SegmentedTabs
+                        accentRgb="167, 126, 97"
+                        activeKey={selectedReceivedSource}
+                        ariaLabel="Select quote source filter"
+                        onChange={handleReceivedSourceChange}
+                        options={quoteReceivedSourcePillOptions}
+                      />
+                    </div>
+                  </>
+                ) : null}
               </div>
 
               {feedbackMessage ? (

@@ -1,6 +1,6 @@
 import type { DashboardDateRange } from "../../components/layout/DashboardLayout/DashboardLayout";
 
-export type V2EtlJobKey = "free-policy";
+export type V2EtlJobKey = "free-policy" | "quote";
 export type V2EtlRouteKey = V2EtlJobKey | "all";
 export type V2EtlJobState = "pending" | "running" | "completed" | "failed";
 export type V2EtlDateRange = DashboardDateRange;

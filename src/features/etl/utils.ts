@@ -7,8 +7,10 @@ import type {
   V2EtlRouteKey,
   V2EtlRouteOption,
 } from "./types";
+import { getMonthToDateReportingPeriod } from "../../utils/reportingPeriodPresets";
 
 const V2_ETL_JOB_DEFINITIONS: Array<{ key: V2EtlJobKey; label: string }> = [
+  { key: "quote", label: "Quote ETL" },
   { key: "free-policy", label: "Free Policy ETL" },
 ];
 
@@ -16,10 +18,18 @@ export const V2_ETL_ROUTE_OPTIONS: V2EtlRouteOption[] = [
   {
     caption: "Sequence",
     description:
-      "Runs every registered v2 ETL job in order. The current sequence includes Free Policy ETL and expands as more v2 jobs are added.",
-    jobKeys: ["free-policy"],
+      "Runs every registered v2 ETL job in order. The current sequence includes Quote ETL and Free Policy ETL and expands as more v2 jobs are added.",
+    jobKeys: ["quote", "free-policy"],
     key: "all",
     label: "Run All V2 ETL",
+  },
+  {
+    caption: "Individual",
+    description:
+      "Runs only the quote v2 extraction for the date window you choose.",
+    jobKeys: ["quote"],
+    key: "quote",
+    label: "Quote ETL",
   },
   {
     caption: "Individual",
@@ -31,10 +41,8 @@ export const V2_ETL_ROUTE_OPTIONS: V2EtlRouteOption[] = [
   },
 ];
 
-export const createDefaultV2EtlDateRange = (): V2EtlDateRange => [
-  dayjs().subtract(365, "day").format("YYYY-MM-DD"),
-  dayjs().format("YYYY-MM-DD"),
-];
+export const createDefaultV2EtlDateRange = (): V2EtlDateRange =>
+  getMonthToDateReportingPeriod();
 
 export const createInitialV2EtlJobs = (
   jobKeys: V2EtlJobKey[] = V2_ETL_JOB_DEFINITIONS.map((job) => job.key),

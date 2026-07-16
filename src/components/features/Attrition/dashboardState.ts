@@ -616,6 +616,7 @@ const buildPremiumOverviewCardData = (
 };
 
 const buildQuoteWorkflowCardData = (
+  countryRows: QuoteByCountryDatum[],
   lapsedRows: QuoteAgingByCountryDatum[],
   pendingRows: PendingQuoteByCountryDatum[],
 ): QuoteWorkflowCardData => {
@@ -704,11 +705,33 @@ const buildQuoteWorkflowCardData = (
   const pendingRowsByTotal = [...pendingChartData].sort(
     (left, right) => right.value - left.value,
   );
+  const convertedChartData: WorkflowBarChartDatum[] = countryRows.map((row) => ({
+    country: row.country,
+    countryCode: row.countryCode,
+    fill: "#44c28a",
+    value: row.conversionRate,
+    valueLabel: `${formatPercent(row.conversionRate)} | ${formatCount(row.totalSales)}`,
+  }));
+  const convertedRowsByRate = [...countryRows].sort(
+    (left, right) => right.conversionRate - left.conversionRate,
+  );
+  const convertedRowsByVolume = [...countryRows].sort(
+    (left, right) => right.totalSales - left.totalSales,
+  );
   const pendingLeadRow = pendingRowsByTotal[0];
   const pendingTailRow = pendingRowsByTotal[pendingRowsByTotal.length - 1];
+  const convertedLeadRow = convertedRowsByRate[0];
+  const convertedTailRow = convertedRowsByRate[convertedRowsByRate.length - 1];
   const topTwoPendingTotal = pendingRowsByTotal
     .slice(0, 2)
     .reduce((sum, row) => sum + row.value, 0);
+  const totalConvertedVolume = countryRows.reduce(
+    (sum, row) => sum + row.totalSales,
+    0,
+  );
+  const topTwoConvertedTotal = convertedRowsByVolume
+    .slice(0, 2)
+    .reduce((sum, row) => sum + row.totalSales, 0);
   const pendingInsights: DashboardInsightDatum[] = [
     {
       id: "lead-queue",
@@ -749,6 +772,47 @@ const buildQuoteWorkflowCardData = (
         : "No data",
     },
   ];
+  const convertedInsights: DashboardInsightDatum[] = [
+    {
+      id: "best-conversion",
+      label: "Best Conversion",
+      note: convertedLeadRow
+        ? `${convertedLeadRow.countryCode} is converting best in the current country mix.`
+        : "No converted data is available.",
+      tone: "positive",
+      value: convertedLeadRow
+        ? `${convertedLeadRow.countryCode} ${formatPercent(
+            convertedLeadRow.conversionRate,
+          )} | ${formatCount(convertedLeadRow.totalSales)}`
+        : "No data",
+    },
+    {
+      id: "top-two-converted",
+      label: "Top 2 Volume",
+      note: `${convertedRowsByVolume[0]?.countryCode ?? ""} and ${convertedRowsByVolume[1]?.countryCode ?? ""} account for most converted volume.`,
+      tone: "neutral",
+      value: `${formatPercent(
+        Number(
+          ((topTwoConvertedTotal / Math.max(totalConvertedVolume, 1)) * 100).toFixed(
+            1,
+          ),
+        ),
+      )} | ${formatCount(topTwoConvertedTotal)}`,
+    },
+    {
+      id: "lowest-conversion",
+      label: "Lowest Conversion",
+      note: convertedTailRow
+        ? `${convertedTailRow.countryCode} is the weakest country on current conversion rate.`
+        : "No converted data is available.",
+      tone: "negative",
+      value: convertedTailRow
+        ? `${convertedTailRow.countryCode} ${formatPercent(
+            convertedTailRow.conversionRate,
+          )} | ${formatCount(convertedTailRow.totalSales)}`
+        : "No data",
+    },
+  ];
 
   return {
     idBase: "quote-workflow",
@@ -777,6 +841,18 @@ const buildQuoteWorkflowCardData = (
         metricLabel: "Pending",
         subtitle: "Current pending queue by country.",
         title: "Pending by Country",
+      },
+      {
+        accentRgb: "68, 194, 138",
+        chartData: convertedChartData,
+        insights: convertedInsights,
+        key: "converted-quotes",
+        kind: "bar",
+        label: "Converted",
+        metricLabel: "Conversion",
+        numericTickKind: "percent",
+        subtitle: "Country conversion rate with converted volume shown beside each market.",
+        title: "Converted by Country",
       },
     ],
   };
@@ -1884,6 +1960,7 @@ export const buildQuoteDashboardData = ({
       rebuiltPetRows,
     ),
     quoteWorkflowData: buildQuoteWorkflowCardData(
+      rebuiltCountryRows,
       rebuiltLapsedRows,
       rebuiltPendingRows,
     ),
@@ -2083,6 +2160,7 @@ const buildWorkflowBarView = ({
   key,
   label,
   metricLabel,
+  numericTickKind,
   reasonTableShare,
   reasonTableRows,
   rows,
@@ -2095,9 +2173,10 @@ const buildWorkflowBarView = ({
   key: QuoteWorkflowTabKey;
   label: string;
   metricLabel: string;
+  numericTickKind?: "count" | "percent";
   reasonTableShare?: number;
   reasonTableRows?: WorkflowReasonTableRow[];
-  rows: Array<{ country: string; value: number }>;
+  rows: Array<{ country: string; value: number; valueLabel?: string }>;
   subtitle: string;
   title: string;
 }) => {
@@ -2106,7 +2185,9 @@ const buildWorkflowBarView = ({
     countryCode: getCountryCode(row.country),
     fill,
     value: row.value,
-    valueLabel: formatCount(row.value),
+    valueLabel:
+      row.valueLabel ??
+      (numericTickKind === "percent" ? formatPercent(row.value) : formatCount(row.value)),
   }));
 
   return {
@@ -2117,6 +2198,7 @@ const buildWorkflowBarView = ({
     kind: "bar" as const,
     label,
     metricLabel,
+    numericTickKind,
     reasonTableShare,
     reasonTableRows,
     subtitle,
@@ -2399,8 +2481,10 @@ export const buildPolicyDashboardData = (
     (tab) => tab.kind === "lapsed",
   );
   const pendingTab = quoteBundle.quoteWorkflowData.tabs.find(
-    (tab) => tab.kind === "bar",
+    (tab) => tab.key === "pending-quotes",
   );
+  const pendingChartData =
+    pendingTab && pendingTab.kind === "bar" ? pendingTab.chartData : [];
 
   return {
     ...policyBundle,
@@ -2411,7 +2495,7 @@ export const buildPolicyDashboardData = (
     quoteWorkflowData: buildPolicyWorkflowCardData(
       countryRows,
       lapsedTab?.tableRows ?? [],
-      pendingTab?.chartData ?? [],
+      pendingChartData,
     ),
   };
 };

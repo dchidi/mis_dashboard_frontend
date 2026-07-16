@@ -39,7 +39,8 @@
 .fieldHint,
 .formHint,
 .feedbackText,
-.policyTypeCardDescription {
+.policyTypeCardDescription,
+.policyTypeCardMeta {
   color: var(--text);
   font-size: 0.88rem;
   line-height: 1.6;
@@ -80,6 +81,14 @@
 .policyTypeCard {
   align-content: start;
   min-height: 11.5rem;
+}
+
+.policyTypeCardMeta {
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-top: auto;
+  opacity: 0.92;
 }
 
 .reportCard:hover,

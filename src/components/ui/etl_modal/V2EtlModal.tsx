@@ -189,7 +189,7 @@ const V2EtlModal: React.FC<V2EtlModalProps> = ({
             <strong>{formatV2EtlDateRange(dateRange)}</strong>
           </div>
           <div className={style.summaryCard}>
-            <span>Last free-policy load</span>
+            <span>Last recorded load</span>
             <strong>
               {isStatusLoading
                 ? "Loading status..."
@@ -266,7 +266,8 @@ const V2EtlModal: React.FC<V2EtlModalProps> = ({
               placeholder="Select ETL window"
               popoverProps={{ withinPortal: true, zIndex: 3200 }}
               styles={datePickerStyles}
-              type="range"
+              allowSingleDateInRange
+                type="range"
               value={dateRange}
               valueFormat="DD MMM YYYY"
             />
@@ -343,9 +344,7 @@ const V2EtlModal: React.FC<V2EtlModalProps> = ({
         <div className={style.footerMeta}>
           <span>Started: {startedAt ?? "--"}</span>
           <span>Completed: {completedAt ?? (isRunning ? "In progress" : "--")}</span>
-          <span>
-            Status source: {statusSummary?.tableName ?? "FreePolicyETLExtract"}
-          </span>
+          <span>Status source: {statusSummary?.tableName ?? "--"}</span>
         </div>
 
         <div className={style.actions}>

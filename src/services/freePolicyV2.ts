@@ -1,4 +1,5 @@
 export type FreePolicyOutputProfile =
+  | "total-free-policies"
   | "active-converted"
   | "all-converted"
   | "active-not-converted"

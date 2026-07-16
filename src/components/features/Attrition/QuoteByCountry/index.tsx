@@ -30,11 +30,19 @@ import {
 import { getTrendSeriesOptions } from "../QuotePerformance/config";
 import type { TrendSeriesKey } from "../QuotePerformance/types";
 import type { AttritionComponentProps } from "../type";
+import { formatCompactNumber } from "../../../../utils/formatters";
 import style from "./QuoteByCountry.module.css";
 
 const formatCount = (value: number) => value.toLocaleString();
 const formatPercent = (value: number) => `${value}%`;
 const formatGrowth = (value: number) => `${value > 0 ? "+" : ""}${value}%`;
+const formatChartMetricLabel = (
+  metricValue: number,
+  metricKey: TrendSeriesKey,
+) =>
+  metricKey === "conversionRate"
+    ? formatPercent(metricValue)
+    : formatCompactNumber(metricValue);
 
 const renderGrowthValue = (growth: number) => {
   const GrowthIcon =
@@ -318,7 +326,7 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
           barCategoryGap={expanded ? "12%" : "8%"}
           data={activeView.chartData}
           margin={{
-            top: 8,
+            top: expanded ? 30 : 24,
             right: 0,
             left: 0,
             bottom: 0,
@@ -352,9 +360,19 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
             radius={[8, 8, 0, 0]}
           >
             <LabelList
-              dataKey="metricLabel"
+              dataKey="metricValue"
               fill="var(--text-h)"
-              fontSize={12}
+              fontSize={11}
+              formatter={(value) => {
+                const numericValue =
+                  typeof value === "number"
+                    ? value
+                    : typeof value === "string"
+                      ? Number(value)
+                      : 0;
+
+                return formatChartMetricLabel(numericValue, activeTrendSeriesKey);
+              }}
               position="top"
             />
           </Bar>

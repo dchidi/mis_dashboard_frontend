@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DashboardDateRange } from "../../components/layout/DashboardLayout/DashboardLayout";
 import {
   etlV2Service,
-  type V2FreePolicyEtlStatusResponse,
+  type V2EtlRunResponse,
+  type V2EtlStatusResponse,
 } from "../../services/etlV2";
 import type {
   V2EtlDateRange,
@@ -29,7 +30,7 @@ const INITIAL_HEADLINE =
   "Choose a v2 ETL route, adjust the date window if needed, then run the job.";
 
 const mapStatusSummary = (
-  payload: V2FreePolicyEtlStatusResponse,
+  payload: V2EtlStatusResponse,
 ): V2EtlStatusSummary => ({
   currentDate: payload.current_date,
   isCurrent: payload.is_current,
@@ -88,6 +89,7 @@ export const useV2EtlRunner = (): UseV2EtlRunnerResult => {
     () => getV2EtlRouteOption(selectedRouteKey),
     [selectedRouteKey],
   );
+  const statusJobKey = activeRouteOption.jobKeys[0];
 
   useEffect(
     () => () => {
@@ -104,6 +106,22 @@ export const useV2EtlRunner = (): UseV2EtlRunnerResult => {
     setStartedAt(null);
     setCompletedAt(null);
   }, [activeRouteOption]);
+
+  const statusLoader = useMemo(
+    () => ({
+      "free-policy": etlV2Service.getFreePolicyStatus,
+      quote: etlV2Service.getQuoteStatus,
+    }),
+    [],
+  );
+
+  const jobRunner = useMemo(
+    () => ({
+      "free-policy": etlV2Service.runFreePolicy,
+      quote: etlV2Service.runQuote,
+    }),
+    [],
+  );
 
   const appendEtlEvent = useCallback((text: string) => {
     const timestamp = formatV2EtlTime();
@@ -137,7 +155,7 @@ export const useV2EtlRunner = (): UseV2EtlRunnerResult => {
     setStatusError(null);
 
     try {
-      const response = await etlV2Service.getFreePolicyStatus(controller.signal);
+      const response = await statusLoader[statusJobKey](controller.signal);
       if (controller.signal.aborted) {
         return;
       }
@@ -156,12 +174,18 @@ export const useV2EtlRunner = (): UseV2EtlRunnerResult => {
         setIsStatusLoading(false);
       }
     }
-  }, []);
+  }, [statusJobKey, statusLoader]);
+
+  useEffect(() => {
+    if (!isEtlModalOpen) {
+      return;
+    }
+    void loadStatus();
+  }, [isEtlModalOpen, loadStatus]);
 
   const openModal = useCallback(() => {
     setIsEtlModalOpen(true);
-    void loadStatus();
-  }, [loadStatus]);
+  }, []);
 
   const closeModal = useCallback(() => {
     setIsEtlModalOpen(false);
@@ -241,7 +265,8 @@ export const useV2EtlRunner = (): UseV2EtlRunnerResult => {
 
         setEtlHeadline("All v2 ETL jobs completed successfully.");
       } else {
-        const response = await etlV2Service.runFreePolicy({
+        const selectedJobKey = activeRouteOption.key as V2EtlJobKey;
+        const response: V2EtlRunResponse = await jobRunner[selectedJobKey]({
           endDate,
           signal: controller.signal,
           startDate,
@@ -249,16 +274,16 @@ export const useV2EtlRunner = (): UseV2EtlRunnerResult => {
         const rowsLoaded = response.rows_loaded ?? 0;
         const completionMessage = `${rowsLoaded.toLocaleString("en-GB")} rows loaded`;
 
-        updateEtlJob("free-policy", {
+        updateEtlJob(selectedJobKey, {
           message: normalizeV2EtlText(response.load_status, completionMessage),
           regionsLoaded: response.regions.length,
           rowsLoaded,
           state: "completed",
         });
         appendEtlEvent(
-          `Free Policy ETL completed. ${completionMessage} across ${response.regions.length} regions.`,
+          `${activeRouteOption.label} completed. ${completionMessage} across ${response.regions.length} regions.`,
         );
-        setEtlHeadline("Free Policy ETL completed successfully.");
+        setEtlHeadline(`${activeRouteOption.label} completed successfully.`);
       }
 
       try {
@@ -296,6 +321,7 @@ export const useV2EtlRunner = (): UseV2EtlRunnerResult => {
     appendEtlEvent,
     dateRange,
     isEtlRunning,
+    jobRunner,
     loadStatus,
     updateEtlJob,
   ]);

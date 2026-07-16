@@ -5,13 +5,15 @@ export interface ReportingPeriodPreset {
   value: [string, string];
 }
 
+export const getMonthToDateReportingPeriod = (): [string, string] => [
+  dayjs().startOf("month").format("YYYY-MM-DD"),
+  dayjs().format("YYYY-MM-DD"),
+];
+
 export const getReportingPeriodPresets = (): ReportingPeriodPreset[] => [
   {
     label: "This month",
-    value: [
-      dayjs().startOf("month").format("YYYY-MM-DD"),
-      dayjs().format("YYYY-MM-DD"),
-    ],
+    value: getMonthToDateReportingPeriod(),
   },
   {
     label: "Last month",

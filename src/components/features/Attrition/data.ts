@@ -264,6 +264,7 @@ export interface WorkflowBarViewData
   extends QuoteWorkflowBaseViewData {
   chartData: WorkflowBarChartDatum[];
   kind: "bar";
+  numericTickKind?: "count" | "percent";
   reasonTableRows?: WorkflowReasonTableRow[];
   reasonTableShare?: number;
 }
