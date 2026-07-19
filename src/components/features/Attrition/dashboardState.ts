@@ -1,4 +1,4 @@
-import {
+﻿import {
   agentPerformanceData as baseAgentPerformanceData,
   brandContributionData as baseBrandContributionData,
   brandContributionTotalQuotes,
@@ -1555,10 +1555,10 @@ const buildQuotePerformanceMetricViewData = (
       : metricDescriptor.trendTabLabel;
   const quoteTrendSubtitle =
     activeTrendSeries.key === "conversionRate"
-      ? "Monthly conversion performance versus prior year."
+      ? "Month-to-date conversion performance versus prior year."
       : activeTrendSeries.key === "totalSales"
-        ? "Monthly sales volume and performance versus prior year."
-        : "Monthly quoted volume and performance versus prior year.";
+        ? "Month-to-date sales volume and performance versus prior year."
+        : "Month-to-date quoted volume and performance versus prior year.";
   const quoteTrendSignal = buildTrendSignal(activeTrendSeries.key, trendRows);
   const conversionTrendSignal = buildTrendSignal("conversionRate", trendRows);
   const quoteTrendAnalysis = buildAnalysisContent({
@@ -2499,3 +2499,4 @@ export const buildPolicyDashboardData = (
     ),
   };
 };
+

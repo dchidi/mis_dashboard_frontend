@@ -211,7 +211,7 @@ const freePolicyProfileOptions: FreePolicyProfileOption[] = [
 const quoteReportOptionDefinitions: QuoteReportOption[] = [
   {
     description:
-      "Quoted business that converted, with premium movement across the chosen period.",
+      "Quoted business that converted within the selected period, using policy created date as the reporting window.",
     label: "Converted Quote",
     reportId: "converted-quotes",
   },
@@ -436,10 +436,18 @@ const writeStoredReportFilters = (
 const restoreStoredSelectionValues = <T extends { value: string }>(
   storedValues: string[] | undefined,
   availableOptions: T[],
+  options?: {
+    fallbackValues?: string[];
+    treatFullSelectionAsDefault?: boolean;
+  },
 ) => {
   const availableValues = getFilterOptionValues(availableOptions);
+  const fallbackValues = options?.fallbackValues?.length
+    ? options.fallbackValues
+    : availableValues;
+
   if (!Array.isArray(storedValues) || !storedValues.length) {
-    return availableValues;
+    return fallbackValues;
   }
 
   const availableValueSet = new Set(availableValues);
@@ -447,7 +455,20 @@ const restoreStoredSelectionValues = <T extends { value: string }>(
     new Set(storedValues.filter((value) => availableValueSet.has(value))),
   );
 
-  return nextValues.length ? nextValues : availableValues;
+  if (!nextValues.length) {
+    return fallbackValues;
+  }
+
+  if (
+    options?.treatFullSelectionAsDefault &&
+    fallbackValues.length !== availableValues.length &&
+    nextValues.length === availableValues.length &&
+    availableValues.every((value) => nextValues.includes(value))
+  ) {
+    return fallbackValues;
+  }
+
+  return nextValues;
 };
 
 const normalizeStoredReportingPeriod = (
@@ -472,9 +493,10 @@ const areSameValueLists = (left: string[], right: string[]) =>
   left.length === right.length &&
   left.every((value, index) => value === right[index]);
 
-const reconcileSelectedValues = (
+const reconcileSelectedValues = <T extends { value: string }>(
   selectedValues: string[],
-  availableOptions: FreePolicyFilterOption[],
+  availableOptions: T[],
+  fallbackValues?: string[],
 ) => {
   const availableValues = new Set(getFilterOptionValues(availableOptions));
   const intersectedValues = selectedValues.filter((value) =>
@@ -483,11 +505,63 @@ const reconcileSelectedValues = (
   const dedupedIntersectedValues = Array.from(new Set(intersectedValues));
   const nextValues = dedupedIntersectedValues.length
     ? dedupedIntersectedValues
-    : getFilterOptionValues(availableOptions);
+    : fallbackValues?.length
+      ? fallbackValues
+      : getFilterOptionValues(availableOptions);
 
   return areSameValueLists(selectedValues, nextValues)
     ? selectedValues
     : nextValues;
+};
+
+const normalizePetTypeToken = (value: string) =>
+  value.replace(/[^a-z0-9]/gi, "").toUpperCase();
+
+const getVisibleQuotePetTypeOptions = (
+  profile: QuoteReportProfile | null,
+  availableOptions: QuoteFilterOption[],
+) => {
+  if (
+    profile === "pending-quote" ||
+    profile === "total-quote" ||
+    profile === "lapsed-quote"
+  ) {
+    return availableOptions.filter(
+      (option) => !normalizePetTypeToken(option.value).startsWith("MIPET"),
+    );
+  }
+
+  return availableOptions;
+};
+
+const getDefaultQuotePetTypeValues = (
+  profile: QuoteReportProfile | null,
+  availableOptions: QuoteFilterOption[],
+) => {
+  const visibleOptions = getVisibleQuotePetTypeOptions(profile, availableOptions);
+  const availableValues = getFilterOptionValues(visibleOptions);
+  if (!profile) {
+    return availableValues;
+  }
+
+  const defaultValues = visibleOptions
+    .map((option) => option.value)
+    .filter((value) => {
+      const normalizedValue = normalizePetTypeToken(value);
+
+      if (profile === "converted-quotes") {
+        return ![
+          "MIPETDOG",
+          "MIPETCAT",
+          "COVERMYCAT",
+          "COVERMYDOG",
+        ].includes(normalizedValue);
+      }
+
+      return true;
+    });
+
+  return defaultValues.length ? defaultValues : availableValues;
 };
 
 const mergeOrderedSelectedValues = <T extends { value: string }>(
@@ -966,7 +1040,7 @@ const reportDefinitions: ReportDefinition[] = [
       "Channel",
     ],
     description:
-      "Quoted business that converted, with premium movement across the chosen period.",
+      "Quoted business that converted within the selected period, using policy created date as the reporting window.",
     fileStem: "converted_quotes",
     icon: RiLineChartLine,
     id: "converted-quotes",
@@ -1473,6 +1547,9 @@ const Reports: React.FC = () => {
         (option) => option.reportId === activeReport.id,
       ),
   );
+  const activeQuoteProfile = isQuoteReportActive
+    ? (activeReport?.id as QuoteReportProfile)
+    : null;
   const activeReportStorageKey = useMemo(
     () =>
       activeFilterModal ? buildReportFilterStorageKey(activeFilterModal) : null,
@@ -1845,6 +1922,13 @@ const Reports: React.FC = () => {
         const nextPetTypes = restoreStoredSelectionValues(
           savedFilters?.petTypes,
           nextPetTypeOptions,
+          {
+            fallbackValues: getDefaultQuotePetTypeValues(
+              activeQuoteProfile,
+              nextPetTypeOptions,
+            ),
+            treatFullSelectionAsDefault: true,
+          },
         );
 
         if (abortController.signal.aborted) {
@@ -2009,9 +2093,21 @@ const Reports: React.FC = () => {
           nextPetTypeOptions = petTypeScopedFilters.petTypes;
         }
 
+        const visiblePetTypeOptions = getVisibleQuotePetTypeOptions(
+          activeQuoteProfile,
+          nextPetTypeOptions,
+        );
+
         const nextPetTypes = restoreStoredSelectionValues(
           savedFilters?.petTypes,
-          nextPetTypeOptions,
+          visiblePetTypeOptions,
+          {
+            fallbackValues: getDefaultQuotePetTypeValues(
+              activeQuoteProfile,
+              visiblePetTypeOptions,
+            ),
+            treatFullSelectionAsDefault: true,
+          },
         );
 
         if (abortController.signal.aborted) {
@@ -2022,7 +2118,7 @@ const Reports: React.FC = () => {
           setQuoteFilterOptions({
             brands: nextBrandOptions,
             countries: filters.countries,
-            petTypes: nextPetTypeOptions,
+            petTypes: visiblePetTypeOptions,
           });
           setSelectedCountries(nextCountries);
           setSelectedBrands(nextBrands);
@@ -2265,6 +2361,11 @@ const Reports: React.FC = () => {
             nextPetTypeOptions = petTypeScopedFilters.petTypes;
           }
 
+          const visiblePetTypeOptions = getVisibleQuotePetTypeOptions(
+            activeQuoteProfile,
+            nextPetTypeOptions,
+          );
+
           if (quoteAbortController.signal.aborted) {
             return;
           }
@@ -2276,11 +2377,18 @@ const Reports: React.FC = () => {
                 currentOptions.countries.length > 0
                   ? currentOptions.countries
                   : brandScopedFilters.countries,
-              petTypes: nextPetTypeOptions,
+              petTypes: visiblePetTypeOptions,
             }));
             setSelectedBrands(nextSelectedBrands);
             setSelectedPetTypes((currentValues) =>
-              reconcileSelectedValues(currentValues, nextPetTypeOptions),
+              reconcileSelectedValues(
+                currentValues,
+                visiblePetTypeOptions,
+                getDefaultQuotePetTypeValues(
+                  activeQuoteProfile,
+                  visiblePetTypeOptions,
+                ),
+              ),
             );
           });
         } catch (error: unknown) {
@@ -2383,7 +2491,14 @@ const Reports: React.FC = () => {
           }));
           setSelectedBrands(nextSelectedBrands);
           setSelectedPetTypes((currentValues) =>
-            reconcileSelectedValues(currentValues, nextPetTypeOptions),
+            reconcileSelectedValues(
+                currentValues,
+                nextPetTypeOptions,
+                getDefaultQuotePetTypeValues(
+                  activeQuoteProfile,
+                  nextPetTypeOptions,
+                ),
+              ),
           );
         });
       } catch (error: unknown) {
@@ -2449,13 +2564,25 @@ const Reports: React.FC = () => {
         signal: quoteAbortController.signal,
       })
         .then((filters) => {
+          const visiblePetTypeOptions = getVisibleQuotePetTypeOptions(
+            activeQuoteProfile,
+            filters.petTypes,
+          );
+
           startTransition(() => {
             setQuoteFilterOptions((currentOptions) => ({
               ...currentOptions,
-              petTypes: filters.petTypes,
+              petTypes: visiblePetTypeOptions,
             }));
             setSelectedPetTypes((currentValues) =>
-              reconcileSelectedValues(currentValues, filters.petTypes),
+              reconcileSelectedValues(
+                currentValues,
+                visiblePetTypeOptions,
+                getDefaultQuotePetTypeValues(
+                  activeQuoteProfile,
+                  visiblePetTypeOptions,
+                ),
+              ),
             );
           });
         })
@@ -2517,7 +2644,11 @@ const Reports: React.FC = () => {
             petTypes: filters.petTypes,
           }));
           setSelectedPetTypes((currentValues) =>
-            reconcileSelectedValues(currentValues, filters.petTypes),
+            reconcileSelectedValues(
+                currentValues,
+                filters.petTypes,
+                getDefaultQuotePetTypeValues(activeQuoteProfile, filters.petTypes),
+              ),
           );
         });
       })
@@ -3480,19 +3611,11 @@ const Reports: React.FC = () => {
                                               columnValue,
                                             )
                                           }
-                                          title={columnValue}
+                                          title={columnLabel}
                                           type="button"
                                         >
-                                          <span className={style.quoteExportOrderMeta}>
-                                            Drag
-                                          </span>
-                                          <span className={style.quoteExportOrderText}>
-                                            <span className={style.quoteExportOrderLabel}>
-                                              {columnLabel}
-                                            </span>
-                                            <span className={style.quoteExportOrderValue}>
-                                              {columnValue}
-                                            </span>
+                                          <span className={style.quoteExportOrderLabel}>
+                                            {columnLabel}
                                           </span>
                                         </button>
                                       );
@@ -3784,3 +3907,5 @@ const Reports: React.FC = () => {
 };
 
 export default Reports;
+
+

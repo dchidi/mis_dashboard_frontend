@@ -1,4 +1,4 @@
-import {
+﻿import {
   FaFileLines,
   FaPercent,
   FaSackDollar,
@@ -12,13 +12,13 @@ export const quoteCardTabs: QuoteCardTabConfig[] = [
   {
     key: "quote-trend",
     label: "Quote Trend",
-    subtitle: "Monthly quotes, sales, and conversion performance.",
+    subtitle: "Month-to-date quotes, sales, and conversion performance.",
     title: "Quote Trend",
   },
   {
     key: "conversion-trend",
     label: "Conversion Trend",
-    subtitle: "Monthly conversion rate movement versus prior year.",
+    subtitle: "Month-to-date conversion rate movement versus prior year.",
     title: "Conversion Trend",
   },
   {
@@ -107,3 +107,4 @@ export const getTrendSeriesOptions = (
   variant === "policy" ? policyTrendSeriesOptions : quoteTrendSeriesOptions;
 
 export const trendSeriesOptions = getTrendSeriesOptions("quote");
+
