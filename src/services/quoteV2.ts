@@ -29,6 +29,12 @@ export interface QuoteDashboardPayload {
   meta: Record<string, unknown>;
 }
 
+export interface QuoteReportColumnsPayload {
+  columns: QuoteFilterOption[];
+  meta: Record<string, unknown>;
+  report: Record<string, unknown>;
+}
+
 export interface QuoteReportSummaryItem {
   count: number;
   description: string;
@@ -97,6 +103,7 @@ interface DownloadQuoteReportParams {
   profile: QuoteReportProfile;
   quoteStatuses?: string[];
   receivedSource?: QuoteReceivedSourceValue;
+  selectedColumns?: string[];
   sendDocumentOnEmail?: QuoteBinaryFilterValue;
   startDate: string;
 }
@@ -104,6 +111,15 @@ interface DownloadQuoteReportParams {
 interface FetchQuoteReportProfilesParams {
   asOfDate?: string;
   endDate: string;
+  signal?: AbortSignal;
+  startDate: string;
+}
+
+interface FetchQuoteReportColumnsParams {
+  brands?: string[];
+  endDate: string;
+  petTypes?: string[];
+  profile: QuoteReportProfile;
   signal?: AbortSignal;
   startDate: string;
 }
@@ -160,6 +176,14 @@ const dedupeOptions = (options: RawQuoteFilterOption[]) => {
 
 const buildCommaSeparatedValue = (values: string[]) =>
   values.length ? values.join(",") : "all";
+
+const buildSelectedColumnsValue = (values?: string[]) => {
+  if (values === undefined) {
+    return undefined;
+  }
+
+  return values.length ? values.join(",") : "__none__";
+};
 
 const buildUrl = (
   baseUrl: string,
@@ -293,6 +317,33 @@ export const fetchQuoteReportProfiles = async ({
   return (await response.json()) as QuoteReportProfilesPayload;
 };
 
+export const fetchQuoteReportColumns = async ({
+  brands = [],
+  endDate,
+  petTypes = [],
+  profile,
+  signal,
+  startDate,
+}: FetchQuoteReportColumnsParams): Promise<QuoteReportColumnsPayload> => {
+  const url = buildUrl(QUOTE_V2_REPORTS_BASE_URL, "/columns", {
+    brands: buildCommaSeparatedValue(brands),
+    end_date: endDate,
+    pet_types: buildCommaSeparatedValue(petTypes),
+    profile,
+    start_date: startDate,
+  });
+  const response = await authenticatedFetch(url, {
+    method: "GET",
+    signal,
+  });
+  const payload = (await response.json()) as QuoteReportColumnsPayload;
+
+  return {
+    ...payload,
+    columns: dedupeOptions(payload.columns),
+  };
+};
+
 export const fetchQuoteReportData = async ({
   brands = [],
   countryCodes = [],
@@ -342,6 +393,7 @@ export const downloadQuoteReport = async ({
   profile,
   quoteStatuses = [],
   receivedSource = "all",
+  selectedColumns,
   sendDocumentOnEmail = "all",
   startDate,
 }: DownloadQuoteReportParams) => {
@@ -355,6 +407,7 @@ export const downloadQuoteReport = async ({
     pet_types: buildCommaSeparatedValue(petTypes),
     quote_statuses: buildCommaSeparatedValue(quoteStatuses),
     received_sources: receivedSource,
+    selected_columns: buildSelectedColumnsValue(selectedColumns),
     send_document_on_email: sendDocumentOnEmail,
     start_date: startDate,
   });

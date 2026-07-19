@@ -1,4 +1,11 @@
-import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+﻿import {
+  startTransition,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react";
 import dayjs from "dayjs";
 import { MultiSelect } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
@@ -41,6 +48,7 @@ import {
 import {
   downloadQuoteReport,
   fetchQuoteFilters,
+  fetchQuoteReportColumns,
   fetchQuoteReportProfiles,
   type QuoteBinaryFilterValue,
   type QuoteFilterOption,
@@ -144,6 +152,20 @@ interface QuoteFilterOptionsState {
   brands: QuoteFilterOption[];
   countries: QuoteFilterOption[];
   petTypes: QuoteFilterOption[];
+}
+
+interface StoredReportFilters {
+  brands?: string[];
+  countries?: string[];
+  existingClient?: QuoteBinaryFilterValue;
+  isFreeProduct?: QuoteBinaryFilterValue;
+  isQuoteExportColumnsVisible?: boolean;
+  petTypes?: string[];
+  quoteExportColumns?: string[];
+  quoteStatuses?: string[];
+  receivedSource?: QuoteReceivedSourceValue;
+  reportingPeriod?: [string | null, string | null];
+  sendDocumentOnEmail?: QuoteBinaryFilterValue;
 }
 
 const defaultDateRange: DashboardDateRange = getMonthToDateReportingPeriod();
@@ -358,8 +380,92 @@ const quoteStatusOptions: QuoteFilterOption[] = [
   { label: "Approved by Underwriter", value: "Approved by Underwriter" },
 ];
 const allQuoteStatusValues = quoteStatusOptions.map((option) => option.value);
+const REPORT_FILTER_STORAGE_KEY_PREFIX = "marketing-crm:report-filters:v1";
 
-const getFilterOptionValues = (options: FreePolicyFilterOption[]) =>
+const buildReportFilterStorageKey = (modalState: ReportFilterModalState) => {
+  const profileSegment = modalState.profile ? `:${modalState.profile}` : "";
+  return `${REPORT_FILTER_STORAGE_KEY_PREFIX}:${modalState.reportId}${profileSegment}`;
+};
+
+const isQuoteBinaryFilterValue = (
+  value: unknown,
+): value is QuoteBinaryFilterValue => value === "all" || value === "1" || value === "0";
+
+const isQuoteReceivedSourceValue = (
+  value: unknown,
+): value is QuoteReceivedSourceValue =>
+  value === "all" || value === "web" || value === "phone";
+
+const readStoredReportFilters = (
+  storageKey: string,
+): StoredReportFilters | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object"
+      ? (parsed as StoredReportFilters)
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredReportFilters = (
+  storageKey: string,
+  filters: StoredReportFilters,
+) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(filters));
+  } catch {
+    // Ignore storage failures and keep the report flow working.
+  }
+};
+
+const restoreStoredSelectionValues = <T extends { value: string }>(
+  storedValues: string[] | undefined,
+  availableOptions: T[],
+) => {
+  const availableValues = getFilterOptionValues(availableOptions);
+  if (!Array.isArray(storedValues) || !storedValues.length) {
+    return availableValues;
+  }
+
+  const availableValueSet = new Set(availableValues);
+  const nextValues = Array.from(
+    new Set(storedValues.filter((value) => availableValueSet.has(value))),
+  );
+
+  return nextValues.length ? nextValues : availableValues;
+};
+
+const normalizeStoredReportingPeriod = (
+  storedValue: StoredReportFilters["reportingPeriod"] | undefined,
+): DashboardDateRange => {
+  if (
+    Array.isArray(storedValue) &&
+    storedValue.length === 2 &&
+    (typeof storedValue[0] === "string" || storedValue[0] === null) &&
+    (typeof storedValue[1] === "string" || storedValue[1] === null)
+  ) {
+    return [storedValue[0], storedValue[1]];
+  }
+
+  return defaultDateRange;
+};
+
+const getFilterOptionValues = <T extends { value: string }>(options: T[]) =>
   options.map((option) => option.value);
 
 const areSameValueLists = (left: string[], right: string[]) =>
@@ -381,6 +487,84 @@ const reconcileSelectedValues = (
 
   return areSameValueLists(selectedValues, nextValues)
     ? selectedValues
+    : nextValues;
+};
+
+const mergeOrderedSelectedValues = <T extends { value: string }>(
+  currentValues: string[],
+  nextValues: string[],
+  availableOptions: T[],
+) => {
+  const nextValueSet = new Set(nextValues);
+  const retainedValues = currentValues.filter((value) => nextValueSet.has(value));
+  const retainedValueSet = new Set(retainedValues);
+  const appendedValues = getFilterOptionValues(availableOptions).filter(
+    (value) => nextValueSet.has(value) && !retainedValueSet.has(value),
+  );
+  const mergedValues = [...retainedValues, ...appendedValues];
+
+  return areSameValueLists(currentValues, mergedValues)
+    ? currentValues
+    : mergedValues;
+};
+
+const reconcileOrderedSelectedValues = <T extends { value: string }>(
+  currentValues: string[],
+  availableOptions: T[],
+  previousAvailableValues: string[],
+) => {
+  const availableValues = getFilterOptionValues(availableOptions);
+  if (!currentValues.length) {
+    return previousAvailableValues.length ? currentValues : availableValues;
+  }
+
+  const availableValueSet = new Set(availableValues);
+  const retainedValues = Array.from(
+    new Set(currentValues.filter((value) => availableValueSet.has(value))),
+  );
+  const retainedValueSet = new Set(retainedValues);
+  const previousAvailableValueSet = new Set(previousAvailableValues);
+  const newlyAvailableValues = availableValues.filter(
+    (value) =>
+      !previousAvailableValueSet.has(value) && !retainedValueSet.has(value),
+  );
+  const nextValues =
+    retainedValues.length || newlyAvailableValues.length
+      ? [...retainedValues, ...newlyAvailableValues]
+      : availableValues;
+
+  return areSameValueLists(currentValues, nextValues)
+    ? currentValues
+    : nextValues;
+};
+
+const moveSelectedValue = (
+  currentValues: string[],
+  draggedValue: string,
+  targetValue: string | "end",
+) => {
+  if (!currentValues.includes(draggedValue)) {
+    return currentValues;
+  }
+
+  const remainingValues = currentValues.filter((value) => value !== draggedValue);
+  const nextValues = [...remainingValues];
+
+  if (targetValue === "end") {
+    nextValues.push(draggedValue);
+    return areSameValueLists(currentValues, nextValues)
+      ? currentValues
+      : nextValues;
+  }
+
+  const targetIndex = nextValues.indexOf(targetValue);
+  if (targetIndex === -1) {
+    return currentValues;
+  }
+
+  nextValues.splice(targetIndex, 0, draggedValue);
+  return areSameValueLists(currentValues, nextValues)
+    ? currentValues
     : nextValues;
 };
 
@@ -1217,6 +1401,9 @@ const Reports: React.FC = () => {
   ]);
   const [selectedReceivedSource, setSelectedReceivedSource] =
     useState<QuoteReceivedSourceValue>("all");
+  const [isQuoteExportColumnsVisible, setIsQuoteExportColumnsVisible] =
+    useState(false);
+  const [isFilterStateReady, setIsFilterStateReady] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [isDownloadInProgress, setIsDownloadInProgress] = useState(false);
   const [freePolicyFilterOptions, setFreePolicyFilterOptions] =
@@ -1234,11 +1421,23 @@ const Reports: React.FC = () => {
   const freePolicyPetTypeRequestRef = useRef<AbortController | null>(null);
   const [quoteFilterOptions, setQuoteFilterOptions] =
     useState<QuoteFilterOptionsState>(emptyQuoteFilterOptions);
+  const [availableQuoteExportColumns, setAvailableQuoteExportColumns] =
+    useState<QuoteFilterOption[]>([]);
+  const [selectedQuoteExportColumns, setSelectedQuoteExportColumns] =
+    useState<string[]>([]);
+  const [draggedQuoteExportColumn, setDraggedQuoteExportColumn] = useState<
+    string | null
+  >(null);
+  const [quoteExportDropTarget, setQuoteExportDropTarget] = useState<
+    string | "end" | null
+  >(null);
   const [isQuoteFilterBootstrapLoading, setIsQuoteFilterBootstrapLoading] =
     useState(false);
   const [isQuoteBrandOptionsLoading, setIsQuoteBrandOptionsLoading] =
     useState(false);
   const [isQuotePetTypeOptionsLoading, setIsQuotePetTypeOptionsLoading] =
+    useState(false);
+  const [isQuoteExportColumnsLoading, setIsQuoteExportColumnsLoading] =
     useState(false);
   const [availableQuoteReportOptions, setAvailableQuoteReportOptions] =
     useState<QuoteReportOption[]>(quoteReportOptionDefinitions);
@@ -1252,6 +1451,10 @@ const Reports: React.FC = () => {
   );
   const quoteBrandRequestRef = useRef<AbortController | null>(null);
   const quotePetTypeRequestRef = useRef<AbortController | null>(null);
+  const previousQuoteExportColumnsRef = useRef<string[]>([]);
+  const hasCustomizedQuoteExportColumnsRef = useRef(false);
+  const hasQuoteFilterBootstrapCompletedRef = useRef(false);
+  const savedReportFiltersRef = useRef<StoredReportFilters | null>(null);
 
   const activeReport = useMemo(
     () =>
@@ -1269,6 +1472,11 @@ const Reports: React.FC = () => {
       quoteReportOptionDefinitions.some(
         (option) => option.reportId === activeReport.id,
       ),
+  );
+  const activeReportStorageKey = useMemo(
+    () =>
+      activeFilterModal ? buildReportFilterStorageKey(activeFilterModal) : null,
+    [activeFilterModal],
   );
   const standaloneLibraryReports = useMemo(
     () =>
@@ -1303,6 +1511,7 @@ const Reports: React.FC = () => {
 
   const canDownload = Boolean(
     activeReport &&
+    isFilterStateReady &&
     reportingPeriod[0] &&
     reportingPeriod[1] &&
     selectedCountries.length &&
@@ -1320,8 +1529,35 @@ const Reports: React.FC = () => {
         countryOptionsData.length &&
         brandOptionsData.length &&
         petTypeOptionsData.length &&
-        selectedQuoteStatuses.length)),
+        selectedQuoteStatuses.length &&
+        !isQuoteExportColumnsLoading &&
+        availableQuoteExportColumns.length &&
+        selectedQuoteExportColumns.length)),
   );
+  const quoteExportColumnLabelMap = useMemo(
+    () =>
+      new Map(
+        availableQuoteExportColumns.map((option) => [option.value, option.label]),
+      ),
+    [availableQuoteExportColumns],
+  );
+  const quoteExportSummaryText = useMemo(() => {
+    if (isQuoteExportColumnsLoading && !availableQuoteExportColumns.length) {
+      return "Loading export columns...";
+    }
+
+    if (!availableQuoteExportColumns.length) {
+      return "All export columns will be selected by default once the list loads.";
+    }
+
+    return `${selectedQuoteExportColumns.length} ${
+      selectedQuoteExportColumns.length === 1 ? "column" : "columns"
+    } selected for export.`;
+  }, [
+    availableQuoteExportColumns.length,
+    isQuoteExportColumnsLoading,
+    selectedQuoteExportColumns.length,
+  ]);
   const { firstName, lastName } = getUserNameParts(user);
 
   const resetFilters = () => {
@@ -1334,6 +1570,16 @@ const Reports: React.FC = () => {
     setSelectedExistingClient(defaultQuoteBinaryFilterValue);
     setSelectedQuoteStatuses([...allQuoteStatusValues]);
     setSelectedReceivedSource("all");
+    setIsQuoteExportColumnsVisible(false);
+    setIsFilterStateReady(false);
+    setAvailableQuoteExportColumns([]);
+    setSelectedQuoteExportColumns([]);
+    setDraggedQuoteExportColumn(null);
+    setQuoteExportDropTarget(null);
+    previousQuoteExportColumnsRef.current = [];
+    hasCustomizedQuoteExportColumnsRef.current = false;
+    hasQuoteFilterBootstrapCompletedRef.current = false;
+    savedReportFiltersRef.current = null;
     setFeedbackMessage(null);
     setIsDownloadInProgress(false);
     setFreePolicyFiltersError(null);
@@ -1343,6 +1589,7 @@ const Reports: React.FC = () => {
     setIsFreePolicyPetTypeOptionsLoading(false);
     setIsQuoteBrandOptionsLoading(false);
     setIsQuotePetTypeOptionsLoading(false);
+    setIsQuoteExportColumnsLoading(false);
   };
 
   const stopFreePolicyRequests = () => {
@@ -1359,6 +1606,7 @@ const Reports: React.FC = () => {
     setIsQuoteFilterBootstrapLoading(false);
     setIsQuoteBrandOptionsLoading(false);
     setIsQuotePetTypeOptionsLoading(false);
+    setIsQuoteExportColumnsLoading(false);
   };
 
   const closePolicyLibraryModal = () => {
@@ -1472,6 +1720,75 @@ const Reports: React.FC = () => {
   ]);
 
   useEffect(() => {
+    if (!activeFilterModal || !activeReportStorageKey) {
+      savedReportFiltersRef.current = null;
+      setIsFilterStateReady(false);
+      return;
+    }
+
+    const savedFilters = readStoredReportFilters(activeReportStorageKey);
+    const savedQuoteExportColumns = Array.isArray(savedFilters?.quoteExportColumns)
+      ? Array.from(
+          new Set(
+            savedFilters.quoteExportColumns.filter(
+              (value): value is string => typeof value === "string" && value.length > 0,
+            ),
+          ),
+        )
+      : [];
+
+    savedReportFiltersRef.current = savedFilters;
+    hasCustomizedQuoteExportColumnsRef.current = savedQuoteExportColumns.length > 0;
+    hasQuoteFilterBootstrapCompletedRef.current = false;
+    previousQuoteExportColumnsRef.current = [];
+    setIsFilterStateReady(false);
+    setReportingPeriod(normalizeStoredReportingPeriod(savedFilters?.reportingPeriod));
+    setSelectedIsFreeProduct(
+      isQuoteBinaryFilterValue(savedFilters?.isFreeProduct)
+        ? savedFilters.isFreeProduct
+        : defaultQuoteBinaryFilterValue,
+    );
+    setSelectedSendDocumentOnEmail(
+      isQuoteBinaryFilterValue(savedFilters?.sendDocumentOnEmail)
+        ? savedFilters.sendDocumentOnEmail
+        : defaultQuoteBinaryFilterValue,
+    );
+    setSelectedExistingClient(
+      isQuoteBinaryFilterValue(savedFilters?.existingClient)
+        ? savedFilters.existingClient
+        : defaultQuoteBinaryFilterValue,
+    );
+    setSelectedQuoteStatuses(
+      restoreStoredSelectionValues(savedFilters?.quoteStatuses, quoteStatusOptions),
+    );
+    setSelectedReceivedSource(
+      isQuoteReceivedSourceValue(savedFilters?.receivedSource)
+        ? savedFilters.receivedSource
+        : "all",
+    );
+    setIsQuoteExportColumnsVisible(Boolean(savedFilters?.isQuoteExportColumnsVisible));
+    setSelectedQuoteExportColumns(savedQuoteExportColumns);
+
+    if (!isFreePolicyReportActive && !isQuoteReportActive) {
+      setSelectedCountries(
+        restoreStoredSelectionValues(savedFilters?.countries, staticCountrySelectOptions),
+      );
+      setSelectedBrands(
+        restoreStoredSelectionValues(savedFilters?.brands, staticBrandSelectOptions),
+      );
+      setSelectedPetTypes(
+        restoreStoredSelectionValues(savedFilters?.petTypes, staticPetTypeSelectOptions),
+      );
+      setIsFilterStateReady(true);
+    }
+  }, [
+    activeFilterModal,
+    activeReportStorageKey,
+    isFreePolicyReportActive,
+    isQuoteReportActive,
+  ]);
+
+  useEffect(() => {
     if (!isFreePolicyReportActive) {
       freePolicyBrandRequestRef.current?.abort();
       freePolicyPetTypeRequestRef.current?.abort();
@@ -1488,20 +1805,65 @@ const Reports: React.FC = () => {
     setIsFreePolicyFilterBootstrapLoading(true);
     setFreePolicyFiltersError(null);
 
-    void fetchFreePolicyFilters({ signal: abortController.signal })
-      .then((filters) => {
-        startTransition(() => {
-          setFreePolicyFilterOptions(filters);
-          setSelectedCountries(getFilterOptionValues(filters.countries));
-          setSelectedBrands(getFilterOptionValues(filters.brands));
-          setSelectedPetTypes(getFilterOptionValues(filters.petTypes));
+    void (async () => {
+      try {
+        const filters = await fetchFreePolicyFilters({
+          signal: abortController.signal,
         });
-      })
-      .catch((error: unknown) => {
-        if (
-          error instanceof DOMException &&
-          error.name === "AbortError"
-        ) {
+        const savedFilters = savedReportFiltersRef.current;
+        const nextCountries = restoreStoredSelectionValues(
+          savedFilters?.countries,
+          filters.countries,
+        );
+
+        let nextBrandOptions = filters.brands;
+        let nextPetTypeOptions = filters.petTypes;
+
+        if (!areSameValueLists(nextCountries, getFilterOptionValues(filters.countries))) {
+          const countryScopedFilters = await fetchFreePolicyFilters({
+            countryCodes: nextCountries,
+            signal: abortController.signal,
+          });
+          nextBrandOptions = countryScopedFilters.brands;
+          nextPetTypeOptions = countryScopedFilters.petTypes;
+        }
+
+        const nextBrands = restoreStoredSelectionValues(
+          savedFilters?.brands,
+          nextBrandOptions,
+        );
+
+        if (!areSameValueLists(nextBrands, getFilterOptionValues(nextBrandOptions))) {
+          const petTypeScopedFilters = await fetchFreePolicyFilters({
+            brands: nextBrands,
+            countryCodes: nextCountries,
+            signal: abortController.signal,
+          });
+          nextPetTypeOptions = petTypeScopedFilters.petTypes;
+        }
+
+        const nextPetTypes = restoreStoredSelectionValues(
+          savedFilters?.petTypes,
+          nextPetTypeOptions,
+        );
+
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        startTransition(() => {
+          setFreePolicyFilterOptions({
+            brands: nextBrandOptions,
+            countries: filters.countries,
+            petTypes: nextPetTypeOptions,
+          });
+          setSelectedCountries(nextCountries);
+          setSelectedBrands(nextBrands);
+          setSelectedPetTypes(nextPetTypes);
+        });
+        setIsFilterStateReady(true);
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === "AbortError") {
           return;
         }
 
@@ -1516,12 +1878,13 @@ const Reports: React.FC = () => {
             ? error.message
             : "Failed to load free policy filters.",
         );
-      })
-      .finally(() => {
+        setIsFilterStateReady(true);
+      } finally {
         if (!abortController.signal.aborted) {
           setIsFreePolicyFilterBootstrapLoading(false);
         }
-      });
+      }
+    })();
 
     return () => {
       abortController.abort();
@@ -1591,9 +1954,17 @@ const Reports: React.FC = () => {
       quoteBrandRequestRef.current?.abort();
       quotePetTypeRequestRef.current?.abort();
       setQuoteFilterOptions(emptyQuoteFilterOptions);
+      setAvailableQuoteExportColumns([]);
+      setSelectedQuoteExportColumns([]);
+      setDraggedQuoteExportColumn(null);
+      setQuoteExportDropTarget(null);
+      previousQuoteExportColumnsRef.current = [];
+      hasCustomizedQuoteExportColumnsRef.current = false;
+      hasQuoteFilterBootstrapCompletedRef.current = false;
       setIsQuoteFilterBootstrapLoading(false);
       setIsQuoteBrandOptionsLoading(false);
       setIsQuotePetTypeOptionsLoading(false);
+      setIsQuoteExportColumnsLoading(false);
       setQuoteFiltersError(null);
       return;
     }
@@ -1603,16 +1974,62 @@ const Reports: React.FC = () => {
     setIsQuoteFilterBootstrapLoading(true);
     setQuoteFiltersError(null);
 
-    void fetchQuoteFilters({ signal: abortController.signal })
-      .then((filters) => {
+    void (async () => {
+      try {
+        const filters = await fetchQuoteFilters({ signal: abortController.signal });
+        const savedFilters = savedReportFiltersRef.current;
+        const nextCountries = restoreStoredSelectionValues(
+          savedFilters?.countries,
+          filters.countries,
+        );
+
+        let nextBrandOptions = filters.brands;
+        let nextPetTypeOptions = filters.petTypes;
+
+        if (!areSameValueLists(nextCountries, getFilterOptionValues(filters.countries))) {
+          const countryScopedFilters = await fetchQuoteFilters({
+            countryCodes: nextCountries,
+            signal: abortController.signal,
+          });
+          nextBrandOptions = countryScopedFilters.brands;
+          nextPetTypeOptions = countryScopedFilters.petTypes;
+        }
+
+        const nextBrands = restoreStoredSelectionValues(
+          savedFilters?.brands,
+          nextBrandOptions,
+        );
+
+        if (!areSameValueLists(nextBrands, getFilterOptionValues(nextBrandOptions))) {
+          const petTypeScopedFilters = await fetchQuoteFilters({
+            brands: nextBrands,
+            countryCodes: nextCountries,
+            signal: abortController.signal,
+          });
+          nextPetTypeOptions = petTypeScopedFilters.petTypes;
+        }
+
+        const nextPetTypes = restoreStoredSelectionValues(
+          savedFilters?.petTypes,
+          nextPetTypeOptions,
+        );
+
+        if (abortController.signal.aborted) {
+          return;
+        }
+
         startTransition(() => {
-          setQuoteFilterOptions(filters);
-          setSelectedCountries(getFilterOptionValues(filters.countries));
-          setSelectedBrands(getFilterOptionValues(filters.brands));
-          setSelectedPetTypes(getFilterOptionValues(filters.petTypes));
+          setQuoteFilterOptions({
+            brands: nextBrandOptions,
+            countries: filters.countries,
+            petTypes: nextPetTypeOptions,
+          });
+          setSelectedCountries(nextCountries);
+          setSelectedBrands(nextBrands);
+          setSelectedPetTypes(nextPetTypes);
         });
-      })
-      .catch((error: unknown) => {
+        hasQuoteFilterBootstrapCompletedRef.current = true;
+      } catch (error: unknown) {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
         }
@@ -1623,20 +2040,166 @@ const Reports: React.FC = () => {
           setSelectedBrands([]);
           setSelectedPetTypes([]);
         });
+        hasQuoteFilterBootstrapCompletedRef.current = false;
         setQuoteFiltersError(
           error instanceof Error ? error.message : "Failed to load quote filters.",
         );
+        setIsFilterStateReady(true);
+      } finally {
+        if (!abortController.signal.aborted) {
+          setIsQuoteFilterBootstrapLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [isQuoteReportActive, activeFilterModal?.reportId]);
+
+  useEffect(() => {
+    const activeQuoteProfile = activeReport?.id as QuoteReportProfile | undefined;
+    if (!isQuoteReportActive || !activeQuoteProfile) {
+      setAvailableQuoteExportColumns([]);
+      setSelectedQuoteExportColumns([]);
+      setDraggedQuoteExportColumn(null);
+      setQuoteExportDropTarget(null);
+      previousQuoteExportColumnsRef.current = [];
+      hasCustomizedQuoteExportColumnsRef.current = false;
+      setIsQuoteExportColumnsLoading(false);
+      return;
+    }
+
+    if (!hasQuoteFilterBootstrapCompletedRef.current || isQuoteFilterBootstrapLoading) {
+      setIsQuoteExportColumnsLoading(false);
+      return;
+    }
+
+    const [startDate, endDate] = reportingPeriod;
+    if (!startDate || !endDate) {
+      setAvailableQuoteExportColumns([]);
+      setSelectedQuoteExportColumns([]);
+      setDraggedQuoteExportColumn(null);
+      setQuoteExportDropTarget(null);
+      previousQuoteExportColumnsRef.current = [];
+      hasCustomizedQuoteExportColumnsRef.current = false;
+      setIsQuoteExportColumnsLoading(false);
+      return;
+    }
+
+    const abortController = new AbortController();
+
+    setIsQuoteExportColumnsLoading(true);
+    setQuoteFiltersError(null);
+
+    void fetchQuoteReportColumns({
+      brands: selectedBrands,
+      endDate,
+      petTypes: selectedPetTypes,
+      profile: activeQuoteProfile,
+      signal: abortController.signal,
+      startDate,
+    })
+      .then((payload) => {
+        const nextAvailableValues = getFilterOptionValues(payload.columns);
+
+        startTransition(() => {
+          setAvailableQuoteExportColumns(payload.columns);
+          setSelectedQuoteExportColumns((currentValues) =>
+            hasCustomizedQuoteExportColumnsRef.current
+              ? reconcileOrderedSelectedValues(
+                  currentValues,
+                  payload.columns,
+                  previousQuoteExportColumnsRef.current,
+                )
+              : nextAvailableValues,
+          );
+        });
+        previousQuoteExportColumnsRef.current = nextAvailableValues;
+        setIsFilterStateReady(true);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+
+        startTransition(() => {
+          setAvailableQuoteExportColumns([]);
+          setSelectedQuoteExportColumns([]);
+        });
+        setDraggedQuoteExportColumn(null);
+        setQuoteExportDropTarget(null);
+        previousQuoteExportColumnsRef.current = [];
+        hasCustomizedQuoteExportColumnsRef.current = false;
+        setQuoteFiltersError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load quote export columns.",
+        );
+        setIsFilterStateReady(true);
       })
       .finally(() => {
         if (!abortController.signal.aborted) {
-          setIsQuoteFilterBootstrapLoading(false);
+          setIsQuoteExportColumnsLoading(false);
         }
       });
 
     return () => {
       abortController.abort();
     };
-  }, [isQuoteReportActive, activeFilterModal?.reportId]);
+  }, [
+    activeReport?.id,
+    isQuoteFilterBootstrapLoading,
+    isQuoteReportActive,
+    reportingPeriod,
+    selectedBrands,
+    selectedPetTypes,
+  ]);
+
+  useEffect(() => {
+    if (!activeFilterModal || !activeReportStorageKey || !isFilterStateReady) {
+      return;
+    }
+
+    const nextStoredFilters: StoredReportFilters = {
+      brands: selectedBrands,
+      countries: selectedCountries,
+      petTypes: selectedPetTypes,
+      reportingPeriod,
+    };
+
+    if (isQuoteReportActive) {
+      nextStoredFilters.existingClient = selectedExistingClient;
+      nextStoredFilters.isFreeProduct = selectedIsFreeProduct;
+      nextStoredFilters.quoteStatuses = selectedQuoteStatuses;
+      nextStoredFilters.receivedSource = selectedReceivedSource;
+      nextStoredFilters.sendDocumentOnEmail = selectedSendDocumentOnEmail;
+    }
+
+    if (isQuoteReportActive) {
+      nextStoredFilters.isQuoteExportColumnsVisible =
+        isQuoteExportColumnsVisible;
+      nextStoredFilters.quoteExportColumns = selectedQuoteExportColumns;
+    }
+
+    writeStoredReportFilters(activeReportStorageKey, nextStoredFilters);
+  }, [
+    activeFilterModal,
+    activeReportStorageKey,
+    isFilterStateReady,
+    isQuoteExportColumnsVisible,
+    isQuoteReportActive,
+    reportingPeriod,
+    selectedBrands,
+    selectedCountries,
+    selectedExistingClient,
+    selectedIsFreeProduct,
+    selectedPetTypes,
+    selectedQuoteExportColumns,
+    selectedQuoteStatuses,
+    selectedReceivedSource,
+    selectedSendDocumentOnEmail,
+  ]);
 
   const handleCountrySelectionChange = (nextCountries: string[]) => {
     setFeedbackMessage(null);
@@ -2020,6 +2583,76 @@ const Reports: React.FC = () => {
     setSelectedReceivedSource(value);
   };
 
+  const handleQuoteExportColumnSelectionChange = (nextColumns: string[]) => {
+    setFeedbackMessage(null);
+    setQuoteFiltersError(null);
+    hasCustomizedQuoteExportColumnsRef.current = true;
+    setSelectedQuoteExportColumns((currentValues) =>
+      mergeOrderedSelectedValues(
+        currentValues,
+        nextColumns,
+        availableQuoteExportColumns,
+      ),
+    );
+  };
+
+  const handleQuoteExportColumnsVisibilityToggle = () => {
+    setFeedbackMessage(null);
+    setQuoteFiltersError(null);
+    setIsQuoteExportColumnsVisible((currentValue) => !currentValue);
+  };
+
+  const handleQuoteExportColumnDragStart = (
+    event: DragEvent<HTMLButtonElement>,
+    value: string,
+  ) => {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", value);
+    setDraggedQuoteExportColumn(value);
+    setQuoteExportDropTarget(value);
+  };
+
+  const handleQuoteExportColumnDragOver = (
+    event: DragEvent<HTMLElement>,
+    targetValue: string | "end",
+  ) => {
+    if (!draggedQuoteExportColumn) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    if (quoteExportDropTarget !== targetValue) {
+      setQuoteExportDropTarget(targetValue);
+    }
+  };
+
+  const handleQuoteExportColumnDrop = (
+    event: DragEvent<HTMLElement>,
+    targetValue: string | "end",
+  ) => {
+    event.preventDefault();
+    const draggedValue =
+      draggedQuoteExportColumn || event.dataTransfer.getData("text/plain");
+    if (!draggedValue) {
+      return;
+    }
+
+    setFeedbackMessage(null);
+    setQuoteFiltersError(null);
+    hasCustomizedQuoteExportColumnsRef.current = true;
+    setSelectedQuoteExportColumns((currentValues) =>
+      moveSelectedValue(currentValues, draggedValue, targetValue),
+    );
+    setDraggedQuoteExportColumn(null);
+    setQuoteExportDropTarget(null);
+  };
+
+  const handleQuoteExportColumnDragEnd = () => {
+    setDraggedQuoteExportColumn(null);
+    setQuoteExportDropTarget(null);
+  };
+
   const handleReportCardClick = (report: ReportDefinition) => {
     resetFilters();
     if (report.id === "free-policy") {
@@ -2175,6 +2808,7 @@ const Reports: React.FC = () => {
           profile: activeReport.id as QuoteReportProfile,
           quoteStatuses: selectedQuoteStatuses,
           receivedSource: selectedReceivedSource,
+          selectedColumns: selectedQuoteExportColumns,
           sendDocumentOnEmail: selectedSendDocumentOnEmail,
           startDate: start,
         });
@@ -2677,192 +3311,418 @@ const Reports: React.FC = () => {
                   />
                 </div>
 
-                <div className={style.fieldGroup}>
-                  <span className={style.fieldLabel}>Country</span>
-                  <MultiSelect
-                    aria-label="Select countries"
-                    clearable
-                    comboboxProps={{
-                      shadow: "md",
-                      withinPortal: true,
-                      zIndex: 2600,
-                    }}
-                    data={countryOptionsData}
-                    disabled={
-                      (isFreePolicyReportActive &&
-                        (isFreePolicyFilterBootstrapLoading ||
-                          !countryOptionsData.length)) ||
-                      (isQuoteReportActive &&
-                        (isQuoteFilterBootstrapLoading ||
-                          !countryOptionsData.length))
-                    }
-                    nothingFoundMessage={
-                      (isFreePolicyReportActive &&
-                        isFreePolicyFilterBootstrapLoading) ||
-                      (isQuoteReportActive && isQuoteFilterBootstrapLoading)
-                        ? "Loading countries..."
-                        : "No country found"
-                    }
-                    onChange={handleCountrySelectionChange}
-                    placeholder="Select countries"
-                    searchable
-                    styles={countrySelectionInputStyles}
-                    value={selectedCountries}
-                  />
-                </div>
-
-                <div className={style.fieldGroup}>
-                  <span className={style.fieldLabel}>Brand</span>
-                  <MultiSelect
-                    aria-label="Select brands"
-                    clearable
-                    comboboxProps={{
-                      shadow: "md",
-                      withinPortal: true,
-                      zIndex: 2600,
-                    }}
-                    data={brandOptionsData}
-                    disabled={
-                      (isFreePolicyReportActive &&
-                        (isFreePolicyFilterBootstrapLoading ||
-                          isFreePolicyBrandOptionsLoading ||
-                          !selectedCountries.length ||
-                          !brandOptionsData.length)) ||
-                      (isQuoteReportActive &&
-                        (isQuoteFilterBootstrapLoading ||
-                          isQuoteBrandOptionsLoading ||
-                          !selectedCountries.length ||
-                          !brandOptionsData.length))
-                    }
-                    nothingFoundMessage={
-                      (isFreePolicyReportActive &&
-                        (isFreePolicyFilterBootstrapLoading ||
-                          isFreePolicyBrandOptionsLoading)) ||
-                      (isQuoteReportActive &&
-                        (isQuoteFilterBootstrapLoading ||
-                          isQuoteBrandOptionsLoading))
-                        ? "Loading brands..."
-                        : "No brand found"
-                    }
-                    onChange={handleBrandSelectionChange}
-                    placeholder="Select brands"
-                    searchable
-                    styles={brandSelectionInputStyles}
-                    value={selectedBrands}
-                  />
-                </div>
-
-                <div className={style.fieldGroup}>
-                  <span className={style.fieldLabel}>Pet Type</span>
-                  <MultiSelect
-                    aria-label="Select pet types"
-                    clearable
-                    comboboxProps={{
-                      shadow: "md",
-                      withinPortal: true,
-                      zIndex: 2600,
-                    }}
-                    data={petTypeOptionsData}
-                    disabled={
-                      (isFreePolicyReportActive &&
-                        (isFreePolicyFilterBootstrapLoading ||
-                          isFreePolicyPetTypeOptionsLoading ||
-                          !selectedBrands.length ||
-                          !petTypeOptionsData.length)) ||
-                      (isQuoteReportActive &&
-                        (isQuoteFilterBootstrapLoading ||
-                          isQuotePetTypeOptionsLoading ||
-                          !selectedBrands.length ||
-                          !petTypeOptionsData.length))
-                    }
-                    nothingFoundMessage={
-                      (isFreePolicyReportActive &&
-                        (isFreePolicyFilterBootstrapLoading ||
-                          isFreePolicyPetTypeOptionsLoading)) ||
-                      (isQuoteReportActive &&
-                        (isQuoteFilterBootstrapLoading ||
-                          isQuotePetTypeOptionsLoading))
-                        ? "Loading pet types..."
-                        : "No pet type found"
-                    }
-                    onChange={handlePetTypeSelectionChange}
-                    placeholder="Select pet types"
-                    searchable
-                    styles={petTypeSelectionInputStyles}
-                    value={selectedPetTypes}
-                  />
-                </div>
-
                 {isQuoteReportActive ? (
+                  <div className={style.quoteFilterColumns}>
+                    <div className={style.quoteFilterColumn}>
+                      <div className={style.fieldGroup}>
+                        <span className={style.fieldLabel}>Country</span>
+                        <MultiSelect
+                          aria-label="Select countries"
+                          clearable
+                          comboboxProps={{
+                            shadow: "md",
+                            withinPortal: true,
+                            zIndex: 2600,
+                          }}
+                          data={countryOptionsData}
+                          disabled={
+                            isQuoteFilterBootstrapLoading || !countryOptionsData.length
+                          }
+                          nothingFoundMessage={
+                            isQuoteFilterBootstrapLoading
+                              ? "Loading countries..."
+                              : "No country found"
+                          }
+                          onChange={handleCountrySelectionChange}
+                          placeholder="Select countries"
+                          searchable
+                          styles={countrySelectionInputStyles}
+                          value={selectedCountries}
+                        />
+                      </div>
+
+                      <div className={style.fieldGroup}>
+                        <span className={style.fieldLabel}>Pet Type</span>
+                        <MultiSelect
+                          aria-label="Select pet types"
+                          clearable
+                          comboboxProps={{
+                            shadow: "md",
+                            withinPortal: true,
+                            zIndex: 2600,
+                          }}
+                          data={petTypeOptionsData}
+                          disabled={
+                            isQuoteFilterBootstrapLoading ||
+                            isQuotePetTypeOptionsLoading ||
+                            !selectedBrands.length ||
+                            !petTypeOptionsData.length
+                          }
+                          nothingFoundMessage={
+                            isQuoteFilterBootstrapLoading ||
+                            isQuotePetTypeOptionsLoading
+                              ? "Loading pet types..."
+                              : "No pet type found"
+                          }
+                          onChange={handlePetTypeSelectionChange}
+                          placeholder="Select pet types"
+                          searchable
+                          styles={petTypeSelectionInputStyles}
+                          value={selectedPetTypes}
+                        />
+                      </div>
+
+                      <div className={style.fieldGroup}>
+                        <span className={style.fieldLabel}>Quote Status</span>
+                        <MultiSelect
+                          aria-label="Select quote statuses"
+                          clearable
+                          comboboxProps={{
+                            shadow: "md",
+                            withinPortal: true,
+                            zIndex: 2600,
+                          }}
+                          data={quoteStatusOptions}
+                          onChange={handleQuoteStatusSelectionChange}
+                          placeholder="Select quote statuses"
+                          searchable
+                          styles={quoteFlagSelectionInputStyles}
+                          value={selectedQuoteStatuses}
+                        />
+                      </div>
+
+                      {isQuoteReportActive ? (
+                        <div className={style.fieldGroup}>
+                          <div className={style.inlineFieldHeader}>
+                            <span className={style.fieldLabel}>Export Columns</span>
+                            <button
+                              className={style.fieldToggleButton}
+                              onClick={handleQuoteExportColumnsVisibilityToggle}
+                              type="button"
+                            >
+                              {isQuoteExportColumnsVisible ? "Hide" : "Customize"}
+                            </button>
+                          </div>
+                          <span className={style.quoteExportSummary}>
+                            {quoteExportSummaryText}
+                          </span>
+                          {isQuoteExportColumnsVisible ? (
+                            <>
+                              <MultiSelect
+                                aria-label="Select export columns"
+                                clearable
+                                comboboxProps={{
+                                  shadow: "md",
+                                  withinPortal: true,
+                                  zIndex: 2600,
+                                }}
+                                data={availableQuoteExportColumns}
+                                disabled={
+                                  isQuoteExportColumnsLoading ||
+                                  !availableQuoteExportColumns.length
+                                }
+                                nothingFoundMessage={
+                                  isQuoteExportColumnsLoading
+                                    ? "Loading columns..."
+                                    : "No export column found"
+                                }
+                                onChange={handleQuoteExportColumnSelectionChange}
+                                placeholder="Select export columns"
+                                searchable
+                                styles={quoteFlagSelectionInputStyles}
+                                value={selectedQuoteExportColumns}
+                              />
+                              {selectedQuoteExportColumns.length ? (
+                                <>
+                                  <span className={style.quoteExportOrderHint}>
+                                    Drag the selected columns below to control the
+                                    export order.
+                                  </span>
+                                  <div className={style.quoteExportOrderList}>
+                                    {selectedQuoteExportColumns.map((columnValue) => {
+                                      const columnLabel =
+                                        quoteExportColumnLabelMap.get(columnValue) ||
+                                        columnValue;
+
+                                      return (
+                                        <button
+                                          aria-grabbed={
+                                            draggedQuoteExportColumn === columnValue
+                                          }
+                                          className={`${style.quoteExportOrderItem}${
+                                            draggedQuoteExportColumn === columnValue
+                                              ? ` ${style.quoteExportOrderItemDragging}`
+                                              : ""
+                                          }${
+                                            quoteExportDropTarget === columnValue &&
+                                            draggedQuoteExportColumn !== columnValue
+                                              ? ` ${style.quoteExportOrderItemTarget}`
+                                              : ""
+                                          }`}
+                                          draggable
+                                          key={columnValue}
+                                          onDragEnd={handleQuoteExportColumnDragEnd}
+                                          onDragOver={(event) =>
+                                            handleQuoteExportColumnDragOver(
+                                              event,
+                                              columnValue,
+                                            )
+                                          }
+                                          onDragStart={(event) =>
+                                            handleQuoteExportColumnDragStart(
+                                              event,
+                                              columnValue,
+                                            )
+                                          }
+                                          onDrop={(event) =>
+                                            handleQuoteExportColumnDrop(
+                                              event,
+                                              columnValue,
+                                            )
+                                          }
+                                          title={columnValue}
+                                          type="button"
+                                        >
+                                          <span className={style.quoteExportOrderMeta}>
+                                            Drag
+                                          </span>
+                                          <span className={style.quoteExportOrderText}>
+                                            <span className={style.quoteExportOrderLabel}>
+                                              {columnLabel}
+                                            </span>
+                                            <span className={style.quoteExportOrderValue}>
+                                              {columnValue}
+                                            </span>
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
+                                    {selectedQuoteExportColumns.length > 1 ? (
+                                      <div
+                                        className={`${style.quoteExportOrderDropZone}${
+                                          quoteExportDropTarget === "end"
+                                            ? ` ${style.quoteExportOrderDropZoneActive}`
+                                            : ""
+                                        }`}
+                                        onDragOver={(event) =>
+                                          handleQuoteExportColumnDragOver(event, "end")
+                                        }
+                                        onDrop={(event) =>
+                                          handleQuoteExportColumnDrop(event, "end")
+                                        }
+                                      >
+                                        Drop here to move to the end
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </>
+                              ) : null}
+                            </>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className={style.quoteFilterColumn}>
+                      <div className={style.fieldGroup}>
+                        <span className={style.fieldLabel}>Brand</span>
+                        <MultiSelect
+                          aria-label="Select brands"
+                          clearable
+                          comboboxProps={{
+                            shadow: "md",
+                            withinPortal: true,
+                            zIndex: 2600,
+                          }}
+                          data={brandOptionsData}
+                          disabled={
+                            isQuoteFilterBootstrapLoading ||
+                            isQuoteBrandOptionsLoading ||
+                            !selectedCountries.length ||
+                            !brandOptionsData.length
+                          }
+                          nothingFoundMessage={
+                            isQuoteFilterBootstrapLoading ||
+                            isQuoteBrandOptionsLoading
+                              ? "Loading brands..."
+                              : "No brand found"
+                          }
+                          onChange={handleBrandSelectionChange}
+                          placeholder="Select brands"
+                          searchable
+                          styles={brandSelectionInputStyles}
+                          value={selectedBrands}
+                        />
+                      </div>
+
+                      <div className={style.fieldGroup}>
+                        <span className={style.fieldLabel}>Free Product</span>
+                        <SegmentedTabs
+                          accentRgb="95, 158, 132"
+                          activeKey={selectedIsFreeProduct}
+                          ariaLabel="Select free product filter"
+                          className={style.segmentedFieldControl}
+                          onChange={handleIsFreeProductChange}
+                          options={quoteFreeProductPillOptions}
+                        />
+                      </div>
+
+                      <div className={style.fieldGroup}>
+                        <span className={style.fieldLabel}>Document Delivery</span>
+                        <SegmentedTabs
+                          accentRgb="154, 120, 184"
+                          activeKey={selectedSendDocumentOnEmail}
+                          ariaLabel="Select document delivery filter"
+                          className={style.segmentedFieldControl}
+                          onChange={handleSendDocumentOnEmailChange}
+                          options={quoteDocumentDeliveryPillOptions}
+                        />
+                      </div>
+
+                      <div className={style.fieldGroup}>
+                        <span className={style.fieldLabel}>Client Type</span>
+                        <SegmentedTabs
+                          accentRgb="108, 117, 186"
+                          activeKey={selectedExistingClient}
+                          ariaLabel="Select client type filter"
+                          className={style.segmentedFieldControl}
+                          onChange={handleExistingClientChange}
+                          options={quoteClientTypePillOptions}
+                        />
+                      </div>
+
+                      <div className={style.fieldGroup}>
+                        <span className={style.fieldLabel}>Quote Source</span>
+                        <SegmentedTabs
+                          accentRgb="167, 126, 97"
+                          activeKey={selectedReceivedSource}
+                          ariaLabel="Select quote source filter"
+                          className={style.segmentedFieldControl}
+                          onChange={handleReceivedSourceChange}
+                          options={quoteReceivedSourcePillOptions}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
                   <>
                     <div className={style.fieldGroup}>
-                      <span className={style.fieldLabel}>Free Product</span>
-                      <SegmentedTabs
-                        accentRgb="95, 158, 132"
-                        activeKey={selectedIsFreeProduct}
-                        ariaLabel="Select free product filter"
-                        className={style.segmentedFieldControl}
-                        onChange={handleIsFreeProductChange}
-                        options={quoteFreeProductPillOptions}
-                      />
-                    </div>
-
-                    <div className={style.fieldGroup}>
-                      <span className={style.fieldLabel}>Document Delivery</span>
-                      <SegmentedTabs
-                        accentRgb="154, 120, 184"
-                        activeKey={selectedSendDocumentOnEmail}
-                        ariaLabel="Select document delivery filter"
-                        className={style.segmentedFieldControl}
-                        onChange={handleSendDocumentOnEmailChange}
-                        options={quoteDocumentDeliveryPillOptions}
-                      />
-                    </div>
-
-                    <div className={style.fieldGroup}>
-                      <span className={style.fieldLabel}>Client Type</span>
-                      <SegmentedTabs
-                        accentRgb="108, 117, 186"
-                        activeKey={selectedExistingClient}
-                        ariaLabel="Select client type filter"
-                        className={style.segmentedFieldControl}
-                        onChange={handleExistingClientChange}
-                        options={quoteClientTypePillOptions}
-                      />
-                    </div>
-
-                    <div className={style.fieldGroup}>
-                      <span className={style.fieldLabel}>Quote Status</span>
+                      <span className={style.fieldLabel}>Country</span>
                       <MultiSelect
-                        aria-label="Select quote statuses"
+                        aria-label="Select countries"
                         clearable
                         comboboxProps={{
                           shadow: "md",
                           withinPortal: true,
                           zIndex: 2600,
                         }}
-                        data={quoteStatusOptions}
-                        onChange={handleQuoteStatusSelectionChange}
-                        placeholder="Select quote statuses"
+                        data={countryOptionsData}
+                        disabled={
+                          (isFreePolicyReportActive &&
+                            (isFreePolicyFilterBootstrapLoading ||
+                              !countryOptionsData.length)) ||
+                          (isQuoteReportActive &&
+                            (isQuoteFilterBootstrapLoading ||
+                              !countryOptionsData.length))
+                        }
+                        nothingFoundMessage={
+                          (isFreePolicyReportActive &&
+                            isFreePolicyFilterBootstrapLoading) ||
+                          (isQuoteReportActive && isQuoteFilterBootstrapLoading)
+                            ? "Loading countries..."
+                            : "No country found"
+                        }
+                        onChange={handleCountrySelectionChange}
+                        placeholder="Select countries"
                         searchable
-                        styles={quoteFlagSelectionInputStyles}
-                        value={selectedQuoteStatuses}
+                        styles={countrySelectionInputStyles}
+                        value={selectedCountries}
                       />
                     </div>
 
                     <div className={style.fieldGroup}>
-                      <span className={style.fieldLabel}>Quote Source</span>
-                      <SegmentedTabs
-                        accentRgb="167, 126, 97"
-                        activeKey={selectedReceivedSource}
-                        ariaLabel="Select quote source filter"
-                        className={style.segmentedFieldControl}
-                        onChange={handleReceivedSourceChange}
-                        options={quoteReceivedSourcePillOptions}
+                      <span className={style.fieldLabel}>Brand</span>
+                      <MultiSelect
+                        aria-label="Select brands"
+                        clearable
+                        comboboxProps={{
+                          shadow: "md",
+                          withinPortal: true,
+                          zIndex: 2600,
+                        }}
+                        data={brandOptionsData}
+                        disabled={
+                          (isFreePolicyReportActive &&
+                            (isFreePolicyFilterBootstrapLoading ||
+                              isFreePolicyBrandOptionsLoading ||
+                              !selectedCountries.length ||
+                              !brandOptionsData.length)) ||
+                          (isQuoteReportActive &&
+                            (isQuoteFilterBootstrapLoading ||
+                              isQuoteBrandOptionsLoading ||
+                              !selectedCountries.length ||
+                              !brandOptionsData.length))
+                        }
+                        nothingFoundMessage={
+                          (isFreePolicyReportActive &&
+                            (isFreePolicyFilterBootstrapLoading ||
+                              isFreePolicyBrandOptionsLoading)) ||
+                          (isQuoteReportActive &&
+                            (isQuoteFilterBootstrapLoading ||
+                              isQuoteBrandOptionsLoading))
+                            ? "Loading brands..."
+                            : "No brand found"
+                        }
+                        onChange={handleBrandSelectionChange}
+                        placeholder="Select brands"
+                        searchable
+                        styles={brandSelectionInputStyles}
+                        value={selectedBrands}
+                      />
+                    </div>
+
+                    <div className={style.fieldGroup}>
+                      <span className={style.fieldLabel}>Pet Type</span>
+                      <MultiSelect
+                        aria-label="Select pet types"
+                        clearable
+                        comboboxProps={{
+                          shadow: "md",
+                          withinPortal: true,
+                          zIndex: 2600,
+                        }}
+                        data={petTypeOptionsData}
+                        disabled={
+                          (isFreePolicyReportActive &&
+                            (isFreePolicyFilterBootstrapLoading ||
+                              isFreePolicyPetTypeOptionsLoading ||
+                              !selectedBrands.length ||
+                              !petTypeOptionsData.length)) ||
+                          (isQuoteReportActive &&
+                            (isQuoteFilterBootstrapLoading ||
+                              isQuotePetTypeOptionsLoading ||
+                              !selectedBrands.length ||
+                              !petTypeOptionsData.length))
+                        }
+                        nothingFoundMessage={
+                          (isFreePolicyReportActive &&
+                            (isFreePolicyFilterBootstrapLoading ||
+                              isFreePolicyPetTypeOptionsLoading)) ||
+                          (isQuoteReportActive &&
+                            (isQuoteFilterBootstrapLoading ||
+                              isQuotePetTypeOptionsLoading))
+                            ? "Loading pet types..."
+                            : "No pet type found"
+                        }
+                        onChange={handlePetTypeSelectionChange}
+                        placeholder="Select pet types"
+                        searchable
+                        styles={petTypeSelectionInputStyles}
+                        value={selectedPetTypes}
                       />
                     </div>
                   </>
-                ) : null}
+                )}
               </div>
 
               {feedbackMessage ? (
