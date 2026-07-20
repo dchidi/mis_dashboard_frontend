@@ -31,6 +31,8 @@ import { dashboardMenuItems } from "../config/dashboardMenu";
 import { useAuth } from "../context/AuthContext";
 import { useV2EtlRunner } from "../features/etl/useV2EtlRunner";
 import {
+  downloadQuoteProductPerformance,
+  downloadQuotePromoPerformance,
   fetchQuoteDashboard,
   fetchQuoteFilters,
   type QuoteFilterOption,
@@ -43,6 +45,10 @@ interface DashboardChartViewProps {
   activeTrendSeriesKey: TrendSeriesKey;
   dashboardData: QuoteDashboardDataBundle;
   isLoading: boolean;
+  isPromoPerformanceDownloadInProgress: boolean;
+  isProductPerformanceDownloadInProgress: boolean;
+  onPromoPerformanceDownload: (view: "promoCode" | "agent") => void;
+  onProductPerformanceDownload: () => void;
   onTrendSeriesChange: (key: TrendSeriesKey) => void;
 }
 
@@ -378,6 +384,7 @@ const QuotePerformanceSkeleton: React.FC<{ className?: string }> = ({
       <Skeleton className={style.skeletonPill} />
       <Skeleton className={style.skeletonPill} />
       <Skeleton className={style.skeletonPill} />
+      <Skeleton className={style.skeletonPill} />
     </div>
 
     <div className={style.skeletonTrendPanel}>
@@ -422,7 +429,11 @@ const ProductPerformanceSkeleton: React.FC<{ className?: string }> = ({
 const QuoteByPromoSkeleton: React.FC<{ className?: string }> = ({
   className,
 }) => (
-  <SkeletonCard className={className} title="Quote by Promo Code (Top 10)">
+  <SkeletonCard
+    className={className}
+    headerAside={<Skeleton className={style.skeletonIcon} />}
+    title="Quote by Promo Code (Top 10)"
+  >
     <div className={style.skeletonPillRow}>
       <Skeleton className={style.skeletonWidePillActive} />
       <Skeleton className={style.skeletonWidePill} />
@@ -458,6 +469,10 @@ const renderChartView = ({
   activeTrendSeriesKey,
   dashboardData,
   isLoading,
+  isPromoPerformanceDownloadInProgress,
+  isProductPerformanceDownloadInProgress,
+  onPromoPerformanceDownload,
+  onProductPerformanceDownload,
   onTrendSeriesChange,
 }: DashboardChartViewProps) => (
   <div className={style.root}>
@@ -516,6 +531,9 @@ const renderChartView = ({
         activeTrendSeriesKey={activeTrendSeriesKey}
         className={`${style.section} ${style.productCard}`}
         data={dashboardData.productPerformanceData}
+        downloadDisabled={isProductPerformanceDownloadInProgress}
+        isDownloadInProgress={isProductPerformanceDownloadInProgress}
+        onDownload={onProductPerformanceDownload}
       />
     )}
 
@@ -526,6 +544,9 @@ const renderChartView = ({
         activeTrendSeriesKey={activeTrendSeriesKey}
         className={`${style.section} ${style.promoCard}`}
         data={dashboardData.promoCodePerformanceData}
+        downloadDisabled={isPromoPerformanceDownloadInProgress}
+        isDownloadInProgress={isPromoPerformanceDownloadInProgress}
+        onDownload={onPromoPerformanceDownload}
       />
     )}
   </div>
@@ -561,6 +582,10 @@ const Dashboard: React.FC = () => {
   const [dashboardData, setDashboardData] =
     useState<QuoteDashboardDataBundle>(zeroDashboardData);
   const [isDashboardLoading, setIsDashboardLoading] = useState(true);
+  const [isPromoPerformanceDownloadInProgress, setIsPromoPerformanceDownloadInProgress] =
+    useState(false);
+  const [isProductPerformanceDownloadInProgress, setIsProductPerformanceDownloadInProgress] =
+    useState(false);
   const dashboardRequestIdRef = useRef(0);
   const brandRequestRef = useRef<AbortController | null>(null);
   const petTypeRequestRef = useRef<AbortController | null>(null);
@@ -801,6 +826,60 @@ const Dashboard: React.FC = () => {
     setReportingPeriod(nextReportingPeriod);
   };
 
+  const handleProductPerformanceDownload = async () => {
+    const [startDate, endDate] = reportingPeriod;
+    if (!startDate || !endDate || isProductPerformanceDownloadInProgress) {
+      return;
+    }
+
+    setIsProductPerformanceDownloadInProgress(true);
+    try {
+      await downloadQuoteProductPerformance({
+        brands: selectedBrands,
+        countryCodes: selectedCountries,
+        endDate,
+        petTypes: selectedPetTypes,
+        startDate,
+      });
+    } catch (error: unknown) {
+      console.error(
+        "Failed to download quote product performance source data",
+        error,
+      );
+    } finally {
+      setIsProductPerformanceDownloadInProgress(false);
+    }
+  };
+
+  const handlePromoPerformanceDownload = async (
+    view: "promoCode" | "agent",
+  ) => {
+    const [startDate, endDate] = reportingPeriod;
+    if (!startDate || !endDate || isPromoPerformanceDownloadInProgress) {
+      return;
+    }
+
+    setIsPromoPerformanceDownloadInProgress(true);
+    try {
+      await downloadQuotePromoPerformance({
+        brands: selectedBrands,
+        countryCodes: selectedCountries,
+        endDate,
+        metricKey: activeTrendSeriesKey,
+        petTypes: selectedPetTypes,
+        startDate,
+        view,
+      });
+    } catch (error: unknown) {
+      console.error(
+        `Failed to download quote ${view === "promoCode" ? "promo code" : "agent"} data`,
+        error,
+      );
+    } finally {
+      setIsPromoPerformanceDownloadInProgress(false);
+    }
+  };
+
   return (
     <>
       <DashboardLayout
@@ -840,6 +919,11 @@ const Dashboard: React.FC = () => {
           activeTrendSeriesKey,
           dashboardData,
           isLoading: isDashboardLoading,
+          isPromoPerformanceDownloadInProgress,
+          isProductPerformanceDownloadInProgress,
+          onPromoPerformanceDownload: (view) =>
+            void handlePromoPerformanceDownload(view),
+          onProductPerformanceDownload: () => void handleProductPerformanceDownload(),
           onTrendSeriesChange: setActiveTrendSeriesKey,
         })}
       </DashboardLayout>
@@ -871,3 +955,5 @@ const Dashboard: React.FC = () => {
 };
 
 export default Dashboard;
+
+

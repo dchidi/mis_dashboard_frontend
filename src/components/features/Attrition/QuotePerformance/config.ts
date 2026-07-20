@@ -16,6 +16,12 @@ export const quoteCardTabs: QuoteCardTabConfig[] = [
     title: "Quote Trend",
   },
   {
+    key: "cumulative-trend",
+    label: "Cumulative",
+    subtitle: "Cumulative month-to-date movement versus prior year.",
+    title: "Cumulative Trend",
+  },
+  {
     key: "conversion-trend",
     label: "Conversion Trend",
     subtitle: "Month-to-date conversion rate movement versus prior year.",

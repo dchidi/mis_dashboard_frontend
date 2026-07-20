@@ -1,4 +1,5 @@
 import { useState, type CSSProperties } from "react";
+import { RiDownloadCloud2Line } from "react-icons/ri";
 import Card from "../../../ui/card/Card";
 import SegmentedTabs from "../../../ui/segmented_tabs";
 import {
@@ -12,6 +13,9 @@ import style from "./ProductPerformance.module.css";
 interface ProductPerformanceProps extends AttritionComponentProps {
   activeTrendSeriesKey: TrendSeriesKey;
   data?: ProductPerformanceCardData;
+  downloadDisabled?: boolean;
+  isDownloadInProgress?: boolean;
+  onDownload?: () => void;
 }
 
 const productMetricTabs = [
@@ -23,6 +27,9 @@ const ProductPerformance: React.FC<ProductPerformanceProps> = ({
   activeTrendSeriesKey,
   className,
   data,
+  downloadDisabled = false,
+  isDownloadInProgress = false,
+  onDownload,
 }) => {
   const [activeTab, setActiveTab] = useState<ProductMetricTabKey>("volume");
   const activeView = data?.[activeTab]?.[activeTrendSeriesKey];
@@ -41,9 +48,28 @@ const ProductPerformance: React.FC<ProductPerformanceProps> = ({
         <div className={style.header}>
           <div className="cardTitle">{activeView.title}</div>
 
-          <div className={style.summary}>
-            <span className={style.summaryLabel}>Top 5 Share</span>
-            <strong className={style.summaryValue}>{activeView.summaryValue}</strong>
+          <div className={style.headerAside}>
+            <div className={style.summary}>
+              <span className={style.summaryLabel}>Top 5 Share</span>
+              <strong className={style.summaryValue}>{activeView.summaryValue}</strong>
+            </div>
+
+            {onDownload ? (
+              <button
+                aria-label={
+                  isDownloadInProgress
+                    ? "Downloading product performance source data"
+                    : "Download product performance source data"
+                }
+                className={style.downloadButton}
+                disabled={downloadDisabled || isDownloadInProgress}
+                onClick={onDownload}
+                title="Download product performance source data"
+                type="button"
+              >
+                <RiDownloadCloud2Line className={style.downloadButtonIcon} />
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -67,13 +93,18 @@ const ProductPerformance: React.FC<ProductPerformanceProps> = ({
               {activeView.rows.map((row) => (
                 <div
                   className={style.row}
-                  key={row.product}
-                  title={`${row.product}: ${row.metricDisplay}`}
+                  key={`${row.product}-${row.petType ?? ""}`}
+                  title={`${row.product}${row.petType ? ` (${row.petType})` : ""}: ${row.metricDisplay}`}
                 >
                   <div className={style.rowTop}>
                     <div className={style.identity}>
                       <span className={style.rank}>{row.rankLabel}</span>
-                      <span className={style.productName}>{row.product}</span>
+                      <div className={style.identityText}>
+                        <span className={style.productName}>{row.product}</span>
+                        {row.petType ? (
+                          <span className={style.petTypeTag}>{row.petType}</span>
+                        ) : null}
+                      </div>
                     </div>
 
                     <div className={style.metricGroup}>

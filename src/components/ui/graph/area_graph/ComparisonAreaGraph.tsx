@@ -1,4 +1,4 @@
-import clsx from "clsx";
+﻿import clsx from "clsx";
 import { useId, type CSSProperties } from "react";
 import {
   Area,
@@ -38,6 +38,13 @@ interface ComparisonAreaGraphProps {
   legendWrapperStyle?: CSSProperties;
   tooltipValueFormatter?: (value: number) => string;
   valueSuffix?: string;
+  xAxisInterval?:
+    | number
+    | "preserveStart"
+    | "preserveEnd"
+    | "preserveStartEnd"
+    | "equidistantPreserveStart";
+  xAxisMinTickGap?: number;
   xAxisPadding?: {
     left?: number;
     right?: number;
@@ -81,30 +88,14 @@ const ComparisonAreaGraph: React.FC<ComparisonAreaGraphProps> = ({
   legendWrapperStyle,
   tooltipValueFormatter,
   valueSuffix = "",
+  xAxisInterval = "preserveStartEnd",
+  xAxisMinTickGap = 24,
   xAxisPadding = { left: 10, right: 10 },
   xDataKey,
   yAxisWidth = 48,
 }) => {
   const gradientId = useId().replace(/:/g, "");
-  const numericValues = data.flatMap((entry) =>
-    [entry[currentDataKey], entry[comparisonDataKey]].filter(
-      (value): value is number => typeof value === "number",
-    ),
-  );
-  const [domainMin, domainMax] =
-    numericValues.length === 0
-      ? [0, 1]
-      : (() => {
-          const minValue = Math.min(...numericValues);
-          const maxValue = Math.max(...numericValues);
-          const range = maxValue - minValue;
-          const padding =
-            range > 0 ? range * 0.18 : Math.max(Math.abs(maxValue) * 0.08, 1);
-          const lowerBound =
-            minValue >= 0 ? Math.max(0, minValue - padding) : minValue - padding;
 
-          return [lowerBound, maxValue + padding];
-        })();
 
   return (
     <div
@@ -134,7 +125,8 @@ const ComparisonAreaGraph: React.FC<ComparisonAreaGraphProps> = ({
           <XAxis
             axisLine={false}
             dataKey={xDataKey}
-            interval={0}
+            interval={xAxisInterval}
+            minTickGap={xAxisMinTickGap}
             padding={xAxisPadding}
             tick={{ fill: "var(--text)", fontSize: 12 }}
             tickMargin={10}
@@ -143,7 +135,6 @@ const ComparisonAreaGraph: React.FC<ComparisonAreaGraphProps> = ({
           <YAxis
             allowDecimals={allowYAxisDecimals}
             axisLine={false}
-            domain={[domainMin, domainMax]}
             tick={{ fill: "var(--text)", fontSize: 12 }}
             tickFormatter={(value) =>
               typeof value === "number"
@@ -227,3 +218,4 @@ const ComparisonAreaGraph: React.FC<ComparisonAreaGraphProps> = ({
 };
 
 export default ComparisonAreaGraph;
+

@@ -1,4 +1,4 @@
-import type { QuoteDashboardDataBundle } from "../components/features/Attrition/dashboardState";
+﻿import type { QuoteDashboardDataBundle } from "../components/features/Attrition/dashboardState";
 import {
   dispatchSessionExpiredEvent,
   isAuthenticationErrorStatus,
@@ -83,6 +83,15 @@ interface FetchQuoteFiltersParams {
   signal?: AbortSignal;
 }
 
+interface FetchQuoteReportFiltersParams {
+  brands?: string[];
+  countryCodes?: string[];
+  endDate: string;
+  profile: QuoteReportProfile;
+  signal?: AbortSignal;
+  startDate: string;
+}
+
 interface FetchQuoteDashboardParams {
   brands?: string[];
   countryCodes?: string[];
@@ -106,6 +115,26 @@ interface DownloadQuoteReportParams {
   selectedColumns?: string[];
   sendDocumentOnEmail?: QuoteBinaryFilterValue;
   startDate: string;
+}
+
+interface DownloadQuoteProductPerformanceParams {
+  brands: string[];
+  countryCodes: string[];
+  endDate: string;
+  filename?: string;
+  petTypes: string[];
+  startDate: string;
+}
+
+interface DownloadQuotePromoPerformanceParams {
+  brands: string[];
+  countryCodes: string[];
+  endDate: string;
+  filename?: string;
+  metricKey: "totalQuote" | "totalSales" | "conversionRate";
+  petTypes: string[];
+  startDate: string;
+  view: "promoCode" | "agent";
 }
 
 interface FetchQuoteReportProfilesParams {
@@ -277,6 +306,34 @@ export const fetchQuoteFilters = async ({
   };
 };
 
+export const fetchQuoteReportFilters = async ({
+  brands = [],
+  countryCodes = [],
+  endDate,
+  profile,
+  signal,
+  startDate,
+}: FetchQuoteReportFiltersParams): Promise<QuoteFiltersPayload> => {
+  const url = buildUrl(QUOTE_V2_REPORTS_BASE_URL, "/filters", {
+    brands: buildCommaSeparatedValue(brands),
+    country_codes: buildCommaSeparatedValue(countryCodes),
+    end_date: endDate,
+    profile,
+    start_date: startDate,
+  });
+  const response = await authenticatedFetch(url, {
+    method: "GET",
+    signal,
+  });
+  const payload = (await response.json()) as RawQuoteFiltersResponse;
+
+  return {
+    brands: dedupeOptions(payload.filters.brands),
+    countries: dedupeOptions(payload.filters.countries),
+    petTypes: dedupeOptions(payload.filters.pet_types),
+  };
+};
+
 export const fetchQuoteDashboard = async ({
   brands = [],
   countryCodes = [],
@@ -299,8 +356,83 @@ export const fetchQuoteDashboard = async ({
   return (await response.json()) as RawQuoteDashboardResponse;
 };
 
-export const fetchQuoteReportProfiles = async ({
-  asOfDate,
+export const downloadQuoteProductPerformance = async ({
+  brands,
+  countryCodes,
+  endDate,
+  filename,
+  petTypes,
+  startDate,
+}: DownloadQuoteProductPerformanceParams) => {
+  const url = buildUrl(QUOTE_V2_DASHBOARD_BASE_URL, "/product-performance/download", {
+    brands: buildCommaSeparatedValue(brands),
+    country_codes: buildCommaSeparatedValue(countryCodes),
+    download: "true",
+    end_date: endDate,
+    filename,
+    pet_types: buildCommaSeparatedValue(petTypes),
+    start_date: startDate,
+  });
+  const response = await authenticatedFetch(url, {
+    method: "GET",
+  });
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const resolvedFilename = filenameFromContentDisposition(
+    response.headers.get("content-disposition"),
+    filename || `quote_product_performance_source_${startDate}_to_${endDate}.csv`,
+  );
+  const anchor = document.createElement("a");
+
+  anchor.href = downloadUrl;
+  anchor.download = resolvedFilename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+};
+
+export const downloadQuotePromoPerformance = async ({
+  brands,
+  countryCodes,
+  endDate,
+  filename,
+  metricKey,
+  petTypes,
+  startDate,
+  view,
+}: DownloadQuotePromoPerformanceParams) => {
+  const url = buildUrl(QUOTE_V2_DASHBOARD_BASE_URL, "/promo-performance/download", {
+    brands: buildCommaSeparatedValue(brands),
+    country_codes: buildCommaSeparatedValue(countryCodes),
+    end_date: endDate,
+    filename,
+    metric_key: metricKey,
+    pet_types: buildCommaSeparatedValue(petTypes),
+    start_date: startDate,
+    view,
+  });
+  const response = await authenticatedFetch(url, {
+    method: "GET",
+  });
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const resolvedFilename = filenameFromContentDisposition(
+    response.headers.get("content-disposition"),
+    filename ||
+      `${view === "promoCode" ? "quote_by_promo_code" : "quote_by_agent"}_${startDate}_to_${endDate}.csv`,
+  );
+  const anchor = document.createElement("a");
+
+  anchor.href = downloadUrl;
+  anchor.download = resolvedFilename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+};
+
+export const fetchQuoteReportProfiles = async ({  asOfDate,
   endDate,
   signal,
   startDate,
@@ -429,3 +561,4 @@ export const downloadQuoteReport = async ({
   anchor.remove();
   window.URL.revokeObjectURL(downloadUrl);
 };
+

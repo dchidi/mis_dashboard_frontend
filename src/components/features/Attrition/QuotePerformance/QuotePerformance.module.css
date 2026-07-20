@@ -959,3 +959,101 @@
     grid-template-columns: 1fr;
   }
 }
+
+.tabControlRow {
+  --segmented-accent-rgb: 138, 116, 232;
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tabControlTabs {
+  flex: 0 1 auto;
+}
+
+.tabOverflowRoot {
+  position: relative;
+}
+
+.tabOverflowButton {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  min-width: 2.85rem;
+  padding-left: 0.82rem;
+  padding-right: 0.82rem;
+}
+
+.tabOverflowButtonOpen {
+  background-color: rgba(255, 255, 255, 0.03);
+  border-color: rgba(var(--segmented-accent-rgb), 0.18);
+  color: var(--text-h);
+}
+
+.tabOverflowIcon {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.tabOverflowMenu {
+  backdrop-filter: blur(18px);
+  background:
+    linear-gradient(180deg, rgba(36, 38, 48, 0.96), rgba(26, 28, 36, 0.94)),
+    rgba(24, 25, 33, 0.94);
+  border: 1px solid rgba(107, 99, 117, 0.18);
+  border-radius: 0.95rem;
+  box-shadow: 0 18px 36px rgba(7, 6, 12, 0.26);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-width: min(15rem, calc(100vw - 4rem));
+  min-width: 12rem;
+  padding: 0.45rem;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.45rem);
+  z-index: 8;
+}
+
+.tabOverflowItem {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.8rem;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 0.72rem 0.85rem;
+  text-align: left;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.tabOverflowItem:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+  border-color: rgba(107, 99, 117, 0.12);
+  color: var(--text-h);
+  transform: translateY(-1px);
+}
+
+.tabOverflowItem:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 0.18rem rgba(var(--segmented-accent-rgb), 0.16),
+    0 8px 18px rgba(8, 6, 13, 0.12);
+}
+
+@media (max-width: 640px) {
+  .tabOverflowMenu {
+    left: 0;
+    right: auto;
+    min-width: 10.75rem;
+  }
+}

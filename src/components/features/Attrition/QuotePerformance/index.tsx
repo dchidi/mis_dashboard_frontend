@@ -1,12 +1,16 @@
-import { useState } from "react";
+﻿import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   FaArrowTrendDown,
   FaArrowTrendUp,
+  FaEllipsis,
   FaMinus,
 } from "react-icons/fa6";
 import Card from "../../../ui/card/Card";
 import InsightButton from "../../../ui/insight_button";
-import { type QuotePerformanceCardData } from "../data";
+import {
+  type QuotePerformanceCardData,
+  type QuotePerformanceTabData,
+} from "../data";
 import {
   getMetricViewDescriptor,
   type MetricViewVariant,
@@ -27,7 +31,7 @@ import {
   PetTypeMixVisual,
   QuoteTrendVisual,
 } from "./visuals";
-import SegmentedTabs from "../../../ui/segmented_tabs";
+import segmentedTabsStyle from "../../../ui/segmented_tabs/SegmentedTabs.module.css";
 import style from "./QuotePerformance.module.css";
 
 const toneClassMap: Record<Tone, string> = {
@@ -46,6 +50,66 @@ const analysisToneClassMap: Record<Tone, string> = {
   warm: style.analysisSpotlightWarm,
 };
 
+const quotePerformanceTabPriority: QuoteCardTabKey[] = [
+  "cumulative-trend",
+  "quote-trend",
+  "conversion-trend",
+  "brand-contribution",
+  "pet-type-mix",
+];
+
+const MAX_VISIBLE_TAB_COUNT = 3;
+const FIXED_VISIBLE_TAB_COUNT = MAX_VISIBLE_TAB_COUNT - 1;
+
+const getQuotePerformanceTabPriority = (key: QuoteCardTabKey) => {
+  const priorityIndex = quotePerformanceTabPriority.indexOf(key);
+  return priorityIndex === -1 ? quotePerformanceTabPriority.length : priorityIndex;
+};
+
+const orderQuotePerformanceTabs = (
+  tabs: readonly QuotePerformanceTabData[],
+): QuotePerformanceTabData[] =>
+  [...tabs].sort(
+    (left, right) =>
+      getQuotePerformanceTabPriority(left.key) -
+      getQuotePerformanceTabPriority(right.key),
+  );
+
+const getFixedVisibleTabKeys = (
+  tabs: readonly QuotePerformanceTabData[],
+): QuoteCardTabKey[] =>
+  tabs.slice(0, FIXED_VISIBLE_TAB_COUNT).map(({ key }) => key);
+
+const resolveFloatingTabKey = (
+  tabs: readonly QuotePerformanceTabData[],
+  floatingTabKey: QuoteCardTabKey | null,
+): QuoteCardTabKey | null => {
+  const fixedKeys = new Set(getFixedVisibleTabKeys(tabs));
+  const remainingTabs = tabs.filter(({ key }) => !fixedKeys.has(key));
+
+  if (!remainingTabs.length) {
+    return null;
+  }
+
+  return remainingTabs.some(({ key }) => key === floatingTabKey)
+    ? floatingTabKey
+    : remainingTabs[0].key;
+};
+
+const buildVisibleTabs = (
+  tabs: readonly QuotePerformanceTabData[],
+  floatingTabKey: QuoteCardTabKey | null,
+): QuotePerformanceTabData[] => {
+  const fixedKeys = new Set(getFixedVisibleTabKeys(tabs));
+  const resolvedFloatingTabKey = resolveFloatingTabKey(tabs, floatingTabKey);
+
+  return tabs
+    .filter(
+      ({ key }) => fixedKeys.has(key) || key === resolvedFloatingTabKey,
+    )
+    .slice(0, MAX_VISIBLE_TAB_COUNT);
+};
+
 interface QuotePerformanceProps extends AttritionComponentProps {
   activeTrendSeriesKey: TrendSeriesKey;
   data?: QuotePerformanceCardData;
@@ -61,15 +125,80 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
   onTrendSeriesChange,
 }) => {
   const [activeTab, setActiveTab] = useState<QuoteCardTabKey>("quote-trend");
+  const [floatingTabKey, setFloatingTabKey] = useState<QuoteCardTabKey | null>(
+    "conversion-trend",
+  );
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
+  const [isTabMenuOpen, setIsTabMenuOpen] = useState(false);
+  const tabMenuRef = useRef<HTMLDivElement | null>(null);
   const metricDescriptor = getMetricViewDescriptor(
     activeTrendSeriesKey,
     metricViewVariant,
   );
   const trendSeriesOptions = getTrendSeriesOptions(metricViewVariant);
   const activeMetricView = data?.[activeTrendSeriesKey];
-  const tabs = activeMetricView?.tabs ?? [];
-  const activeTabData = tabs.find((tab) => tab.key === activeTab) ?? tabs[0];
+  const orderedTabs = orderQuotePerformanceTabs(activeMetricView?.tabs ?? []);
+  const visibleTabs = buildVisibleTabs(orderedTabs, floatingTabKey);
+  const overflowTabs = orderedTabs.filter(
+    ({ key }) => !visibleTabs.some((visibleTab) => visibleTab.key === key),
+  );
+  const activeTabData =
+    orderedTabs.find((tab) => tab.key === activeTab) ?? visibleTabs[0] ?? orderedTabs[0];
+
+  useEffect(() => {
+    const resolvedFloatingTabKey = resolveFloatingTabKey(orderedTabs, floatingTabKey);
+
+    if (resolvedFloatingTabKey !== floatingTabKey) {
+      setFloatingTabKey(resolvedFloatingTabKey);
+    }
+  }, [floatingTabKey, orderedTabs]);
+
+  useEffect(() => {
+    if (!orderedTabs.length) {
+      return;
+    }
+
+    const fallbackTabKey = visibleTabs[0]?.key ?? orderedTabs[0]?.key;
+
+    if (
+      fallbackTabKey &&
+      !visibleTabs.some(({ key }) => key === activeTab)
+    ) {
+      setActiveTab(fallbackTabKey);
+    }
+  }, [activeTab, orderedTabs, visibleTabs]);
+
+  useEffect(() => {
+    if (!isTabMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!tabMenuRef.current?.contains(event.target as Node)) {
+        setIsTabMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsTabMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isTabMenuOpen]);
+
+  useEffect(() => {
+    if (!overflowTabs.length && isTabMenuOpen) {
+      setIsTabMenuOpen(false);
+    }
+  }, [isTabMenuOpen, overflowTabs.length]);
 
   if (!activeTabData) {
     return null;
@@ -101,6 +230,9 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
           trendSeriesOptions[0]
         : trendSeriesOptions.find((series) => series.key === "conversionRate") ??
           trendSeriesOptions[0];
+  const tabControlStyle = activeTabData.accentRgb
+    ? ({ "--segmented-accent-rgb": activeTabData.accentRgb } as CSSProperties)
+    : undefined;
 
   const signalContent =
     activeTabData.signal.kind === "trend" ? (
@@ -239,14 +371,80 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
             {signalContent}
           </div>
 
-          <SegmentedTabs
-            accentRgb={activeTabData.accentRgb}
-            activeKey={activeTab}
-            ariaLabel="Quote performance views"
-            idBase="quote"
-            onChange={(key) => setActiveTab(key as QuoteCardTabKey)}
-            options={tabs.map(({ key, label }) => ({ key, label }))}
-          />
+          <div className={style.tabControlRow} style={tabControlStyle}>
+            <div
+              aria-label="Quote performance views"
+              className={joinClassNames(
+                segmentedTabsStyle.root,
+                style.tabControlTabs,
+              )}
+              role="tablist"
+            >
+              {visibleTabs.map((tab) => {
+                const isActive = tab.key === activeTab;
+
+                return (
+                  <button
+                    aria-controls={`quote-panel-${tab.key}`}
+                    aria-selected={isActive}
+                    className={joinClassNames(
+                      segmentedTabsStyle.button,
+                      isActive && segmentedTabsStyle.buttonActive,
+                    )}
+                    id={`quote-tab-${tab.key}`}
+                    key={tab.key}
+                    onClick={() => {
+                      setActiveTab(tab.key);
+                      setIsTabMenuOpen(false);
+                    }}
+                    role="tab"
+                    type="button"
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {overflowTabs.length ? (
+              <div className={style.tabOverflowRoot} ref={tabMenuRef}>
+                <button
+                  aria-expanded={isTabMenuOpen}
+                  aria-haspopup="menu"
+                  aria-label="Show more quote performance views"
+                  className={joinClassNames(
+                    segmentedTabsStyle.button,
+                    style.tabOverflowButton,
+                    isTabMenuOpen && style.tabOverflowButtonOpen,
+                  )}
+                  onClick={() => setIsTabMenuOpen((value) => !value)}
+                  type="button"
+                >
+                  <FaEllipsis aria-hidden="true" className={style.tabOverflowIcon} />
+                </button>
+
+                {isTabMenuOpen ? (
+                  <div className={style.tabOverflowMenu} role="menu">
+                    {overflowTabs.map((tab) => (
+                      <button
+                        className={style.tabOverflowItem}
+                        key={tab.key}
+                        onClick={() => {
+                          setFloatingTabKey(tab.key);
+                          setActiveTab(tab.key);
+                          setIsTabMenuOpen(false);
+                        }}
+                        role="menuitem"
+                        type="button"
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
 
           <section
             aria-labelledby={`quote-tab-${activeTabData.key}`}
@@ -323,3 +521,4 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
 };
 
 export default QuotePerformance;
+

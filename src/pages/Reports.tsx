@@ -1,4 +1,4 @@
-﻿import {
+import {
   startTransition,
   useEffect,
   useMemo,
@@ -47,8 +47,8 @@ import {
 } from "../services/freePolicyV2";
 import {
   downloadQuoteReport,
-  fetchQuoteFilters,
   fetchQuoteReportColumns,
+  fetchQuoteReportFilters,
   fetchQuoteReportProfiles,
   type QuoteBinaryFilterValue,
   type QuoteFilterOption,
@@ -166,6 +166,10 @@ interface StoredReportFilters {
   receivedSource?: QuoteReceivedSourceValue;
   reportingPeriod?: [string | null, string | null];
   sendDocumentOnEmail?: QuoteBinaryFilterValue;
+  useDefaultBrands?: boolean;
+  useDefaultCountries?: boolean;
+  useDefaultPetTypes?: boolean;
+  useDefaultQuoteStatuses?: boolean;
 }
 
 const defaultDateRange: DashboardDateRange = getMonthToDateReportingPeriod();
@@ -267,7 +271,7 @@ const policyLibraryOptions: PolicyLibraryOption[] = [
   },
   {
     description:
-      "Converted, active, cancelled, expired, pending, and referred policy exports grouped under paid policy.",
+      "Sales, active, cancelled, expired, pending, and referred policy exports grouped under paid policy.",
     label: "Paid Policy",
     value: "paid-policy",
   },
@@ -303,6 +307,12 @@ const paidPolicyReportOptions: PolicyReportOption[] = [
       "Referred policies with referral reason, review status, and pricing context.",
     label: "Refer Policy",
     reportId: "refer-policy",
+  },
+  {
+    description:
+      "Sales policies with sold date, current status, and annual premium ready for export.",
+    label: "Sales",
+    reportId: "converted-policy",
   },
 ];
 
@@ -438,6 +448,7 @@ const restoreStoredSelectionValues = <T extends { value: string }>(
   availableOptions: T[],
   options?: {
     fallbackValues?: string[];
+    preferFallback?: boolean;
     treatFullSelectionAsDefault?: boolean;
   },
 ) => {
@@ -446,8 +457,16 @@ const restoreStoredSelectionValues = <T extends { value: string }>(
     ? options.fallbackValues
     : availableValues;
 
-  if (!Array.isArray(storedValues) || !storedValues.length) {
+  if (options?.preferFallback) {
     return fallbackValues;
+  }
+
+  if (!Array.isArray(storedValues)) {
+    return fallbackValues;
+  }
+
+  if (!storedValues.length) {
+    return [];
   }
 
   const availableValueSet = new Set(availableValues);
@@ -493,26 +512,52 @@ const areSameValueLists = (left: string[], right: string[]) =>
   left.length === right.length &&
   left.every((value, index) => value === right[index]);
 
-const reconcileSelectedValues = <T extends { value: string }>(
+const areSameValueSets = (left: string[], right: string[]) => {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  const rightValueSet = new Set(right);
+  return left.every((value) => rightValueSet.has(value));
+};
+
+const normalizeStoredSelectionValues = <T extends { value: string }>(
   selectedValues: string[],
   availableOptions: T[],
-  fallbackValues?: string[],
 ) => {
-  const availableValues = new Set(getFilterOptionValues(availableOptions));
-  const intersectedValues = selectedValues.filter((value) =>
-    availableValues.has(value),
+  const availableValueSet = new Set(getFilterOptionValues(availableOptions));
+  return Array.from(
+    new Set(selectedValues.filter((value) => availableValueSet.has(value))),
   );
-  const dedupedIntersectedValues = Array.from(new Set(intersectedValues));
-  const nextValues = dedupedIntersectedValues.length
-    ? dedupedIntersectedValues
-    : fallbackValues?.length
-      ? fallbackValues
-      : getFilterOptionValues(availableOptions);
-
-  return areSameValueLists(selectedValues, nextValues)
-    ? selectedValues
-    : nextValues;
 };
+
+const serializeStoredSelectionValues = <T extends { value: string }>(
+  selectedValues: string[],
+  availableOptions: T[],
+  options?: {
+    defaultValues?: string[];
+  },
+) => {
+  const nextValues = normalizeStoredSelectionValues(selectedValues, availableOptions);
+  const defaultValues = options?.defaultValues?.length
+    ? options.defaultValues
+    : getFilterOptionValues(availableOptions);
+  const useDefaultSelection = areSameValueSets(nextValues, defaultValues);
+
+  return {
+    useDefaultSelection,
+    values: useDefaultSelection ? undefined : nextValues,
+  };
+};
+
+const shouldPreferDefaultStoredSelection = (
+  useDefaultSelection: boolean | undefined,
+  options?: {
+    assumeDefaultWhenMissing?: boolean;
+  },
+) =>
+  useDefaultSelection === true ||
+  (options?.assumeDefaultWhenMissing && useDefaultSelection !== false);
 
 const normalizePetTypeToken = (value: string) =>
   value.replace(/[^a-z0-9]/gi, "").toUpperCase();
@@ -586,10 +631,20 @@ const reconcileOrderedSelectedValues = <T extends { value: string }>(
   currentValues: string[],
   availableOptions: T[],
   previousAvailableValues: string[],
+  fallbackValues?: string[],
 ) => {
   const availableValues = getFilterOptionValues(availableOptions);
   if (!currentValues.length) {
-    return previousAvailableValues.length ? currentValues : availableValues;
+    const nextValues =
+      previousAvailableValues.length > 0
+        ? currentValues
+        : fallbackValues?.length
+          ? fallbackValues
+          : availableValues;
+
+    return areSameValueLists(currentValues, nextValues)
+      ? currentValues
+      : nextValues;
   }
 
   const availableValueSet = new Set(availableValues);
@@ -605,7 +660,9 @@ const reconcileOrderedSelectedValues = <T extends { value: string }>(
   const nextValues =
     retainedValues.length || newlyAvailableValues.length
       ? [...retainedValues, ...newlyAvailableValues]
-      : availableValues;
+      : fallbackValues?.length
+        ? fallbackValues
+        : availableValues;
 
   return areSameValueLists(currentValues, nextValues)
     ? currentValues
@@ -1122,16 +1179,16 @@ const reportDefinitions: ReportDefinition[] = [
       "Country",
       "Brand",
       "Pet Type",
-      "Activation Date",
+      "Sale Date",
       "Policy Status",
       "Annual Premium",
     ],
     description:
-      "Converted policies with status, activation date, and premium ready for export.",
-    fileStem: "converted_policy",
+      "Sales policies with sold date, current status, and annual premium ready for export.",
+    fileStem: "sales_policy",
     icon: RiShieldCheckLine,
     id: "converted-policy",
-    label: "Converted Policy",
+    label: "Sales",
     scope: "Policy",
     buildRows: (context) =>
       buildReportRows(
@@ -1141,12 +1198,12 @@ const reportDefinitions: ReportDefinition[] = [
           "Country",
           "Brand",
           "Pet Type",
-          "Activation Date",
+          "Sale Date",
           "Policy Status",
           "Annual Premium",
         ],
         (index, values) => ({
-          "Activation Date": values.date,
+          "Sale Date": values.date,
           "Annual Premium": formatCurrencyAmount(510 + index * 45),
           Brand: values.brand,
           Country: values.country,
@@ -1836,7 +1893,14 @@ const Reports: React.FC = () => {
         : defaultQuoteBinaryFilterValue,
     );
     setSelectedQuoteStatuses(
-      restoreStoredSelectionValues(savedFilters?.quoteStatuses, quoteStatusOptions),
+      restoreStoredSelectionValues(savedFilters?.quoteStatuses, quoteStatusOptions, {
+        preferFallback: shouldPreferDefaultStoredSelection(
+          savedFilters?.useDefaultQuoteStatuses,
+          {
+            assumeDefaultWhenMissing: activeQuoteProfile === "total-quote",
+          },
+        ),
+      }),
     );
     setSelectedReceivedSource(
       isQuoteReceivedSourceValue(savedFilters?.receivedSource)
@@ -1860,6 +1924,7 @@ const Reports: React.FC = () => {
     }
   }, [
     activeFilterModal,
+    activeQuoteProfile,
     activeReportStorageKey,
     isFreePolicyReportActive,
     isQuoteReportActive,
@@ -1888,9 +1953,18 @@ const Reports: React.FC = () => {
           signal: abortController.signal,
         });
         const savedFilters = savedReportFiltersRef.current;
+        const shouldDefaultCountries = shouldPreferDefaultStoredSelection(
+          savedFilters?.useDefaultCountries,
+          {
+            assumeDefaultWhenMissing: activeQuoteProfile === "total-quote",
+          },
+        );
         const nextCountries = restoreStoredSelectionValues(
           savedFilters?.countries,
           filters.countries,
+          {
+            preferFallback: shouldDefaultCountries,
+          },
         );
 
         let nextBrandOptions = filters.brands;
@@ -1905,9 +1979,18 @@ const Reports: React.FC = () => {
           nextPetTypeOptions = countryScopedFilters.petTypes;
         }
 
+        const shouldDefaultBrands = shouldPreferDefaultStoredSelection(
+          savedFilters?.useDefaultBrands,
+          {
+            assumeDefaultWhenMissing: activeQuoteProfile === "total-quote",
+          },
+        );
         const nextBrands = restoreStoredSelectionValues(
           savedFilters?.brands,
           nextBrandOptions,
+          {
+            preferFallback: shouldDefaultBrands,
+          },
         );
 
         if (!areSameValueLists(nextBrands, getFilterOptionValues(nextBrandOptions))) {
@@ -2034,7 +2117,9 @@ const Reports: React.FC = () => {
   }, [activeFilterModal, isQuoteTypeModalOpen, reportingPeriod]);
 
   useEffect(() => {
-    if (!isQuoteReportActive) {
+    const [startDate, endDate] = reportingPeriod;
+
+    if (!isQuoteReportActive || !activeQuoteProfile || !startDate || !endDate) {
       quoteBrandRequestRef.current?.abort();
       quotePetTypeRequestRef.current?.abort();
       setQuoteFilterOptions(emptyQuoteFilterOptions);
@@ -2060,7 +2145,12 @@ const Reports: React.FC = () => {
 
     void (async () => {
       try {
-        const filters = await fetchQuoteFilters({ signal: abortController.signal });
+        const filters = await fetchQuoteReportFilters({
+          endDate,
+          profile: activeQuoteProfile,
+          signal: abortController.signal,
+          startDate,
+        });
         const savedFilters = savedReportFiltersRef.current;
         const nextCountries = restoreStoredSelectionValues(
           savedFilters?.countries,
@@ -2071,9 +2161,12 @@ const Reports: React.FC = () => {
         let nextPetTypeOptions = filters.petTypes;
 
         if (!areSameValueLists(nextCountries, getFilterOptionValues(filters.countries))) {
-          const countryScopedFilters = await fetchQuoteFilters({
+          const countryScopedFilters = await fetchQuoteReportFilters({
             countryCodes: nextCountries,
+            endDate,
+            profile: activeQuoteProfile,
             signal: abortController.signal,
+            startDate,
           });
           nextBrandOptions = countryScopedFilters.brands;
           nextPetTypeOptions = countryScopedFilters.petTypes;
@@ -2085,10 +2178,13 @@ const Reports: React.FC = () => {
         );
 
         if (!areSameValueLists(nextBrands, getFilterOptionValues(nextBrandOptions))) {
-          const petTypeScopedFilters = await fetchQuoteFilters({
+          const petTypeScopedFilters = await fetchQuoteReportFilters({
             brands: nextBrands,
             countryCodes: nextCountries,
+            endDate,
+            profile: activeQuoteProfile,
             signal: abortController.signal,
+            startDate,
           });
           nextPetTypeOptions = petTypeScopedFilters.petTypes;
         }
@@ -2096,6 +2192,12 @@ const Reports: React.FC = () => {
         const visiblePetTypeOptions = getVisibleQuotePetTypeOptions(
           activeQuoteProfile,
           nextPetTypeOptions,
+        );
+        const shouldDefaultPetTypes = shouldPreferDefaultStoredSelection(
+          savedFilters?.useDefaultPetTypes,
+          {
+            assumeDefaultWhenMissing: activeQuoteProfile === "total-quote",
+          },
         );
 
         const nextPetTypes = restoreStoredSelectionValues(
@@ -2106,6 +2208,7 @@ const Reports: React.FC = () => {
               activeQuoteProfile,
               visiblePetTypeOptions,
             ),
+            preferFallback: shouldDefaultPetTypes,
             treatFullSelectionAsDefault: true,
           },
         );
@@ -2151,7 +2254,7 @@ const Reports: React.FC = () => {
     return () => {
       abortController.abort();
     };
-  }, [isQuoteReportActive, activeFilterModal?.reportId]);
+  }, [activeQuoteProfile, isQuoteReportActive, reportingPeriod]);
 
   useEffect(() => {
     const activeQuoteProfile = activeReport?.id as QuoteReportProfile | undefined;
@@ -2257,19 +2360,63 @@ const Reports: React.FC = () => {
       return;
     }
 
+    const availableCountryOptions = isQuoteReportActive
+      ? quoteFilterOptions.countries
+      : isFreePolicyReportActive
+        ? freePolicyFilterOptions.countries
+        : staticCountrySelectOptions;
+    const availableBrandOptions = isQuoteReportActive
+      ? quoteFilterOptions.brands
+      : isFreePolicyReportActive
+        ? freePolicyFilterOptions.brands
+        : staticBrandSelectOptions;
+    const availablePetTypeOptions = isQuoteReportActive
+      ? quoteFilterOptions.petTypes
+      : isFreePolicyReportActive
+        ? freePolicyFilterOptions.petTypes
+        : staticPetTypeSelectOptions;
+    const countryStorage = serializeStoredSelectionValues(
+      selectedCountries,
+      availableCountryOptions,
+    );
+    const brandStorage = serializeStoredSelectionValues(
+      selectedBrands,
+      availableBrandOptions,
+    );
+    const petTypeStorage = serializeStoredSelectionValues(
+      selectedPetTypes,
+      availablePetTypeOptions,
+      {
+        defaultValues: isQuoteReportActive
+          ? getDefaultQuotePetTypeValues(
+              activeQuoteProfile,
+              availablePetTypeOptions,
+            )
+          : undefined,
+      },
+    );
     const nextStoredFilters: StoredReportFilters = {
-      brands: selectedBrands,
-      countries: selectedCountries,
-      petTypes: selectedPetTypes,
+      brands: brandStorage.values,
+      countries: countryStorage.values,
+      petTypes: petTypeStorage.values,
       reportingPeriod,
+      useDefaultBrands: brandStorage.useDefaultSelection,
+      useDefaultCountries: countryStorage.useDefaultSelection,
+      useDefaultPetTypes: petTypeStorage.useDefaultSelection,
     };
 
     if (isQuoteReportActive) {
+      const quoteStatusStorage = serializeStoredSelectionValues(
+        selectedQuoteStatuses,
+        quoteStatusOptions,
+      );
       nextStoredFilters.existingClient = selectedExistingClient;
       nextStoredFilters.isFreeProduct = selectedIsFreeProduct;
-      nextStoredFilters.quoteStatuses = selectedQuoteStatuses;
+      nextStoredFilters.quoteStatuses = quoteStatusStorage.values;
       nextStoredFilters.receivedSource = selectedReceivedSource;
       nextStoredFilters.sendDocumentOnEmail = selectedSendDocumentOnEmail;
+      nextStoredFilters.useDefaultQuoteStatuses =
+        quoteStatusStorage.useDefaultSelection;
     }
 
     if (isQuoteReportActive) {
@@ -2281,10 +2428,14 @@ const Reports: React.FC = () => {
     writeStoredReportFilters(activeReportStorageKey, nextStoredFilters);
   }, [
     activeFilterModal,
+    activeQuoteProfile,
     activeReportStorageKey,
+    freePolicyFilterOptions,
     isFilterStateReady,
+    isFreePolicyReportActive,
     isQuoteExportColumnsVisible,
     isQuoteReportActive,
+    quoteFilterOptions,
     reportingPeriod,
     selectedBrands,
     selectedCountries,
@@ -2326,6 +2477,11 @@ const Reports: React.FC = () => {
         return;
       }
 
+      const [startDate, endDate] = reportingPeriod;
+      if (!activeQuoteProfile || !startDate || !endDate) {
+        return;
+      }
+
       const quoteAbortController = new AbortController();
       quoteBrandRequestRef.current = quoteAbortController;
       quotePetTypeRequestRef.current = quoteAbortController;
@@ -2334,29 +2490,36 @@ const Reports: React.FC = () => {
 
       void (async () => {
         try {
-          const brandScopedFilters = await fetchQuoteFilters({
+          const brandScopedFilters = await fetchQuoteReportFilters({
             countryCodes: nextCountries,
+            endDate,
+            profile: activeQuoteProfile,
             signal: quoteAbortController.signal,
+            startDate,
           });
 
           const availableBrandValues = getFilterOptionValues(
             brandScopedFilters.brands,
           );
-          const nextSelectedBrands = reconcileSelectedValues(
+          const nextSelectedBrands = reconcileOrderedSelectedValues(
             selectedBrands,
             brandScopedFilters.brands,
+            getFilterOptionValues(quoteFilterOptions.brands),
           );
 
           let nextPetTypeOptions = brandScopedFilters.petTypes;
 
           if (
             nextSelectedBrands.length &&
-            !areSameValueLists(nextSelectedBrands, availableBrandValues)
+            !areSameValueSets(nextSelectedBrands, availableBrandValues)
           ) {
-            const petTypeScopedFilters = await fetchQuoteFilters({
+            const petTypeScopedFilters = await fetchQuoteReportFilters({
               brands: nextSelectedBrands,
               countryCodes: nextCountries,
+              endDate,
+              profile: activeQuoteProfile,
               signal: quoteAbortController.signal,
+              startDate,
             });
             nextPetTypeOptions = petTypeScopedFilters.petTypes;
           }
@@ -2381,9 +2544,10 @@ const Reports: React.FC = () => {
             }));
             setSelectedBrands(nextSelectedBrands);
             setSelectedPetTypes((currentValues) =>
-              reconcileSelectedValues(
+              reconcileOrderedSelectedValues(
                 currentValues,
                 visiblePetTypeOptions,
+                getFilterOptionValues(quoteFilterOptions.petTypes),
                 getDefaultQuotePetTypeValues(
                   activeQuoteProfile,
                   visiblePetTypeOptions,
@@ -2457,16 +2621,17 @@ const Reports: React.FC = () => {
         const availableBrandValues = getFilterOptionValues(
           brandScopedFilters.brands,
         );
-        const nextSelectedBrands = reconcileSelectedValues(
+        const nextSelectedBrands = reconcileOrderedSelectedValues(
           selectedBrands,
           brandScopedFilters.brands,
+          getFilterOptionValues(freePolicyFilterOptions.brands),
         );
 
         let nextPetTypeOptions = brandScopedFilters.petTypes;
 
         if (
           nextSelectedBrands.length &&
-          !areSameValueLists(nextSelectedBrands, availableBrandValues)
+          !areSameValueSets(nextSelectedBrands, availableBrandValues)
         ) {
           const petTypeScopedFilters = await fetchFreePolicyFilters({
             brands: nextSelectedBrands,
@@ -2491,14 +2656,15 @@ const Reports: React.FC = () => {
           }));
           setSelectedBrands(nextSelectedBrands);
           setSelectedPetTypes((currentValues) =>
-            reconcileSelectedValues(
-                currentValues,
+            reconcileOrderedSelectedValues(
+              currentValues,
+              nextPetTypeOptions,
+              getFilterOptionValues(freePolicyFilterOptions.petTypes),
+              getDefaultQuotePetTypeValues(
+                activeQuoteProfile,
                 nextPetTypeOptions,
-                getDefaultQuotePetTypeValues(
-                  activeQuoteProfile,
-                  nextPetTypeOptions,
-                ),
               ),
+            ),
           );
         });
       } catch (error: unknown) {
@@ -2554,14 +2720,22 @@ const Reports: React.FC = () => {
         return;
       }
 
+      const [startDate, endDate] = reportingPeriod;
+      if (!activeQuoteProfile || !startDate || !endDate) {
+        return;
+      }
+
       const quoteAbortController = new AbortController();
       quotePetTypeRequestRef.current = quoteAbortController;
       setIsQuotePetTypeOptionsLoading(true);
 
-      void fetchQuoteFilters({
+      void fetchQuoteReportFilters({
         brands: nextBrands,
         countryCodes: selectedCountries,
+        endDate,
+        profile: activeQuoteProfile,
         signal: quoteAbortController.signal,
+        startDate,
       })
         .then((filters) => {
           const visiblePetTypeOptions = getVisibleQuotePetTypeOptions(
@@ -2575,9 +2749,10 @@ const Reports: React.FC = () => {
               petTypes: visiblePetTypeOptions,
             }));
             setSelectedPetTypes((currentValues) =>
-              reconcileSelectedValues(
+              reconcileOrderedSelectedValues(
                 currentValues,
                 visiblePetTypeOptions,
+                getFilterOptionValues(quoteFilterOptions.petTypes),
                 getDefaultQuotePetTypeValues(
                   activeQuoteProfile,
                   visiblePetTypeOptions,
@@ -2644,11 +2819,12 @@ const Reports: React.FC = () => {
             petTypes: filters.petTypes,
           }));
           setSelectedPetTypes((currentValues) =>
-            reconcileSelectedValues(
-                currentValues,
-                filters.petTypes,
-                getDefaultQuotePetTypeValues(activeQuoteProfile, filters.petTypes),
-              ),
+            reconcileOrderedSelectedValues(
+              currentValues,
+              filters.petTypes,
+              getFilterOptionValues(freePolicyFilterOptions.petTypes),
+              getDefaultQuotePetTypeValues(activeQuoteProfile, filters.petTypes),
+            ),
           );
         });
       })

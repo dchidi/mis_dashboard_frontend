@@ -928,6 +928,7 @@ const buildProductPerformanceViewData = (
           metaDisplay: isVolumeTab
             ? `${formatCount(row.convertedVolume)} / ${formatCount(row.quotedVolume)}`
             : `${formatCurrency(row.convertedValue)} / ${formatCurrency(row.quotedValue)}`,
+          petType: row.petType,
           product: row.product,
         };
       }
@@ -945,6 +946,7 @@ const buildProductPerformanceViewData = (
           : formatCurrency(metricValue),
         metricValue,
         metaDisplay: `${share}%`,
+        petType: row.petType,
         product: row.product,
       };
     })
@@ -969,6 +971,7 @@ const buildProductPerformanceViewData = (
         maxValue === 0 ? 0 : Number(((row.metricValue / maxValue) * 100).toFixed(1)),
       metaDisplay: row.metaDisplay,
       metricDisplay: row.metricDisplay,
+      petType: row.petType,
       product: row.product,
       rankLabel: String(index + 1).padStart(2, "0"),
     }),
@@ -1009,6 +1012,7 @@ const buildPromoPerformanceViewData = (
   sourceRows: Array<{
     averageTimeToConvertDays: number;
     convertedVolume: number;
+    countryCode?: string;
     id: string;
     label: string;
     quotedVolume: number;
@@ -1040,6 +1044,7 @@ const buildPromoPerformanceViewData = (
           ),
         ),
         convertedVolume: row.convertedVolume,
+        countryCode: row.countryCode,
         id: row.id,
         label: row.label,
         quotedShare: Number(
@@ -1065,6 +1070,7 @@ const buildPromoPerformanceViewData = (
     conversionRateLabel: formatPercent(row.conversionRate),
     convertedShareLabel: formatPercent(row.convertedShare),
     convertedVolumeLabel: formatCount(row.convertedVolume),
+    countryCode: row.countryCode,
     id: row.id,
     label: row.label,
     quotedShareLabel: formatPercent(row.quotedShare),
@@ -1087,7 +1093,8 @@ const buildQuoteByPromoCodeCardData = (
       agentRows.map((row) => ({
         averageTimeToConvertDays: row.averageTimeToConvertDays,
         convertedVolume: row.convertedVolume,
-        id: row.agent,
+        countryCode: row.countryCode,
+        id: `${row.countryCode ?? ""}-${row.agent}`,
         label: row.agent,
         quotedVolume: row.quotedVolume,
       })),
@@ -1099,7 +1106,8 @@ const buildQuoteByPromoCodeCardData = (
       agentRows.map((row) => ({
         averageTimeToConvertDays: row.averageTimeToConvertDays,
         convertedVolume: row.convertedVolume,
-        id: row.agent,
+        countryCode: row.countryCode,
+        id: `${row.countryCode ?? ""}-${row.agent}`,
         label: row.agent,
         quotedVolume: row.quotedVolume,
       })),
@@ -1111,7 +1119,8 @@ const buildQuoteByPromoCodeCardData = (
       agentRows.map((row) => ({
         averageTimeToConvertDays: row.averageTimeToConvertDays,
         convertedVolume: row.convertedVolume,
-        id: row.agent,
+        countryCode: row.countryCode,
+        id: `${row.countryCode ?? ""}-${row.agent}`,
         label: row.agent,
         quotedVolume: row.quotedVolume,
       })),
@@ -1125,7 +1134,8 @@ const buildQuoteByPromoCodeCardData = (
       promoRows.map((row) => ({
         averageTimeToConvertDays: row.averageTimeToConvertDays,
         convertedVolume: row.convertedVolume,
-        id: row.promoCode,
+        countryCode: row.countryCode,
+        id: `${row.countryCode ?? ""}-${row.promoCode}`,
         label: row.promoCode,
         quotedVolume: row.quotedVolume,
       })),
@@ -1137,7 +1147,8 @@ const buildQuoteByPromoCodeCardData = (
       promoRows.map((row) => ({
         averageTimeToConvertDays: row.averageTimeToConvertDays,
         convertedVolume: row.convertedVolume,
-        id: row.promoCode,
+        countryCode: row.countryCode,
+        id: `${row.countryCode ?? ""}-${row.promoCode}`,
         label: row.promoCode,
         quotedVolume: row.quotedVolume,
       })),
@@ -1149,7 +1160,8 @@ const buildQuoteByPromoCodeCardData = (
       promoRows.map((row) => ({
         averageTimeToConvertDays: row.averageTimeToConvertDays,
         convertedVolume: row.convertedVolume,
-        id: row.promoCode,
+        countryCode: row.countryCode,
+        id: `${row.countryCode ?? ""}-${row.promoCode}`,
         label: row.promoCode,
         quotedVolume: row.quotedVolume,
       })),
@@ -1683,35 +1695,82 @@ const buildQuotePerformanceCardData = (
   trendRows: QuoteTrendDatum[],
   brandRows: BrandContributionDatum[],
   petRows: PetTypeMixDatum[],
-): QuotePerformanceCardData => ({
-  conversionRate: buildQuotePerformanceMetricViewData(
-    "conversionRate",
+): QuotePerformanceCardData =>
+  addCumulativeTabs(
+    {
+      conversionRate: buildQuotePerformanceMetricViewData(
+        "conversionRate",
+        trendRows,
+        brandRows,
+        petRows,
+      ),
+      totalQuote: buildQuotePerformanceMetricViewData(
+        "totalQuote",
+        trendRows,
+        brandRows,
+        petRows,
+      ),
+      totalSales: buildQuotePerformanceMetricViewData(
+        "totalSales",
+        trendRows,
+        brandRows,
+        petRows,
+      ),
+    },
     trendRows,
-    brandRows,
-    petRows,
-  ),
-  totalQuote: buildQuotePerformanceMetricViewData(
-    "totalQuote",
-    trendRows,
-    brandRows,
-    petRows,
-  ),
-  totalSales: buildQuotePerformanceMetricViewData(
-    "totalSales",
-    trendRows,
-    brandRows,
-    petRows,
-  ),
-});
+    "quote",
+  );
 
-const buildPolicyCumulativeTabData = (
+interface CumulativeMetricCopy {
+  metricLabel: string;
+  subjectLabel: string;
+  subtitleLabel: string;
+}
+
+const getCumulativeMetricCopy = (
+  metricKey: TrendSeriesKey,
+  variant: MetricViewVariant,
+): CumulativeMetricCopy => {
+  if (metricKey === "conversionRate") {
+    return {
+      metricLabel: "Conversion",
+      subjectLabel: "cumulative conversion",
+      subtitleLabel: "conversion",
+    };
+  }
+
+  if (metricKey === "totalSales") {
+    return {
+      metricLabel: "Sales",
+      subjectLabel: "cumulative sales",
+      subtitleLabel: "sales",
+    };
+  }
+
+  return variant === "policy"
+    ? {
+        metricLabel: "Policy",
+        subjectLabel: "cumulative policies",
+        subtitleLabel: "policies",
+      }
+    : {
+        metricLabel: "Quote",
+        subjectLabel: "cumulative quotes",
+        subtitleLabel: "quotes",
+      };
+};
+
+const buildCumulativeTabData = (
   metricKey: TrendSeriesKey,
   trendRows: QuoteTrendDatum[],
+  variant: MetricViewVariant,
 ): QuotePerformanceTabData => {
-  const metricDescriptor = getMetricViewDescriptor(metricKey, "policy");
+  const variantTrendSeries = getTrendSeriesOptions(variant);
   const activeTrendSeries =
-    getTrendSeriesOptions("policy").find((series) => series.key === metricKey) ??
-    getTrendSeriesOptions("policy")[0];
+    variantTrendSeries.find((series) => series.key === metricKey) ??
+    variantTrendSeries[0];
+  const { metricLabel, subjectLabel, subtitleLabel } =
+    getCumulativeMetricCopy(metricKey, variant);
   const cumulativeTrendRows = buildCumulativeTrendData(metricKey, trendRows);
   const metricsTable = buildCumulativeMetricsTableData(metricKey, trendRows);
   const latestTrendMonth = trendRows[trendRows.length - 1];
@@ -1740,12 +1799,6 @@ const buildPolicyCumulativeTabData = (
       : changeDirection === "down"
         ? "negative"
         : "neutral";
-  const subjectLabel =
-    metricKey === "conversionRate"
-      ? "cumulative conversion"
-      : metricKey === "totalSales"
-        ? "cumulative sales"
-        : "cumulative policies";
   const displayFormatter =
     metricKey === "conversionRate" ? formatPercent : formatCount;
   const pointFormatter =
@@ -1755,7 +1808,7 @@ const buildPolicyCumulativeTabData = (
       {
         id: `cumulative-yoy-${metricKey}`,
         severity: changeDirection === "down" ? "high" : "low",
-        text: `${metricDescriptor.buttonLabel} cumulative sits at ${displayFormatter(
+        text: `${metricLabel} cumulative sits at ${displayFormatter(
           latestPoint.currentCumulative,
         )} versus ${displayFormatter(
           latestPoint.previousYearCumulative,
@@ -1805,7 +1858,7 @@ const buildPolicyCumulativeTabData = (
     kind: "cumulative-trend",
     label: "Cumulative",
     metricsTable,
-    panelTitle: `Cumulative ${metricDescriptor.buttonLabel} Trend`,
+    panelTitle: `Cumulative ${metricLabel} Trend`,
     signal: {
       ariaLabel: isConversionMetric
         ? `Cumulative conversion is ${displayFormatter(
@@ -1830,22 +1883,23 @@ const buildPolicyCumulativeTabData = (
     },
     subtitle: isConversionMetric
       ? `Daily cumulative conversion for ${latestTrendMonth?.month ?? "the current month"} against ${latestTrendMonth?.previousYearMonth ?? "last year"}.`
-      : `Daily cumulative ${metricDescriptor.buttonLabel.toLowerCase()} for ${latestTrendMonth?.month ?? "the current month"} against ${latestTrendMonth?.previousYearMonth ?? "last year"}.`,
+      : `Daily cumulative ${subtitleLabel} for ${latestTrendMonth?.month ?? "the current month"} against ${latestTrendMonth?.previousYearMonth ?? "last year"}.`,
     title: "Cumulative Trend",
     trendData: cumulativeTrendRows,
     yAxisWidth: isConversionMetric ? 56 : 64,
   };
 };
 
-const addPolicyCumulativeTabs = (
-  policyPerformanceData: QuotePerformanceCardData,
+const addCumulativeTabs = (
+  performanceData: QuotePerformanceCardData,
   trendRows: QuoteTrendDatum[],
+  variant: MetricViewVariant,
 ): QuotePerformanceCardData => {
   const addTab = (
     metricView: QuotePerformanceMetricViewData,
     metricKey: TrendSeriesKey,
   ): QuotePerformanceMetricViewData => {
-    const cumulativeTab = buildPolicyCumulativeTabData(metricKey, trendRows);
+    const cumulativeTab = buildCumulativeTabData(metricKey, trendRows, variant);
     const trendIndex = metricView.tabs.findIndex((tab) => tab.key === "quote-trend");
 
     if (trendIndex === -1) {
@@ -1864,9 +1918,9 @@ const addPolicyCumulativeTabs = (
   };
 
   return {
-    conversionRate: addTab(policyPerformanceData.conversionRate, "conversionRate"),
-    totalQuote: addTab(policyPerformanceData.totalQuote, "totalQuote"),
-    totalSales: addTab(policyPerformanceData.totalSales, "totalSales"),
+    conversionRate: addTab(performanceData.conversionRate, "conversionRate"),
+    totalQuote: addTab(performanceData.totalQuote, "totalQuote"),
+    totalSales: addTab(performanceData.totalSales, "totalSales"),
   };
 };
 
@@ -2488,9 +2542,10 @@ export const buildPolicyDashboardData = (
 
   return {
     ...policyBundle,
-    quotePerformanceData: addPolicyCumulativeTabs(
+    quotePerformanceData: addCumulativeTabs(
       policyBundle.quotePerformanceData,
       quoteTrendTab?.trendData ?? [],
+      "policy",
     ),
     quoteWorkflowData: buildPolicyWorkflowCardData(
       countryRows,
@@ -2499,4 +2554,6 @@ export const buildPolicyDashboardData = (
     ),
   };
 };
+
+
 

@@ -146,6 +146,7 @@ export interface ProductRankingDatum {
 export interface ProductPerformanceDatum {
   convertedValue: number;
   convertedVolume: number;
+  petType?: string;
   product: string;
   quotedValue: number;
   quotedVolume: number;
@@ -157,6 +158,7 @@ export interface ProductPerformanceRowData {
   fillPercent: number;
   metaDisplay: string;
   metricDisplay: string;
+  petType?: string;
   product: string;
   rankLabel: string;
 }
@@ -176,6 +178,7 @@ export interface ProductPerformanceCardData {
 export interface PromoCodePerformanceDatum {
   averageTimeToConvertDays: number;
   convertedVolume: number;
+  countryCode?: string;
   promoCode: string;
   quotedVolume: number;
 }
@@ -184,6 +187,7 @@ export interface AgentPerformanceDatum {
   agent: string;
   averageTimeToConvertDays: number;
   convertedVolume: number;
+  countryCode?: string;
   quotedVolume: number;
 }
 
@@ -194,6 +198,7 @@ export interface PromoPerformanceTableRow {
   conversionRateLabel: string;
   convertedShareLabel: string;
   convertedVolumeLabel: string;
+  countryCode?: string;
   id: string;
   label: string;
   quotedShareLabel: string;
@@ -812,6 +817,7 @@ export const topPetTypeMix = petTypeMixData.reduce<PetTypeMixDatum | null>(
 
 export const productPerformanceData: ProductPerformanceDatum[] = [
   {
+    petType: "Dog",
     product: "Premier Plus",
     quotedVolume: 224,
     convertedVolume: 8,
@@ -819,6 +825,7 @@ export const productPerformanceData: ProductPerformanceDatum[] = [
     convertedValue: 24_800,
   },
   {
+    petType: "Cat",
     product: "Essential Cover",
     quotedVolume: 186,
     convertedVolume: 5,
@@ -826,6 +833,7 @@ export const productPerformanceData: ProductPerformanceDatum[] = [
     convertedValue: 12_300,
   },
   {
+    petType: "Dog",
     product: "Lifetime Elite",
     quotedVolume: 162,
     convertedVolume: 7,
@@ -833,6 +841,7 @@ export const productPerformanceData: ProductPerformanceDatum[] = [
     convertedValue: 20_500,
   },
   {
+    petType: "Dog",
     product: "Multi-Pet",
     quotedVolume: 154,
     convertedVolume: 6,
@@ -840,6 +849,7 @@ export const productPerformanceData: ProductPerformanceDatum[] = [
     convertedValue: 15_400,
   },
   {
+    petType: "Cat",
     product: "Annual Flex",
     quotedVolume: 128,
     convertedVolume: 4,
@@ -847,6 +857,7 @@ export const productPerformanceData: ProductPerformanceDatum[] = [
     convertedValue: 10_100,
   },
   {
+    petType: "Dog",
     product: "Vet Protect",
     quotedVolume: 97,
     convertedVolume: 4,
@@ -854,6 +865,7 @@ export const productPerformanceData: ProductPerformanceDatum[] = [
     convertedValue: 11_200,
   },
   {
+    petType: "Rabbit",
     product: "Accident Only",
     quotedVolume: 88,
     convertedVolume: 2,
@@ -865,63 +877,73 @@ export const productPerformanceData: ProductPerformanceDatum[] = [
 export const promoCodePerformanceData: PromoCodePerformanceDatum[] = [
   {
     averageTimeToConvertDays: 12,
+    convertedVolume: 6,
+    countryCode: "UK",
     promoCode: "WELCOME10",
     quotedVolume: 154,
-    convertedVolume: 6,
   },
   {
     averageTimeToConvertDays: 14,
+    convertedVolume: 5,
+    countryCode: "AU",
     promoCode: "MULTIPET20",
     quotedVolume: 132,
-    convertedVolume: 5,
   },
   {
     averageTimeToConvertDays: 16,
+    convertedVolume: 4,
+    countryCode: "NZ",
     promoCode: "SAVE15",
     quotedVolume: 118,
-    convertedVolume: 4,
   },
   {
     averageTimeToConvertDays: 11,
+    convertedVolume: 4,
+    countryCode: "UK",
     promoCode: "LOYALTY5",
     quotedVolume: 96,
-    convertedVolume: 4,
   },
   {
     averageTimeToConvertDays: 13,
+    convertedVolume: 3,
+    countryCode: "DE",
     promoCode: "SPRING25",
     quotedVolume: 84,
-    convertedVolume: 3,
   },
   {
     averageTimeToConvertDays: 18,
+    convertedVolume: 2,
+    countryCode: "AT",
     promoCode: "APPONLY",
     quotedVolume: 71,
-    convertedVolume: 2,
   },
   {
     averageTimeToConvertDays: 15,
+    convertedVolume: 2,
+    countryCode: "AU",
     promoCode: "NEWYEAR20",
     quotedVolume: 64,
-    convertedVolume: 2,
   },
   {
     averageTimeToConvertDays: 10,
+    convertedVolume: 3,
+    countryCode: "UK",
     promoCode: "BUNDLE12",
     quotedVolume: 58,
-    convertedVolume: 3,
   },
   {
     averageTimeToConvertDays: 17,
+    convertedVolume: 1,
+    countryCode: "NZ",
     promoCode: "REFERFRIEND",
     quotedVolume: 52,
-    convertedVolume: 1,
   },
   {
     averageTimeToConvertDays: 14,
+    convertedVolume: 2,
+    countryCode: "DE",
     promoCode: "PETCARE7",
     quotedVolume: 47,
-    convertedVolume: 2,
   },
 ];
 
@@ -929,62 +951,72 @@ export const agentPerformanceData: AgentPerformanceDatum[] = [
   {
     agent: "Amara D",
     averageTimeToConvertDays: 11,
-    quotedVolume: 148,
     convertedVolume: 7,
+    countryCode: "UK",
+    quotedVolume: 148,
   },
   {
     agent: "Liam K",
     averageTimeToConvertDays: 13,
-    quotedVolume: 136,
     convertedVolume: 6,
+    countryCode: "AU",
+    quotedVolume: 136,
   },
   {
     agent: "Sophia M",
     averageTimeToConvertDays: 12,
-    quotedVolume: 121,
     convertedVolume: 5,
+    countryCode: "NZ",
+    quotedVolume: 121,
   },
   {
     agent: "Noah R",
     averageTimeToConvertDays: 15,
-    quotedVolume: 114,
     convertedVolume: 4,
+    countryCode: "UK",
+    quotedVolume: 114,
   },
   {
     agent: "Olivia T",
     averageTimeToConvertDays: 10,
-    quotedVolume: 102,
     convertedVolume: 5,
+    countryCode: "DE",
+    quotedVolume: 102,
   },
   {
     agent: "Ethan B",
     averageTimeToConvertDays: 16,
-    quotedVolume: 91,
     convertedVolume: 3,
+    countryCode: "AT",
+    quotedVolume: 91,
   },
   {
     agent: "Isla C",
     averageTimeToConvertDays: 14,
-    quotedVolume: 84,
     convertedVolume: 3,
+    countryCode: "AU",
+    quotedVolume: 84,
   },
   {
     agent: "Mason F",
     averageTimeToConvertDays: 17,
-    quotedVolume: 76,
     convertedVolume: 2,
+    countryCode: "NZ",
+    quotedVolume: 76,
   },
   {
     agent: "Ava J",
     averageTimeToConvertDays: 12,
-    quotedVolume: 69,
     convertedVolume: 3,
+    countryCode: "UK",
+    quotedVolume: 69,
   },
   {
     agent: "Leo S",
     averageTimeToConvertDays: 18,
-    quotedVolume: 58,
     convertedVolume: 2,
+    countryCode: "DE",
+    quotedVolume: 58,
   },
 ];
 

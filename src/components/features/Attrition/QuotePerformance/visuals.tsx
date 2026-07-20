@@ -273,6 +273,47 @@ export const PetTypeMixVisual: React.FC<{
     metricViewVariant === "policy" ? "Total Policy" : "Total Quote";
   const tooltipMetricLabel =
     metricViewVariant === "policy" ? "Policies" : "Quotes";
+  const alphabeticalData = [...data].sort((left, right) =>
+    left.petType.localeCompare(right.petType, undefined, { sensitivity: "base" }),
+  );
+  const displayData =
+    metricViewVariant === "quote" && !expanded
+      ? (() => {
+          const rankedData = [...data].sort(
+            (left, right) => right.quoteCount - left.quoteCount,
+          );
+          if (rankedData.length <= 5) {
+            return rankedData.sort((left, right) =>
+              left.petType.localeCompare(right.petType, undefined, {
+                sensitivity: "base",
+              }),
+            );
+          }
+
+          const topFive = rankedData.slice(0, 5);
+          const remainingQuoteCount = rankedData
+            .slice(5)
+            .reduce((sum, entry) => sum + entry.quoteCount, 0);
+          const othersShare = Number(
+            ((remainingQuoteCount / Math.max(totalQuote, 1)) * 100).toFixed(1),
+          );
+
+          return [
+            ...topFive,
+            {
+              fill: "#6f7896",
+              petType: "Others",
+              quoteCount: remainingQuoteCount,
+              share: othersShare,
+              shareLabel: formatPercent(othersShare),
+            },
+          ].sort((left, right) =>
+            left.petType.localeCompare(right.petType, undefined, {
+              sensitivity: "base",
+            }),
+          );
+        })()
+      : alphabeticalData;
   const renderVariantTooltip = ({
     active,
     payload,
@@ -312,7 +353,7 @@ export const PetTypeMixVisual: React.FC<{
         <SingleDonutChart
           className={expanded ? style.analysisDonutChart : style.donutChart}
           cornerRadius={10}
-          data={data}
+          data={displayData}
           dataKey="quoteCount"
           innerRadius="74%"
           nameKey="petType"
@@ -331,7 +372,7 @@ export const PetTypeMixVisual: React.FC<{
 
       <PetTypeMixLegend
         className={expanded ? style.analysisLegend : undefined}
-        data={data}
+        data={displayData}
       />
     </div>
   );

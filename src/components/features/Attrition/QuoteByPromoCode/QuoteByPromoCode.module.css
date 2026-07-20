@@ -20,3 +20,46 @@
 .tableRegion {
   width: 100%;
 }
+
+.header {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.headerAside {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.downloadButton {
+  align-items: center;
+  background: rgba(var(--accent-rgb), 0.12);
+  border: 1px solid rgba(var(--accent-rgb), 0.22);
+  border-radius: 999px;
+  color: rgba(223, 229, 243, 0.88);
+  cursor: pointer;
+  display: inline-flex;
+  height: 2rem;
+  justify-content: center;
+  padding: 0;
+  transition: background-color 160ms ease, border-color 160ms ease, opacity 160ms ease;
+  width: 2rem;
+}
+
+.downloadButton:hover:not(:disabled) {
+  background: rgba(var(--accent-rgb), 0.18);
+  border-color: rgba(var(--accent-rgb), 0.34);
+}
+
+.downloadButton:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.downloadButtonIcon {
+  flex: 0 0 auto;
+  font-size: 1rem;
+}
