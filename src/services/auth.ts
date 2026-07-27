@@ -22,6 +22,7 @@ interface LoginPayload {
 
 const AUTH_TOKEN_STORAGE_KEY = "authToken";
 const AUTH_USER_STORAGE_KEY = "authUser";
+const AUTH_RETURN_PATH_STORAGE_KEY = "authReturnPath";
 export const AUTH_SESSION_EXPIRED_EVENT = "auth:session-expired";
 const API_V1_BASE_URL =
   import.meta.env.VITE_API_V1_BASE_URL?.replace(/\/+$/, "") ??
@@ -36,6 +37,68 @@ export const dispatchSessionExpiredEvent = () => {
   }
 
   window.dispatchEvent(new CustomEvent(AUTH_SESSION_EXPIRED_EVENT));
+};
+
+const getSafeReturnPath = (path: string | null) => {
+  if (!path || typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const url = new URL(path, window.location.origin);
+    if (url.origin !== window.location.origin || url.pathname === "/") {
+      return null;
+    }
+
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+};
+
+export const authReturnPathStorage = {
+  clear: () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      sessionStorage.removeItem(AUTH_RETURN_PATH_STORAGE_KEY);
+    } catch {
+      // Storage may be unavailable in privacy-restricted browser contexts.
+    }
+  },
+  consume: () => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    try {
+      const returnPath = sessionStorage.getItem(AUTH_RETURN_PATH_STORAGE_KEY);
+      sessionStorage.removeItem(AUTH_RETURN_PATH_STORAGE_KEY);
+      return getSafeReturnPath(returnPath);
+    } catch {
+      return null;
+    }
+  },
+  rememberCurrentLocation: () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const returnPath = getSafeReturnPath(
+      `${window.location.pathname}${window.location.search}${window.location.hash}`,
+    );
+    if (!returnPath) {
+      return;
+    }
+
+    try {
+      sessionStorage.setItem(AUTH_RETURN_PATH_STORAGE_KEY, returnPath);
+    } catch {
+      // Falling back to the dashboard is safe when storage is unavailable.
+    }
+  },
 };
 
 const extractErrorMessage = async (response: Response) => {

@@ -8,17 +8,19 @@ import {
 } from "react";
 import dayjs from "dayjs";
 import { MultiSelect } from "@mantine/core";
-import { DatePickerInput } from "@mantine/dates";
-import { useMediaQuery } from "@mantine/hooks";
+
 import { useNavigate } from "react-router-dom";
 import type { IconType } from "react-icons";
 import {
+  RiCheckLine,
   RiCloseLine,
+  RiDatabase2Line,
   RiDownloadCloud2Line,
   RiFileTextLine,
   RiLineChartLine,
   RiLoader4Line,
   RiShieldCheckLine,
+  RiSubtractLine,
 } from "react-icons/ri";
 import DashboardLayout, {
   type DashboardDateRange,
@@ -28,6 +30,7 @@ import SegmentedTabs, {
   type SegmentedTabOption,
 } from "../components/ui/segmented_tabs";
 import V2EtlModal from "../components/ui/etl_modal/V2EtlModal";
+import ReportingPeriodPicker from "../components/ui/reporting_period_picker/ReportingPeriodPicker";
 import { dashboardMenuItems } from "../config/dashboardMenu";
 import {
   brandFilterOptions,
@@ -39,6 +42,20 @@ import {
 } from "../components/features/Attrition/dashboardState";
 import type { PremiumCurrencyCode } from "../components/features/Attrition/data";
 import type { TrendSeriesKey } from "../components/features/Attrition/QuotePerformance/types";
+import {
+  activePolicyBrandOptions,
+  activePolicyCountryOptions,
+  activePolicyPetTypeOptions,
+  downloadPaidPolicyReport,
+  type PaidPolicyReportProfile,
+} from "../services/activePolicyV2";
+import {
+  claimsBrandOptions,
+  claimsCountryOptions,
+  claimsPetTypeOptions,
+  downloadClaimsReport,
+  type ClaimsReportProfile,
+} from "../services/claimsV2";
 import {
   downloadFreePolicyReport,
   fetchFreePolicyFilters,
@@ -60,14 +77,15 @@ import { useAuth } from "../context/AuthContext";
 import { useV2EtlRunner } from "../features/etl/useV2EtlRunner";
 import { getUserNameParts } from "../utils/auth";
 import {
-  getMonthToDateReportingPeriod,
-  getReportingPeriodPresets,
+  getDefaultReportingPeriod,
+  getLastTwelveMonthsReportingPeriod,
 } from "../utils/reportingPeriodPresets";
 import style from "./page_css/Reports.module.css";
 
 type ReportId =
   | "debtors"
-  | "claims"
+  | "claims-turnaround-time"
+  | "claims-data"
   | "free-policy"
   | "total-quote"
   | "converted-quotes"
@@ -76,7 +94,6 @@ type ReportId =
   | "cancelled-policy"
   | "expired-policy"
   | "pending-policy"
-  | "refer-policy"
   | "pending-quote"
   | "lapsed-quote"
   | "converted-quote";
@@ -164,15 +181,12 @@ interface StoredReportFilters {
   quoteExportColumns?: string[];
   quoteStatuses?: string[];
   receivedSource?: QuoteReceivedSourceValue;
-  reportingPeriod?: [string | null, string | null];
   sendDocumentOnEmail?: QuoteBinaryFilterValue;
   useDefaultBrands?: boolean;
   useDefaultCountries?: boolean;
   useDefaultPetTypes?: boolean;
   useDefaultQuoteStatuses?: boolean;
 }
-
-const defaultDateRange: DashboardDateRange = getMonthToDateReportingPeriod();
 
 const freePolicyProfileOptions: FreePolicyProfileOption[] = [
   {
@@ -271,16 +285,29 @@ const policyLibraryOptions: PolicyLibraryOption[] = [
   },
   {
     description:
-      "Sales, active, cancelled, expired, pending, and referred policy exports grouped under paid policy.",
+      "Sales, active, cancelled, expired, and pending policy exports grouped under paid policy.",
     label: "Paid Policy",
     value: "paid-policy",
   },
 ];
 
+const isLivePaidPolicyReportProfile = (
+  value: ReportId | null | undefined,
+): value is PaidPolicyReportProfile =>
+  value === "active-policy" ||
+  value === "converted-policy" ||
+  value === "cancelled-policy" ||
+  value === "pending-policy" ||
+  value === "expired-policy";
+const isLiveClaimsReportProfile = (
+  value: ReportId | null | undefined,
+): value is ClaimsReportProfile =>
+  value === "claims-turnaround-time" || value === "claims-data";
+
 const paidPolicyReportOptions: PolicyReportOption[] = [
   {
     description:
-      "Active policies by market, brand, and pet type, with renewal timing included.",
+      "All policies currently active across the selected markets, brands, and pet types.",
     label: "Active Policy",
     reportId: "active-policy",
   },
@@ -302,17 +329,27 @@ const paidPolicyReportOptions: PolicyReportOption[] = [
     label: "Pending Policy",
     reportId: "pending-policy",
   },
+
   {
     description:
-      "Referred policies with referral reason, review status, and pricing context.",
-    label: "Refer Policy",
-    reportId: "refer-policy",
+      "Policies created within the selected period, using the live regional policy query.",
+    label: "Sales",
+    reportId: "converted-policy",
+  },
+];
+
+const claimsReportOptions: PolicyReportOption[] = [
+  {
+    description:
+      "Claims received in the selected period, including business days to payment or decline.",
+    label: "Turnaround Time",
+    reportId: "claims-turnaround-time",
   },
   {
     description:
-      "Sales policies with sold date, current status, and annual premium ready for export.",
-    label: "Sales",
-    reportId: "converted-policy",
+      "Monthly claims received, under-excess, assessed, and declined trends with YoY comparisons.",
+    label: "Claims Data",
+    reportId: "claims-data",
   },
 ];
 
@@ -337,6 +374,16 @@ const getAllOptionValues = <T extends string>(options: SelectionOption<T>[]) =>
 const allCountryValues = getAllOptionValues(countryFilterOptions);
 const allBrandValues = getAllOptionValues(brandFilterOptions);
 const allPetTypeValues = getAllOptionValues(petTypeFilterOptions);
+const allActivePolicyCountryValues = getAllOptionValues(
+  activePolicyCountryOptions,
+);
+const allActivePolicyBrandValues = getAllOptionValues(activePolicyBrandOptions);
+const allActivePolicyPetTypeValues = getAllOptionValues(
+  activePolicyPetTypeOptions,
+);
+const allClaimsCountryValues = getAllOptionValues(claimsCountryOptions);
+const allClaimsBrandValues = getAllOptionValues(claimsBrandOptions);
+const allClaimsPetTypeValues = getAllOptionValues(claimsPetTypeOptions);
 const staticCountrySelectOptions = countryFilterOptions.map((option) => ({
   label: option.label,
   value: option.value,
@@ -390,11 +437,16 @@ const quoteStatusOptions: QuoteFilterOption[] = [
   { label: "Approved by Underwriter", value: "Approved by Underwriter" },
 ];
 const allQuoteStatusValues = quoteStatusOptions.map((option) => option.value);
-const REPORT_FILTER_STORAGE_KEY_PREFIX = "marketing-crm:report-filters:v1";
+const REPORT_FILTER_STORAGE_KEY_PREFIX = "marketing-crm:report-filters:v2";
 
 const buildReportFilterStorageKey = (modalState: ReportFilterModalState) => {
   const profileSegment = modalState.profile ? `:${modalState.profile}` : "";
-  return `${REPORT_FILTER_STORAGE_KEY_PREFIX}:${modalState.reportId}${profileSegment}`;
+  const schemaSegment =
+    modalState.reportId === "claims-turnaround-time" ||
+    modalState.reportId === "claims-data"
+      ? ":claims-v2"
+      : "";
+  return `${REPORT_FILTER_STORAGE_KEY_PREFIX}:${modalState.reportId}${profileSegment}${schemaSegment}`;
 };
 
 const isQuoteBinaryFilterValue = (
@@ -490,23 +542,66 @@ const restoreStoredSelectionValues = <T extends { value: string }>(
   return nextValues;
 };
 
-const normalizeStoredReportingPeriod = (
-  storedValue: StoredReportFilters["reportingPeriod"] | undefined,
-): DashboardDateRange => {
-  if (
-    Array.isArray(storedValue) &&
-    storedValue.length === 2 &&
-    (typeof storedValue[0] === "string" || storedValue[0] === null) &&
-    (typeof storedValue[1] === "string" || storedValue[1] === null)
-  ) {
-    return [storedValue[0], storedValue[1]];
-  }
-
-  return defaultDateRange;
-};
-
 const getFilterOptionValues = <T extends { value: string }>(options: T[]) =>
   options.map((option) => option.value);
+
+interface SelectAllFieldLabelProps {
+  disabled?: boolean;
+  label: string;
+  onChange: (values: string[]) => void;
+  options: Array<{ value: string }>;
+  selectedValues: string[];
+  showLabel?: boolean;
+}
+
+const SelectAllFieldLabel = ({
+  disabled = false,
+  label,
+  onChange,
+  options,
+  selectedValues,
+  showLabel = true,
+}: SelectAllFieldLabelProps) => {
+  const availableValues = options.map((option) => option.value);
+  const selectedValueSet = new Set(selectedValues);
+  const selectedCount = availableValues.filter((value) =>
+    selectedValueSet.has(value),
+  ).length;
+  const isAllSelected =
+    availableValues.length > 0 && selectedCount === availableValues.length;
+  const isPartiallySelected = selectedCount > 0 && !isAllSelected;
+
+  return (
+    <div
+      className={showLabel ? style.selectFieldHeader : style.selectAllOnly}
+    >
+      {showLabel ? <span className={style.fieldLabel}>{label}</span> : null}
+      <button
+        aria-label={`${isAllSelected ? "Clear" : "Select"} all ${label.toLowerCase()} options`}
+        aria-pressed={isAllSelected}
+        className={style.selectAllControl}
+        disabled={disabled || !availableValues.length}
+        onClick={() => onChange(isAllSelected ? [] : availableValues)}
+        type="button"
+      >
+        <span
+          className={`${style.selectAllBox}${
+            isAllSelected || isPartiallySelected
+              ? ` ${style.selectAllBoxSelected}`
+              : ""
+          }`}
+        >
+          {isAllSelected ? (
+            <RiCheckLine aria-hidden="true" />
+          ) : isPartiallySelected ? (
+            <RiSubtractLine aria-hidden="true" />
+          ) : null}
+        </span>
+        <span>ALL</span>
+      </button>
+    </div>
+  );
+};
 
 const areSameValueLists = (left: string[], right: string[]) =>
   left.length === right.length &&
@@ -873,17 +968,17 @@ const reportDefinitions: ReportDefinition[] = [
       "Country",
       "Brand",
       "Pet Type",
-      "Claim Date",
+      "Claim Received Date",
+      "Claim Closed Date",
+      "Turnaround Time (Days)",
       "Claim Status",
-      "Claim Value",
     ],
     description:
-      "Claim-level result extract with status, claim date, and value across selected regions.",
-    fileStem: "claims_report",
+      "Claims received in the selected period, including business days to payment or decline.",
+    fileStem: "claims_turnaround_time",
     icon: RiFileTextLine,
-    id: "claims",
-    libraryLabel: "Claims Reports",
-    label: "Claims",
+    id: "claims-turnaround-time",
+    label: "Turnaround Time",
     scope: "Claims",
     buildRows: (context) =>
       buildReportRows(
@@ -893,21 +988,47 @@ const reportDefinitions: ReportDefinition[] = [
           "Country",
           "Brand",
           "Pet Type",
-          "Claim Date",
+          "Claim Received Date",
+          "Claim Closed Date",
+          "Turnaround Time (Days)",
           "Claim Status",
-          "Claim Value",
         ],
-        (index, values) => ({
-          Brand: values.brand,
-          "Claim Date": values.date,
-          "Claim Number": `CL-${9200 + index}`,
-          "Claim Status":
-            index % 3 === 0 ? "Open" : index % 3 === 1 ? "In Review" : "Closed",
-          "Claim Value": formatCurrencyAmount(180 + index * 54),
-          Country: values.country,
-          "Pet Type": values.petType,
-        }),
+        (index, values) => {
+          const turnaroundDays = 2 + (index % 12);
+          return {
+            Brand: values.brand,
+            "Claim Closed Date": dayjs(values.date)
+              .add(turnaroundDays, "day")
+              .format("YYYY-MM-DD"),
+            "Claim Number": `CL-${9200 + index}`,
+            "Claim Received Date": values.date,
+            "Claim Status": "Closed",
+            Country: values.country,
+            "Pet Type": values.petType,
+            "Turnaround Time (Days)": turnaroundDays,
+          };
+        },
       ),
+  },
+  {
+    columns: [
+      "Month",
+      "Total Claims Received",
+      "Under Excess",
+      "Claims Assessed",
+      "Claims Assessed YoY",
+      "Declined",
+      "Declined Percentage",
+      "Declined YoY",
+    ],
+    description:
+      "Monthly claims received, under-excess, assessed, and declined trends with YoY comparisons.",
+    fileStem: "claims_data",
+    icon: RiFileTextLine,
+    id: "claims-data",
+    label: "Claims Data",
+    scope: "Claims",
+    buildRows: () => [],
   },
   {
     columns: [
@@ -1041,51 +1162,7 @@ const reportDefinitions: ReportDefinition[] = [
         }),
       ),
   },
-  {
-    columns: [
-      "Policy Number",
-      "Country",
-      "Brand",
-      "Pet Type",
-      "Referral Date",
-      "Referral Reason",
-      "Review Status",
-    ],
-    description:
-      "Referred policies with referral reason, review status, and pricing context.",
-    fileStem: "refer_policy",
-    icon: RiShieldCheckLine,
-    id: "refer-policy",
-    label: "Refer Policy",
-    scope: "Policy",
-    buildRows: (context) =>
-      buildReportRows(
-        context,
-        [
-          "Policy Number",
-          "Country",
-          "Brand",
-          "Pet Type",
-          "Referral Date",
-          "Referral Reason",
-          "Review Status",
-        ],
-        (index, values) => ({
-          Brand: values.brand,
-          Country: values.country,
-          "Pet Type": values.petType,
-          "Policy Number": `RP-${4900 + index}`,
-          "Referral Date": values.date,
-          "Referral Reason":
-            index % 3 === 0
-              ? "Breed rule"
-              : index % 3 === 1
-                ? "Claims history"
-                : "Manual underwriting",
-          "Review Status": index % 2 === 0 ? "In review" : "Awaiting decision",
-        }),
-      ),
-  },
+
   {
     columns: [
       "Quote Reference",
@@ -1184,7 +1261,7 @@ const reportDefinitions: ReportDefinition[] = [
       "Annual Premium",
     ],
     description:
-      "Sales policies with sold date, current status, and annual premium ready for export.",
+      "Policies created within the selected reporting period with policy status 1.",
     fileStem: "sales_policy",
     icon: RiShieldCheckLine,
     id: "converted-policy",
@@ -1224,7 +1301,7 @@ const reportDefinitions: ReportDefinition[] = [
       "Annual Premium",
     ],
     description:
-      "Active policies by market, brand, and pet type, with renewal timing included.",
+      "All policies currently active across the selected markets, brands, and pet types.",
     fileStem: "active_policy",
     icon: RiShieldCheckLine,
     id: "active-policy",
@@ -1473,45 +1550,24 @@ const quoteFlagSelectionInputStyles = createSelectionInputStyles({
   sectionColor: "rgba(222, 205, 242, 0.74)",
 });
 
-const datePickerStyles = {
-  dropdown: {
-    backdropFilter: "blur(20px)",
-    background:
-      "linear-gradient(180deg, rgba(43, 46, 60, 0.98), rgba(35, 38, 51, 0.98))",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-  },
-  input: {
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    border: "1px solid rgba(107, 99, 117, 0.18)",
-    borderRadius: "1rem",
-    color: "var(--text-h)",
-    fontSize: "0.92rem",
-    fontWeight: 600,
-    height: "3.15rem",
-  },
-  label: {
-    display: "none",
-  },
-  section: {
-    color: "var(--text)",
-  },
-} as const;
 
 const Reports: React.FC = () => {
   const navigate = useNavigate();
   const { isAdmin, logout, user } = useAuth();
-  const isMobile = useMediaQuery("(max-width: 640px)") ?? false;
   const [isFreePolicyTypeModalOpen, setIsFreePolicyTypeModalOpen] =
     useState(false);
   const [isPolicyTypeModalOpen, setIsPolicyTypeModalOpen] = useState(false);
   const [isPaidPolicyTypeModalOpen, setIsPaidPolicyTypeModalOpen] =
     useState(false);
+  const [isActivePolicyConfirmationOpen, setIsActivePolicyConfirmationOpen] =
+    useState(false);
   const [isQuoteTypeModalOpen, setIsQuoteTypeModalOpen] = useState(false);
+  const [isClaimsTypeModalOpen, setIsClaimsTypeModalOpen] = useState(false);
   const etlRunner = useV2EtlRunner();
   const [activeFilterModal, setActiveFilterModal] =
     useState<ReportFilterModalState | null>(null);
   const [reportingPeriod, setReportingPeriod] =
-    useState<DashboardDateRange>(defaultDateRange);
+    useState<DashboardDateRange>(getDefaultReportingPeriod);
   const [selectedCountries, setSelectedCountries] = useState<string[]>([
     ...allCountryValues,
   ]);
@@ -1598,6 +1654,19 @@ const Reports: React.FC = () => {
   );
   const isFreePolicyReportActive =
     activeReport?.id === "free-policy" && Boolean(activeFilterModal?.profile);
+  const paidPolicyReportProfile = isLivePaidPolicyReportProfile(activeReport?.id)
+    ? activeReport.id
+    : null;
+  const isLivePaidPolicyReportActive = paidPolicyReportProfile !== null;
+  const claimsReportProfile = isLiveClaimsReportProfile(activeReport?.id)
+    ? activeReport.id
+    : null;
+  const isLiveClaimsReportActive = claimsReportProfile !== null;
+  const isLiveSourceReportActive =
+    isLivePaidPolicyReportActive || isLiveClaimsReportActive;
+  const isActivePolicyReportActive =
+    paidPolicyReportProfile === "active-policy";
+
   const isQuoteReportActive = Boolean(
     activeReport &&
       quoteReportOptionDefinitions.some(
@@ -1614,26 +1683,36 @@ const Reports: React.FC = () => {
   );
   const standaloneLibraryReports = useMemo(
     () =>
-      reportDefinitions.filter(
-        (report) => report.id === "debtors" || report.id === "claims",
-      ),
+      reportDefinitions.filter((report) => report.id === "debtors"),
     [],
   );
-  const countryOptionsData = isFreePolicyReportActive
-    ? freePolicyFilterOptions.countries
-    : isQuoteReportActive
-      ? quoteFilterOptions.countries
-    : staticCountrySelectOptions;
-  const brandOptionsData = isFreePolicyReportActive
-    ? freePolicyFilterOptions.brands
-    : isQuoteReportActive
-      ? quoteFilterOptions.brands
-    : staticBrandSelectOptions;
-  const petTypeOptionsData = isFreePolicyReportActive
-    ? freePolicyFilterOptions.petTypes
-    : isQuoteReportActive
-      ? quoteFilterOptions.petTypes
-    : staticPetTypeSelectOptions;
+  const countryOptionsData = isLiveClaimsReportActive
+    ? claimsCountryOptions
+    : isLivePaidPolicyReportActive
+      ? activePolicyCountryOptions
+    : isFreePolicyReportActive
+      ? freePolicyFilterOptions.countries
+      : isQuoteReportActive
+        ? quoteFilterOptions.countries
+        : staticCountrySelectOptions;
+  const brandOptionsData = isLiveClaimsReportActive
+    ? claimsBrandOptions
+    : isLivePaidPolicyReportActive
+      ? activePolicyBrandOptions
+    : isFreePolicyReportActive
+      ? freePolicyFilterOptions.brands
+      : isQuoteReportActive
+        ? quoteFilterOptions.brands
+        : staticBrandSelectOptions;
+  const petTypeOptionsData = isLiveClaimsReportActive
+    ? claimsPetTypeOptions
+    : isLivePaidPolicyReportActive
+      ? activePolicyPetTypeOptions
+    : isFreePolicyReportActive
+      ? freePolicyFilterOptions.petTypes
+      : isQuoteReportActive
+        ? quoteFilterOptions.petTypes
+        : staticPetTypeSelectOptions;
   const isFreePolicyFiltersBusy =
     isFreePolicyFilterBootstrapLoading ||
     isFreePolicyBrandOptionsLoading ||
@@ -1642,12 +1721,41 @@ const Reports: React.FC = () => {
     isQuoteFilterBootstrapLoading ||
     isQuoteBrandOptionsLoading ||
     isQuotePetTypeOptionsLoading;
+  const isCountrySelectionDisabled =
+    (isFreePolicyReportActive &&
+      (isFreePolicyFilterBootstrapLoading || !countryOptionsData.length)) ||
+    (isQuoteReportActive &&
+      (isQuoteFilterBootstrapLoading || !countryOptionsData.length));
+  const isBrandSelectionDisabled =
+    (isFreePolicyReportActive &&
+      (isFreePolicyFilterBootstrapLoading ||
+        isFreePolicyBrandOptionsLoading ||
+        !selectedCountries.length ||
+        !brandOptionsData.length)) ||
+    (isQuoteReportActive &&
+      (isQuoteFilterBootstrapLoading ||
+        isQuoteBrandOptionsLoading ||
+        !selectedCountries.length ||
+        !brandOptionsData.length));
+  const isPetTypeSelectionDisabled =
+    (isFreePolicyReportActive &&
+      (isFreePolicyFilterBootstrapLoading ||
+        isFreePolicyPetTypeOptionsLoading ||
+        !selectedBrands.length ||
+        !petTypeOptionsData.length)) ||
+    (isQuoteReportActive &&
+      (isQuoteFilterBootstrapLoading ||
+        isQuotePetTypeOptionsLoading ||
+        !selectedBrands.length ||
+        !petTypeOptionsData.length));
+  const isQuoteExportColumnSelectionDisabled =
+    isQuoteExportColumnsLoading || !availableQuoteExportColumns.length;
 
   const canDownload = Boolean(
     activeReport &&
     isFilterStateReady &&
-    reportingPeriod[0] &&
-    reportingPeriod[1] &&
+    (isActivePolicyReportActive ||
+      (reportingPeriod[0] && reportingPeriod[1])) &&
     selectedCountries.length &&
     selectedBrands.length &&
     selectedPetTypes.length &&
@@ -1668,6 +1776,29 @@ const Reports: React.FC = () => {
         availableQuoteExportColumns.length &&
         selectedQuoteExportColumns.length)),
   );
+  const liveRegionOptions = isLiveClaimsReportActive
+    ? claimsCountryOptions
+    : activePolicyCountryOptions;
+  const selectedLiveReportRegions = liveRegionOptions.filter((option) =>
+    selectedCountries.includes(option.value),
+  );
+  const paidPolicySnapshotScope =
+    paidPolicyReportProfile === "converted-policy"
+      ? "Sales policies created in the selected reporting period"
+      : paidPolicyReportProfile === "cancelled-policy"
+      ? "Policies cancelled in the selected reporting period"
+      : paidPolicyReportProfile === "pending-policy"
+      ? "All pending policies"
+      : paidPolicyReportProfile === "expired-policy"
+        ? "All expired policies"
+        : "All currently active policies";
+  const liveReportSnapshotScope =
+    claimsReportProfile === "claims-data"
+      ? "Monthly claims plus prior-year comparison source data"
+      : isLiveClaimsReportActive
+        ? "Claims created in the selected reporting period"
+        : paidPolicySnapshotScope;
+  const reportModalTitle = activeFilterModal?.title ?? "Report";
   const quoteExportColumnLabelMap = useMemo(
     () =>
       new Map(
@@ -1695,7 +1826,7 @@ const Reports: React.FC = () => {
   const { firstName, lastName } = getUserNameParts(user);
 
   const resetFilters = () => {
-    setReportingPeriod(defaultDateRange);
+    setReportingPeriod(getDefaultReportingPeriod());
     setSelectedCountries([...allCountryValues]);
     setSelectedBrands([...allBrandValues]);
     setSelectedPetTypes([...allPetTypeValues]);
@@ -1783,10 +1914,18 @@ const Reports: React.FC = () => {
     setQuoteFiltersError(null);
   };
 
+
+  const closeClaimsTypeModal = () => {
+    setIsClaimsTypeModalOpen(false);
+    setFeedbackMessage(null);
+    setIsDownloadInProgress(false);
+  };
+
   const closeFilterModal = () => {
     stopFreePolicyRequests();
     stopQuoteRequests();
     setActiveFilterModal(null);
+    setIsActivePolicyConfirmationOpen(false);
     setFeedbackMessage(null);
     setIsDownloadInProgress(false);
     setFreePolicyFiltersError(null);
@@ -1794,7 +1933,16 @@ const Reports: React.FC = () => {
     setQuoteFiltersError(null);
   };
 
+  const closeActivePolicyConfirmation = () => {
+    setIsActivePolicyConfirmationOpen(false);
+  };
+
   const closeTopmostModal = () => {
+    if (isActivePolicyConfirmationOpen) {
+      closeActivePolicyConfirmation();
+      return;
+    }
+
     if (activeFilterModal) {
       closeFilterModal();
       return;
@@ -1807,6 +1955,12 @@ const Reports: React.FC = () => {
 
     if (isPaidPolicyTypeModalOpen) {
       closePaidPolicyTypeModal();
+      return;
+    }
+
+
+    if (isClaimsTypeModalOpen) {
+      closeClaimsTypeModal();
       return;
     }
 
@@ -1824,8 +1978,11 @@ const Reports: React.FC = () => {
   useEffect(() => {
     if (
       !isFreePolicyTypeModalOpen &&
+      !isPaidPolicyTypeModalOpen &&
+      !isClaimsTypeModalOpen &&
       !isPolicyTypeModalOpen &&
       !isQuoteTypeModalOpen &&
+      !isActivePolicyConfirmationOpen &&
       !activeFilterModal
     ) {
       return;
@@ -1847,6 +2004,8 @@ const Reports: React.FC = () => {
     };
   }, [
     activeFilterModal,
+    isActivePolicyConfirmationOpen,
+    isClaimsTypeModalOpen,
     isFreePolicyTypeModalOpen,
     isPaidPolicyTypeModalOpen,
     isPolicyTypeModalOpen,
@@ -1876,7 +2035,6 @@ const Reports: React.FC = () => {
     hasQuoteFilterBootstrapCompletedRef.current = false;
     previousQuoteExportColumnsRef.current = [];
     setIsFilterStateReady(false);
-    setReportingPeriod(normalizeStoredReportingPeriod(savedFilters?.reportingPeriod));
     setSelectedIsFreeProduct(
       isQuoteBinaryFilterValue(savedFilters?.isFreeProduct)
         ? savedFilters.isFreeProduct
@@ -1911,14 +2069,29 @@ const Reports: React.FC = () => {
     setSelectedQuoteExportColumns(savedQuoteExportColumns);
 
     if (!isFreePolicyReportActive && !isQuoteReportActive) {
+      const availableCountries = isLiveClaimsReportActive
+        ? claimsCountryOptions
+        : isLivePaidPolicyReportActive
+          ? activePolicyCountryOptions
+          : staticCountrySelectOptions;
+      const availableBrands = isLiveClaimsReportActive
+        ? claimsBrandOptions
+        : isLivePaidPolicyReportActive
+          ? activePolicyBrandOptions
+          : staticBrandSelectOptions;
+      const availablePetTypes = isLiveClaimsReportActive
+        ? claimsPetTypeOptions
+        : isLivePaidPolicyReportActive
+          ? activePolicyPetTypeOptions
+          : staticPetTypeSelectOptions;
       setSelectedCountries(
-        restoreStoredSelectionValues(savedFilters?.countries, staticCountrySelectOptions),
+        restoreStoredSelectionValues(savedFilters?.countries, availableCountries),
       );
       setSelectedBrands(
-        restoreStoredSelectionValues(savedFilters?.brands, staticBrandSelectOptions),
+        restoreStoredSelectionValues(savedFilters?.brands, availableBrands),
       );
       setSelectedPetTypes(
-        restoreStoredSelectionValues(savedFilters?.petTypes, staticPetTypeSelectOptions),
+        restoreStoredSelectionValues(savedFilters?.petTypes, availablePetTypes),
       );
       setIsFilterStateReady(true);
     }
@@ -1926,6 +2099,8 @@ const Reports: React.FC = () => {
     activeFilterModal,
     activeQuoteProfile,
     activeReportStorageKey,
+    isLiveClaimsReportActive,
+    isLivePaidPolicyReportActive,
     isFreePolicyReportActive,
     isQuoteReportActive,
   ]);
@@ -1942,6 +2117,15 @@ const Reports: React.FC = () => {
       return;
     }
 
+    const [startDate, endDate] = reportingPeriod;
+    const freePolicyProfile = activeFilterModal?.profile;
+    if (!freePolicyProfile || !startDate || !endDate) {
+      setFreePolicyFilterOptions(emptyFreePolicyFilterOptions);
+      setIsFreePolicyFilterBootstrapLoading(false);
+      setIsFilterStateReady(true);
+      return;
+    }
+
     const abortController = new AbortController();
 
     setIsFreePolicyFilterBootstrapLoading(true);
@@ -1950,7 +2134,10 @@ const Reports: React.FC = () => {
     void (async () => {
       try {
         const filters = await fetchFreePolicyFilters({
+          endDate,
+          profile: freePolicyProfile,
           signal: abortController.signal,
+          startDate,
         });
         const savedFilters = savedReportFiltersRef.current;
         const shouldDefaultCountries = shouldPreferDefaultStoredSelection(
@@ -1973,7 +2160,10 @@ const Reports: React.FC = () => {
         if (!areSameValueLists(nextCountries, getFilterOptionValues(filters.countries))) {
           const countryScopedFilters = await fetchFreePolicyFilters({
             countryCodes: nextCountries,
+            endDate,
+            profile: freePolicyProfile,
             signal: abortController.signal,
+            startDate,
           });
           nextBrandOptions = countryScopedFilters.brands;
           nextPetTypeOptions = countryScopedFilters.petTypes;
@@ -1997,7 +2187,10 @@ const Reports: React.FC = () => {
           const petTypeScopedFilters = await fetchFreePolicyFilters({
             brands: nextBrands,
             countryCodes: nextCountries,
+            endDate,
+            profile: freePolicyProfile,
             signal: abortController.signal,
+            startDate,
           });
           nextPetTypeOptions = petTypeScopedFilters.petTypes;
         }
@@ -2056,7 +2249,11 @@ const Reports: React.FC = () => {
     return () => {
       abortController.abort();
     };
-  }, [isFreePolicyReportActive, activeFilterModal?.profile]);
+  }, [
+    activeFilterModal?.profile,
+    isFreePolicyReportActive,
+    reportingPeriod,
+  ]);
 
   useEffect(() => {
     if (!isQuoteTypeModalOpen || activeFilterModal) {
@@ -2360,21 +2557,33 @@ const Reports: React.FC = () => {
       return;
     }
 
-    const availableCountryOptions = isQuoteReportActive
-      ? quoteFilterOptions.countries
-      : isFreePolicyReportActive
-        ? freePolicyFilterOptions.countries
-        : staticCountrySelectOptions;
-    const availableBrandOptions = isQuoteReportActive
-      ? quoteFilterOptions.brands
-      : isFreePolicyReportActive
-        ? freePolicyFilterOptions.brands
-        : staticBrandSelectOptions;
-    const availablePetTypeOptions = isQuoteReportActive
-      ? quoteFilterOptions.petTypes
-      : isFreePolicyReportActive
-        ? freePolicyFilterOptions.petTypes
-        : staticPetTypeSelectOptions;
+    const availableCountryOptions = isLiveClaimsReportActive
+      ? claimsCountryOptions
+      : isLivePaidPolicyReportActive
+        ? activePolicyCountryOptions
+        : isQuoteReportActive
+        ? quoteFilterOptions.countries
+        : isFreePolicyReportActive
+          ? freePolicyFilterOptions.countries
+          : staticCountrySelectOptions;
+    const availableBrandOptions = isLiveClaimsReportActive
+      ? claimsBrandOptions
+      : isLivePaidPolicyReportActive
+        ? activePolicyBrandOptions
+        : isQuoteReportActive
+        ? quoteFilterOptions.brands
+        : isFreePolicyReportActive
+          ? freePolicyFilterOptions.brands
+          : staticBrandSelectOptions;
+    const availablePetTypeOptions = isLiveClaimsReportActive
+      ? claimsPetTypeOptions
+      : isLivePaidPolicyReportActive
+        ? activePolicyPetTypeOptions
+        : isQuoteReportActive
+        ? quoteFilterOptions.petTypes
+        : isFreePolicyReportActive
+          ? freePolicyFilterOptions.petTypes
+          : staticPetTypeSelectOptions;
     const countryStorage = serializeStoredSelectionValues(
       selectedCountries,
       availableCountryOptions,
@@ -2399,7 +2608,6 @@ const Reports: React.FC = () => {
       brands: brandStorage.values,
       countries: countryStorage.values,
       petTypes: petTypeStorage.values,
-      reportingPeriod,
       useDefaultBrands: brandStorage.useDefaultSelection,
       useDefaultCountries: countryStorage.useDefaultSelection,
       useDefaultPetTypes: petTypeStorage.useDefaultSelection,
@@ -2431,6 +2639,8 @@ const Reports: React.FC = () => {
     activeQuoteProfile,
     activeReportStorageKey,
     freePolicyFilterOptions,
+    isLiveClaimsReportActive,
+    isLivePaidPolicyReportActive,
     isFilterStateReady,
     isFreePolicyReportActive,
     isQuoteExportColumnsVisible,
@@ -2605,6 +2815,12 @@ const Reports: React.FC = () => {
       return;
     }
 
+    const [startDate, endDate] = reportingPeriod;
+    const freePolicyProfile = activeFilterModal?.profile;
+    if (!freePolicyProfile || !startDate || !endDate) {
+      return;
+    }
+
     const abortController = new AbortController();
     freePolicyBrandRequestRef.current = abortController;
     freePolicyPetTypeRequestRef.current = abortController;
@@ -2615,7 +2831,10 @@ const Reports: React.FC = () => {
       try {
         const brandScopedFilters = await fetchFreePolicyFilters({
           countryCodes: nextCountries,
+          endDate,
+          profile: freePolicyProfile,
           signal: abortController.signal,
+          startDate,
         });
 
         const availableBrandValues = getFilterOptionValues(
@@ -2636,7 +2855,10 @@ const Reports: React.FC = () => {
           const petTypeScopedFilters = await fetchFreePolicyFilters({
             brands: nextSelectedBrands,
             countryCodes: nextCountries,
+            endDate,
+            profile: freePolicyProfile,
             signal: abortController.signal,
+            startDate,
           });
           nextPetTypeOptions = petTypeScopedFilters.petTypes;
         }
@@ -2803,6 +3025,12 @@ const Reports: React.FC = () => {
       return;
     }
 
+    const [startDate, endDate] = reportingPeriod;
+    const freePolicyProfile = activeFilterModal?.profile;
+    if (!freePolicyProfile || !startDate || !endDate) {
+      return;
+    }
+
     const abortController = new AbortController();
     freePolicyPetTypeRequestRef.current = abortController;
     setIsFreePolicyPetTypeOptionsLoading(true);
@@ -2810,7 +3038,10 @@ const Reports: React.FC = () => {
     void fetchFreePolicyFilters({
       brands: nextBrands,
       countryCodes: selectedCountries,
+      endDate,
+      profile: freePolicyProfile,
       signal: abortController.signal,
+      startDate,
     })
       .then((filters) => {
         startTransition(() => {
@@ -2978,6 +3209,7 @@ const Reports: React.FC = () => {
 
   const handleQuoteLibraryClick = () => {
     resetFilters();
+    setIsClaimsTypeModalOpen(false);
     setIsQuoteTypeModalOpen(true);
     setIsPolicyTypeModalOpen(false);
     setIsPaidPolicyTypeModalOpen(false);
@@ -2987,11 +3219,47 @@ const Reports: React.FC = () => {
 
   const handlePolicyLibraryClick = () => {
     resetFilters();
+    setIsClaimsTypeModalOpen(false);
     setIsPolicyTypeModalOpen(true);
     setIsPaidPolicyTypeModalOpen(false);
     setIsFreePolicyTypeModalOpen(false);
     setIsQuoteTypeModalOpen(false);
     setActiveFilterModal(null);
+  };
+
+  const handleClaimsLibraryClick = () => {
+    resetFilters();
+    setIsPolicyTypeModalOpen(false);
+    setIsPaidPolicyTypeModalOpen(false);
+    setIsFreePolicyTypeModalOpen(false);
+    setIsQuoteTypeModalOpen(false);
+    setIsClaimsTypeModalOpen(true);
+    setActiveFilterModal(null);
+  };
+
+  const handleClaimsTypeClick = (reportId: ClaimsReportProfile) => {
+    const option = claimsReportOptions.find(
+      (entry) => entry.reportId === reportId,
+    );
+    if (!option) {
+      return;
+    }
+
+    resetFilters();
+    setIsClaimsTypeModalOpen(false);
+    if (reportId === "claims-data") {
+      setReportingPeriod(getLastTwelveMonthsReportingPeriod());
+    }
+    setSelectedCountries([...allClaimsCountryValues]);
+    setSelectedBrands([...allClaimsBrandValues]);
+    setSelectedPetTypes([...allClaimsPetTypeValues]);
+    setActiveFilterModal({
+      badgeLabel: "Claims",
+      description: option.description,
+      profile: null,
+      reportId: option.reportId,
+      title: option.label,
+    });
   };
 
   const handlePolicyLibraryTypeClick = (
@@ -3054,6 +3322,11 @@ const Reports: React.FC = () => {
     }
 
     resetFilters();
+    if (isLivePaidPolicyReportProfile(reportId)) {
+      setSelectedCountries([...allActivePolicyCountryValues]);
+      setSelectedBrands([...allActivePolicyBrandValues]);
+      setSelectedPetTypes([...allActivePolicyPetTypeValues]);
+    }
     setActiveFilterModal({
       badgeLabel: "Policy",
       description: option.description,
@@ -3074,7 +3347,7 @@ const Reports: React.FC = () => {
     }
 
     setIsDownloadInProgress(true);
-    setFeedbackMessage(`Downloading ${activeFilterModal.title}...`);
+    setFeedbackMessage(`Downloading ${reportModalTitle}...`);
 
     await new Promise<void>((resolve) => {
       window.requestAnimationFrame(() => resolve());
@@ -3090,12 +3363,59 @@ const Reports: React.FC = () => {
           profile: activeFilterModal.profile,
           startDate: start,
         });
-        setFeedbackMessage(`Downloaded ${activeFilterModal.title}.`);
+        setFeedbackMessage(`Downloaded ${reportModalTitle}.`);
       } catch (error) {
         setFeedbackMessage(
           error instanceof Error
             ? error.message
-            : `Failed to download ${activeFilterModal.title}.`,
+            : `Failed to download ${reportModalTitle}.`,
+        );
+      } finally {
+        setIsDownloadInProgress(false);
+      }
+      return;
+    }
+
+    if (isLiveClaimsReportActive) {
+      try {
+        await downloadClaimsReport({
+          brands: selectedBrands,
+          countryCodes: selectedCountries,
+          endDate: end,
+          petTypes: selectedPetTypes,
+          profile: claimsReportProfile!,
+          startDate: start,
+        });
+        setFeedbackMessage(`Downloaded ${reportModalTitle}.`);
+      } catch (error) {
+        setFeedbackMessage(
+          error instanceof Error
+            ? error.message
+            : `Failed to download ${reportModalTitle}.`,
+        );
+      } finally {
+        setIsDownloadInProgress(false);
+      }
+      return;
+    }
+    if (isLivePaidPolicyReportActive) {
+      try {
+        await downloadPaidPolicyReport({
+          brands: selectedBrands,
+          countryCodes: selectedCountries,
+          endDate:
+            paidPolicyReportProfile === "active-policy" ? undefined : end,
+          petTypes: selectedPetTypes,
+          profile: paidPolicyReportProfile!,
+          startDate:
+            paidPolicyReportProfile === "active-policy" ? undefined : start,
+        });
+        setFeedbackMessage(`Downloaded ${reportModalTitle}.`);
+      } catch (error) {
+        setFeedbackMessage(
+          error instanceof Error
+            ? error.message
+            : `Failed to download ${reportModalTitle}.`,
         );
       } finally {
         setIsDownloadInProgress(false);
@@ -3119,12 +3439,12 @@ const Reports: React.FC = () => {
           sendDocumentOnEmail: selectedSendDocumentOnEmail,
           startDate: start,
         });
-        setFeedbackMessage(`Downloaded ${activeFilterModal.title}.`);
+        setFeedbackMessage(`Downloaded ${reportModalTitle}.`);
       } catch (error) {
         setFeedbackMessage(
           error instanceof Error
             ? error.message
-            : `Failed to download ${activeFilterModal.title}.`,
+            : `Failed to download ${reportModalTitle}.`,
         );
       } finally {
         setIsDownloadInProgress(false);
@@ -3162,10 +3482,25 @@ const Reports: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      setFeedbackMessage(`Downloaded ${activeFilterModal.title}.`);
+      setFeedbackMessage(`Downloaded ${reportModalTitle}.`);
     } finally {
       setIsDownloadInProgress(false);
     }
+  };
+
+  const handleDownloadRequest = () => {
+    if (isLiveSourceReportActive) {
+      setFeedbackMessage(null);
+      setIsActivePolicyConfirmationOpen(true);
+      return;
+    }
+
+    void handleDownload();
+  };
+
+  const confirmActivePolicyDownload = () => {
+    setIsActivePolicyConfirmationOpen(false);
+    void handleDownload();
   };
 
   return (
@@ -3256,6 +3591,31 @@ const Reports: React.FC = () => {
 
             <button
               className={style.reportCard}
+              onClick={handleClaimsLibraryClick}
+              type="button"
+            >
+              <span className={style.reportCardIcon}>
+                <RiFileTextLine />
+              </span>
+
+              <div className={style.reportCardBody}>
+                <span
+                  className={`${style.reportScopeBadge} ${style.reportScopeClaims}`}
+                >
+                  Claims
+                </span>
+                <strong className={style.reportCardTitle}>
+                  Claims Report
+                </strong>
+                <span className={style.reportCardDescription}>
+                  Turnaround time and monthly claims data reports across the
+                  selected regions.
+                </span>
+              </div>
+            </button>
+
+            <button
+              className={style.reportCard}
               onClick={handlePolicyLibraryClick}
               type="button"
             >
@@ -3302,6 +3662,63 @@ const Reports: React.FC = () => {
             </button>
           </div>
         </div>
+
+
+        {isClaimsTypeModalOpen && !activeFilterModal ? (
+          <div className={style.modalOverlay} onClick={closeClaimsTypeModal}>
+            <div
+              aria-labelledby="claims-type-modal-title"
+              aria-modal="true"
+              className={`${style.modal} ${style.selectionModal}`}
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+            >
+              <div className={style.modalHeader}>
+                <div className={style.modalHeaderCopy}>
+                  <p className={style.modalEyebrow}>Claims Report</p>
+                  <h3 className={style.modalTitle} id="claims-type-modal-title">
+                    Choose claims report
+                  </h3>
+                  <p className={style.modalDescription}>
+                    Select the claims export you want before choosing filters.
+                  </p>
+                </div>
+
+                <button
+                  aria-label="Close claims report type modal"
+                  className={style.closeButton}
+                  onClick={closeClaimsTypeModal}
+                  type="button"
+                >
+                  <RiCloseLine />
+                </button>
+              </div>
+
+              <div className={style.policyTypeGrid}>
+                {claimsReportOptions.map((option) => (
+                  <button
+                    className={style.policyTypeCard}
+                    key={option.reportId}
+                    onClick={() =>
+                      handleClaimsTypeClick(
+                        option.reportId as ClaimsReportProfile,
+                      )
+                    }
+                    type="button"
+                  >
+                    <span className={style.policyTypeTag}>Claims</span>
+                    <strong className={style.policyTypeCardTitle}>
+                      {option.label}
+                    </strong>
+                    <span className={style.policyTypeCardDescription}>
+                      {option.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {isFreePolicyTypeModalOpen && !activeFilterModal ? (
           <div className={style.modalOverlay} onClick={closeFreePolicyTypeModal}>
@@ -3565,7 +3982,7 @@ const Reports: React.FC = () => {
                     className={style.modalTitle}
                     id="report-filter-modal-title"
                   >
-                    {activeFilterModal.title}
+                    {reportModalTitle}
                   </h3>
                   <p className={style.modalDescription}>
                     {activeFilterModal.description}
@@ -3600,29 +4017,32 @@ const Reports: React.FC = () => {
               </div>
 
               <div className={style.filterGrid}>
-                <div className={`${style.fieldGroup} ${style.fieldGroupWide}`}>
-                  <span className={style.fieldLabel}>Reporting Period</span>
-                  <DatePickerInput
-                    aria-label={`Select ${activeFilterModal.title} reporting period`}
-                    clearable
-                    dropdownType={isMobile ? "modal" : "popover"}
-                    onChange={setReportingPeriod}
-                    placeholder="Select period"
-                    popoverProps={{ withinPortal: true, zIndex: 2600 }}
-                    presets={getReportingPeriodPresets()}
-                    styles={datePickerStyles}
-                    allowSingleDateInRange
-                    type="range"
-                    value={reportingPeriod}
-                    valueFormat="DD MMM YYYY"
-                  />
-                </div>
+                {!isActivePolicyReportActive ? (
+                  <div className={`${style.fieldGroup} ${style.fieldGroupWide}`}>
+                    <span className={style.fieldLabel}>Reporting Period</span>
+                    <ReportingPeriodPicker
+                      ariaLabel={`${reportModalTitle} reporting period`}
+                      clearable
+                      modalTitle={`Select ${reportModalTitle} reporting period`}
+                      onChange={setReportingPeriod}
+                      placeholder="Select a date or range"
+                      value={reportingPeriod}
+                      zIndex={3000}
+                    />
+                  </div>
+                ) : null}
 
                 {isQuoteReportActive ? (
                   <div className={style.quoteFilterColumns}>
                     <div className={style.quoteFilterColumn}>
                       <div className={style.fieldGroup}>
-                        <span className={style.fieldLabel}>Country</span>
+                        <SelectAllFieldLabel
+                          disabled={isCountrySelectionDisabled}
+                          label="Country"
+                          onChange={handleCountrySelectionChange}
+                          options={countryOptionsData}
+                          selectedValues={selectedCountries}
+                        />
                         <MultiSelect
                           aria-label="Select countries"
                           clearable
@@ -3632,9 +4052,7 @@ const Reports: React.FC = () => {
                             zIndex: 2600,
                           }}
                           data={countryOptionsData}
-                          disabled={
-                            isQuoteFilterBootstrapLoading || !countryOptionsData.length
-                          }
+                          disabled={isCountrySelectionDisabled}
                           nothingFoundMessage={
                             isQuoteFilterBootstrapLoading
                               ? "Loading countries..."
@@ -3649,7 +4067,13 @@ const Reports: React.FC = () => {
                       </div>
 
                       <div className={style.fieldGroup}>
-                        <span className={style.fieldLabel}>Pet Type</span>
+                        <SelectAllFieldLabel
+                          disabled={isPetTypeSelectionDisabled}
+                          label="Pet Type"
+                          onChange={handlePetTypeSelectionChange}
+                          options={petTypeOptionsData}
+                          selectedValues={selectedPetTypes}
+                        />
                         <MultiSelect
                           aria-label="Select pet types"
                           clearable
@@ -3659,12 +4083,7 @@ const Reports: React.FC = () => {
                             zIndex: 2600,
                           }}
                           data={petTypeOptionsData}
-                          disabled={
-                            isQuoteFilterBootstrapLoading ||
-                            isQuotePetTypeOptionsLoading ||
-                            !selectedBrands.length ||
-                            !petTypeOptionsData.length
-                          }
+                          disabled={isPetTypeSelectionDisabled}
                           nothingFoundMessage={
                             isQuoteFilterBootstrapLoading ||
                             isQuotePetTypeOptionsLoading
@@ -3680,7 +4099,12 @@ const Reports: React.FC = () => {
                       </div>
 
                       <div className={style.fieldGroup}>
-                        <span className={style.fieldLabel}>Quote Status</span>
+                        <SelectAllFieldLabel
+                          label="Quote Status"
+                          onChange={handleQuoteStatusSelectionChange}
+                          options={quoteStatusOptions}
+                          selectedValues={selectedQuoteStatuses}
+                        />
                         <MultiSelect
                           aria-label="Select quote statuses"
                           clearable
@@ -3702,13 +4126,25 @@ const Reports: React.FC = () => {
                         <div className={style.fieldGroup}>
                           <div className={style.inlineFieldHeader}>
                             <span className={style.fieldLabel}>Export Columns</span>
-                            <button
-                              className={style.fieldToggleButton}
-                              onClick={handleQuoteExportColumnsVisibilityToggle}
-                              type="button"
-                            >
-                              {isQuoteExportColumnsVisible ? "Hide" : "Customize"}
-                            </button>
+                            <div className={style.inlineFieldActions}>
+                              {isQuoteExportColumnsVisible ? (
+                                <SelectAllFieldLabel
+                                  disabled={isQuoteExportColumnSelectionDisabled}
+                                  label="Export Columns"
+                                  onChange={handleQuoteExportColumnSelectionChange}
+                                  options={availableQuoteExportColumns}
+                                  selectedValues={selectedQuoteExportColumns}
+                                  showLabel={false}
+                                />
+                              ) : null}
+                              <button
+                                className={style.fieldToggleButton}
+                                onClick={handleQuoteExportColumnsVisibilityToggle}
+                                type="button"
+                              >
+                                {isQuoteExportColumnsVisible ? "Hide" : "Customize"}
+                              </button>
+                            </div>
                           </div>
                           <span className={style.quoteExportSummary}>
                             {quoteExportSummaryText}
@@ -3724,10 +4160,7 @@ const Reports: React.FC = () => {
                                   zIndex: 2600,
                                 }}
                                 data={availableQuoteExportColumns}
-                                disabled={
-                                  isQuoteExportColumnsLoading ||
-                                  !availableQuoteExportColumns.length
-                                }
+                                disabled={isQuoteExportColumnSelectionDisabled}
                                 nothingFoundMessage={
                                   isQuoteExportColumnsLoading
                                     ? "Loading columns..."
@@ -3824,7 +4257,13 @@ const Reports: React.FC = () => {
 
                     <div className={style.quoteFilterColumn}>
                       <div className={style.fieldGroup}>
-                        <span className={style.fieldLabel}>Brand</span>
+                        <SelectAllFieldLabel
+                          disabled={isBrandSelectionDisabled}
+                          label="Brand"
+                          onChange={handleBrandSelectionChange}
+                          options={brandOptionsData}
+                          selectedValues={selectedBrands}
+                        />
                         <MultiSelect
                           aria-label="Select brands"
                           clearable
@@ -3834,12 +4273,7 @@ const Reports: React.FC = () => {
                             zIndex: 2600,
                           }}
                           data={brandOptionsData}
-                          disabled={
-                            isQuoteFilterBootstrapLoading ||
-                            isQuoteBrandOptionsLoading ||
-                            !selectedCountries.length ||
-                            !brandOptionsData.length
-                          }
+                          disabled={isBrandSelectionDisabled}
                           nothingFoundMessage={
                             isQuoteFilterBootstrapLoading ||
                             isQuoteBrandOptionsLoading
@@ -3906,7 +4340,13 @@ const Reports: React.FC = () => {
                 ) : (
                   <>
                     <div className={style.fieldGroup}>
-                      <span className={style.fieldLabel}>Country</span>
+                      <SelectAllFieldLabel
+                        disabled={isCountrySelectionDisabled}
+                        label="Country"
+                        onChange={handleCountrySelectionChange}
+                        options={countryOptionsData}
+                        selectedValues={selectedCountries}
+                      />
                       <MultiSelect
                         aria-label="Select countries"
                         clearable
@@ -3916,14 +4356,7 @@ const Reports: React.FC = () => {
                           zIndex: 2600,
                         }}
                         data={countryOptionsData}
-                        disabled={
-                          (isFreePolicyReportActive &&
-                            (isFreePolicyFilterBootstrapLoading ||
-                              !countryOptionsData.length)) ||
-                          (isQuoteReportActive &&
-                            (isQuoteFilterBootstrapLoading ||
-                              !countryOptionsData.length))
-                        }
+                        disabled={isCountrySelectionDisabled}
                         nothingFoundMessage={
                           (isFreePolicyReportActive &&
                             isFreePolicyFilterBootstrapLoading) ||
@@ -3940,7 +4373,13 @@ const Reports: React.FC = () => {
                     </div>
 
                     <div className={style.fieldGroup}>
-                      <span className={style.fieldLabel}>Brand</span>
+                      <SelectAllFieldLabel
+                        disabled={isBrandSelectionDisabled}
+                        label="Brand"
+                        onChange={handleBrandSelectionChange}
+                        options={brandOptionsData}
+                        selectedValues={selectedBrands}
+                      />
                       <MultiSelect
                         aria-label="Select brands"
                         clearable
@@ -3950,18 +4389,7 @@ const Reports: React.FC = () => {
                           zIndex: 2600,
                         }}
                         data={brandOptionsData}
-                        disabled={
-                          (isFreePolicyReportActive &&
-                            (isFreePolicyFilterBootstrapLoading ||
-                              isFreePolicyBrandOptionsLoading ||
-                              !selectedCountries.length ||
-                              !brandOptionsData.length)) ||
-                          (isQuoteReportActive &&
-                            (isQuoteFilterBootstrapLoading ||
-                              isQuoteBrandOptionsLoading ||
-                              !selectedCountries.length ||
-                              !brandOptionsData.length))
-                        }
+                        disabled={isBrandSelectionDisabled}
                         nothingFoundMessage={
                           (isFreePolicyReportActive &&
                             (isFreePolicyFilterBootstrapLoading ||
@@ -3981,7 +4409,13 @@ const Reports: React.FC = () => {
                     </div>
 
                     <div className={style.fieldGroup}>
-                      <span className={style.fieldLabel}>Pet Type</span>
+                      <SelectAllFieldLabel
+                        disabled={isPetTypeSelectionDisabled}
+                        label="Pet Type"
+                        onChange={handlePetTypeSelectionChange}
+                        options={petTypeOptionsData}
+                        selectedValues={selectedPetTypes}
+                      />
                       <MultiSelect
                         aria-label="Select pet types"
                         clearable
@@ -3991,18 +4425,7 @@ const Reports: React.FC = () => {
                           zIndex: 2600,
                         }}
                         data={petTypeOptionsData}
-                        disabled={
-                          (isFreePolicyReportActive &&
-                            (isFreePolicyFilterBootstrapLoading ||
-                              isFreePolicyPetTypeOptionsLoading ||
-                              !selectedBrands.length ||
-                              !petTypeOptionsData.length)) ||
-                          (isQuoteReportActive &&
-                            (isQuoteFilterBootstrapLoading ||
-                              isQuotePetTypeOptionsLoading ||
-                              !selectedBrands.length ||
-                              !petTypeOptionsData.length))
-                        }
+                        disabled={isPetTypeSelectionDisabled}
                         nothingFoundMessage={
                           (isFreePolicyReportActive &&
                             (isFreePolicyFilterBootstrapLoading ||
@@ -4039,7 +4462,7 @@ const Reports: React.FC = () => {
                 <button
                   className={style.primaryAction}
                   disabled={!canDownload || isDownloadInProgress}
-                  onClick={handleDownload}
+                  onClick={handleDownloadRequest}
                   type="button"
                 >
                   {isDownloadInProgress ? (
@@ -4048,6 +4471,107 @@ const Reports: React.FC = () => {
                     <RiDownloadCloud2Line />
                   )}
                   {isDownloadInProgress ? "Downloading..." : "Download Report"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {isActivePolicyConfirmationOpen && isLiveSourceReportActive ? (
+          <div
+            className={`${style.modalOverlay} ${style.confirmationOverlay}`}
+            onClick={closeActivePolicyConfirmation}
+          >
+            <div
+              aria-describedby="active-policy-confirmation-description"
+              aria-labelledby="active-policy-confirmation-title"
+              aria-modal="true"
+              className={`${style.modal} ${style.confirmationModal}`}
+              onClick={(event) => event.stopPropagation()}
+              role="alertdialog"
+            >
+              <div className={style.modalHeader}>
+                <div className={style.modalHeaderCopy}>
+                  <p className={style.modalEyebrow}>Live Source Query</p>
+                  <h3
+                    className={style.modalTitle}
+                    id="active-policy-confirmation-title"
+                  >
+                    Run {reportModalTitle} export?
+                  </h3>
+                  <p
+                    className={style.modalDescription}
+                    id="active-policy-confirmation-description"
+                  >
+                    This report reads current source data directly from every
+                    selected regional server and may take several minutes.
+                  </p>
+                </div>
+
+                <button
+                  aria-label={`Cancel ${reportModalTitle} export`}
+                  className={style.closeButton}
+                  onClick={closeActivePolicyConfirmation}
+                  type="button"
+                >
+                  <RiCloseLine />
+                </button>
+              </div>
+
+              <div className={style.confirmationNotice}>
+                <span className={style.confirmationIcon}>
+                  <RiDatabase2Line />
+                </span>
+                <div>
+                  <strong>Direct database operation</strong>
+                  <p>
+                    Continue only when you are ready to query the selected
+                    source systems and generate the combined Excel workbook.
+                  </p>
+                </div>
+              </div>
+
+              <div className={style.confirmationSummary}>
+                <div>
+                  <span>Snapshot scope</span>
+                  <strong>{liveReportSnapshotScope}</strong>
+                </div>
+                <div>
+                  <span>Source servers</span>
+                  <strong>{selectedLiveReportRegions.length}</strong>
+                </div>
+              </div>
+
+              <div
+                aria-label={`Selected ${reportModalTitle} regions`}
+                className={style.confirmationRegions}
+              >
+                {selectedLiveReportRegions.map((region) => (
+                  <span className={style.confirmationRegion} key={region.value}>
+                    {region.value}
+                    <small>{region.label}</small>
+                  </span>
+                ))}
+              </div>
+
+              <div className={style.modalActions}>
+                <button
+                  className={style.secondaryAction}
+                  onClick={closeActivePolicyConfirmation}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  className={`${style.primaryAction} ${style.confirmationAction}`}
+                  onClick={confirmActivePolicyDownload}
+                  type="button"
+                >
+                  <RiDatabase2Line />
+                  Query {selectedLiveReportRegions.length}
+                  {selectedLiveReportRegions.length === 1
+                    ? " Server"
+                    : " Servers"}
                 </button>
               </div>
             </div>

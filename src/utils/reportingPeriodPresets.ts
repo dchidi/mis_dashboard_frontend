@@ -10,10 +10,31 @@ export const getMonthToDateReportingPeriod = (): [string, string] => [
   dayjs().format("YYYY-MM-DD"),
 ];
 
+export const getLastSixMonthsReportingPeriod = (): [string, string] => [
+  dayjs().subtract(6, "month").format("YYYY-MM-DD"),
+  dayjs().format("YYYY-MM-DD"),
+];
+
+export const getLastTwelveMonthsReportingPeriod = (): [string, string] => [
+  dayjs().subtract(11, "month").startOf("month").format("YYYY-MM-DD"),
+  dayjs().format("YYYY-MM-DD"),
+];
+
+export const getDefaultReportingPeriod = (): [string, string] =>
+  getMonthToDateReportingPeriod();
+
 export const getReportingPeriodPresets = (): ReportingPeriodPreset[] => [
   {
     label: "This month",
     value: getMonthToDateReportingPeriod(),
+  },
+  {
+    label: "Last 6 months",
+    value: getLastSixMonthsReportingPeriod(),
+  },
+  {
+    label: "Last 12 months",
+    value: getLastTwelveMonthsReportingPeriod(),
   },
   {
     label: "Last month",

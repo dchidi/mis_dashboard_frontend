@@ -182,6 +182,77 @@
   text-transform: uppercase;
 }
 
+.selectFieldHeader {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  min-width: 0;
+  width: 100%;
+}
+
+.selectAllOnly {
+  display: inline-flex;
+}
+
+.selectAllControl {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 800;
+  gap: 0.42rem;
+  letter-spacing: 0.09em;
+  margin-left: auto;
+  padding: 0.12rem 0;
+}
+
+.selectAllBox {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 0.28rem;
+  color: #f6f2ff;
+  display: inline-flex;
+  font-size: 0.8rem;
+  height: 1.05rem;
+  justify-content: center;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+  width: 1.05rem;
+}
+
+.selectAllBoxSelected {
+  background: rgba(111, 92, 201, 0.92);
+  border-color: rgba(172, 158, 242, 0.78);
+  box-shadow: 0 0 0 2px rgba(138, 116, 232, 0.1);
+}
+
+.selectAllControl:hover:not(:disabled) {
+  color: var(--text-h);
+}
+
+.selectAllControl:hover:not(:disabled) .selectAllBox {
+  border-color: rgba(172, 158, 242, 0.62);
+}
+
+.selectAllControl:focus-visible {
+  border-radius: 0.35rem;
+  outline: 2px solid rgba(172, 158, 242, 0.74);
+  outline-offset: 3px;
+}
+
+.selectAllControl:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
 .modalOverlay {
   align-items: center;
   backdrop-filter: blur(10px);
@@ -325,6 +396,7 @@
   grid-column: 1 / -1;
 }
 
+
 .quoteFilterColumns {
   align-items: start;
   display: grid;
@@ -344,6 +416,14 @@
   display: flex;
   gap: 0.75rem;
   justify-content: space-between;
+}
+
+.inlineFieldActions {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.8rem;
+  margin-left: auto;
 }
 
 .fieldToggleButton {
@@ -464,6 +544,116 @@
   padding-top: 1rem;
 }
 
+.confirmationOverlay {
+  z-index: 1500;
+}
+
+.confirmationModal {
+  background:
+    radial-gradient(circle at top right, rgba(215, 161, 61, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(55, 58, 75, 0.99), rgba(42, 44, 58, 0.99));
+  border-color: rgba(215, 161, 61, 0.2);
+  width: min(100%, 38rem);
+}
+
+.confirmationNotice {
+  align-items: flex-start;
+  background: rgba(215, 161, 61, 0.075);
+  border: 1px solid rgba(215, 161, 61, 0.16);
+  border-radius: 1.1rem;
+  display: flex;
+  gap: 0.9rem;
+  padding: 1rem;
+}
+
+.confirmationNotice strong {
+  color: var(--text-h);
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
+}
+
+.confirmationNotice p {
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.confirmationIcon {
+  align-items: center;
+  background: rgba(215, 161, 61, 0.14);
+  border: 1px solid rgba(215, 161, 61, 0.2);
+  border-radius: 0.85rem;
+  color: #efc979;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 1.25rem;
+  height: 2.7rem;
+  justify-content: center;
+  width: 2.7rem;
+}
+
+.confirmationSummary {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(8rem, 0.45fr);
+}
+
+.confirmationSummary > div {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 1rem;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+}
+
+.confirmationSummary span {
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.confirmationSummary strong {
+  color: var(--text-h);
+  font-size: 0.9rem;
+}
+
+.confirmationRegions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.confirmationRegion {
+  align-items: center;
+  background: rgba(138, 116, 232, 0.1);
+  border: 1px solid rgba(138, 116, 232, 0.18);
+  border-radius: 999px;
+  color: #f6f2ff;
+  display: inline-flex;
+  font-size: 0.75rem;
+  font-weight: 800;
+  gap: 0.45rem;
+  padding: 0.48rem 0.7rem;
+}
+
+.confirmationRegion small {
+  color: rgba(224, 220, 242, 0.72);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.confirmationAction {
+  background:
+    radial-gradient(circle at top left, rgba(239, 201, 121, 0.16), transparent 58%),
+    linear-gradient(180deg, rgba(102, 78, 45, 0.96), rgba(76, 57, 34, 0.98));
+  border-color: rgba(215, 161, 61, 0.3);
+}
+
 .feedbackText {
   color: rgba(185, 199, 255, 0.94);
 }
@@ -487,7 +677,8 @@
 @media (max-width: 920px) {
   .policyTypeGrid,
   .filterGrid,
-  .quoteFilterColumns {
+  .quoteFilterColumns,
+  .confirmationSummary {
     grid-template-columns: 1fr;
   }
 

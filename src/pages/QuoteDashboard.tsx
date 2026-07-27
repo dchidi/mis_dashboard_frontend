@@ -38,7 +38,7 @@ import {
   type QuoteFilterOption,
 } from "../services/quoteV2";
 import { getUserNameParts } from "../utils/auth";
-import { getMonthToDateReportingPeriod } from "../utils/reportingPeriodPresets";
+import { getDefaultReportingPeriod } from "../utils/reportingPeriodPresets";
 import style from "./page_css/QuoteDashboard.module.css";
 
 interface DashboardChartViewProps {
@@ -65,7 +65,7 @@ interface SkeletonCardProps {
   title: string;
 }
 
-const defaultReportingPeriod: DashboardDateRange = getMonthToDateReportingPeriod();
+const defaultReportingPeriod: DashboardDateRange = getDefaultReportingPeriod();
 
 const ZERO_PRESERVED_STRING_KEYS = new Set([
   "accentColor",

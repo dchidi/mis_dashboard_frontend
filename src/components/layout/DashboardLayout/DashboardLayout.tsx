@@ -1,16 +1,14 @@
 import { useState } from "react";
-import { DatePickerInput } from "@mantine/dates";
-import { useMediaQuery } from "@mantine/hooks";
 import { RiDownloadCloud2Line } from "react-icons/ri";
 import { SlCalender } from "react-icons/sl";
 import style from "./DashboardLayout.module.css";
 import Menu, { type DashboardMenuItem } from "../../ui/menu/Menu";
-import {
-  getMonthToDateReportingPeriod,
-  getReportingPeriodPresets,
-} from "../../../utils/reportingPeriodPresets";
+import ReportingPeriodPicker, {
+  type ReportingPeriodValue,
+} from "../../ui/reporting_period_picker/ReportingPeriodPicker";
+import { getDefaultReportingPeriod } from "../../../utils/reportingPeriodPresets";
 
-export type DashboardDateRange = [string | null, string | null];
+export type DashboardDateRange = ReportingPeriodValue;
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -37,9 +35,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   showReportingPeriodControl = true,
   title,
 }) => {
-  const isMobile = useMediaQuery("(max-width: 640px)") ?? false;
+
   const [internalReportingPeriod, setInternalReportingPeriod] =
-    useState<DashboardDateRange>(getMonthToDateReportingPeriod);
+    useState<DashboardDateRange>(getDefaultReportingPeriod);
   const resolvedReportingPeriod = reportingPeriod ?? internalReportingPeriod;
   const handleReportingPeriodChange = (value: DashboardDateRange) => {
     if (reportingPeriod === undefined) {
@@ -59,35 +57,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
           <div className={style.actions}>
             {showReportingPeriodControl ? (
-              <DatePickerInput
-                aria-label="Select reporting period"
+              <ReportingPeriodPicker
+                ariaLabel="Select reporting period"
                 className={style.datePicker}
                 clearable
-                dropdownType={isMobile ? "modal" : "popover"}
                 leftSection={<SlCalender />}
                 leftSectionPointerEvents="none"
                 onChange={handleReportingPeriodChange}
-                placeholder="Select period"
-                presets={getReportingPeriodPresets()}
-                styles={{
-                  input: {
-                    backgroundColor: "rgba(255, 255, 255, 0.04)",
-                    border: "1px solid rgba(107, 99, 117, 0.18)",
-                    borderRadius: "999px",
-                    color: "var(--text-h)",
-                    fontSize: "0.84rem",
-                    fontWeight: 600,
-                    height: isMobile ? "2rem" : "2.2rem",
-                  },
-                  label: { display: "none" },
-                  section: {
-                    color: "var(--text)",
-                  },
-                }}
-                allowSingleDateInRange
-                type="range"
+                placeholder="Select a date or range"
                 value={resolvedReportingPeriod}
-                valueFormat="DD MMM YYYY"
+                variant="compact"
               />
             ) : null}
             <button

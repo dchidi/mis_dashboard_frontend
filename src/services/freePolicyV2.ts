@@ -39,7 +39,10 @@ interface RawFreePolicyFiltersResponse {
 interface FetchFreePolicyFiltersParams {
   brands?: string[];
   countryCodes?: string[];
+  endDate: string;
+  profile: FreePolicyOutputProfile;
   signal?: AbortSignal;
+  startDate: string;
 }
 
 interface DownloadFreePolicyReportParams {
@@ -55,9 +58,6 @@ interface DownloadFreePolicyReportParams {
 const FREE_POLICY_V2_REPORTS_BASE_URL =
   import.meta.env.VITE_API_V2_FREE_POLICY_BASE_URL?.replace(/\/+$/, "") ??
   "http://127.0.0.1:8000/api/v2/free-policy";
-const FREE_POLICY_V2_FILTERS_BASE_URL =
-  import.meta.env.VITE_API_V2_FILTERS_BASE_URL?.replace(/\/+$/, "") ??
-  "http://127.0.0.1:8000/api/v2/filters";
 
 const parseTokenFromLocation = () => {
   if (typeof window === "undefined") {
@@ -136,6 +136,34 @@ const extractErrorMessage = async (response: Response) => {
   }
 };
 
+const authenticatedFetch = async (url: URL, init?: RequestInit) => {
+  const authToken = getStoredAuthToken();
+
+  if (authToken) {
+    url.searchParams.set("auth_token", authToken);
+  }
+
+  const response = await fetch(url.toString(), {
+    ...init,
+    headers: authToken
+      ? {
+          Authorization: `Bearer ${authToken}`,
+          ...(init?.headers ?? {}),
+        }
+      : init?.headers,
+  });
+
+  if (!response.ok) {
+    if (authToken && isAuthenticationErrorStatus(response.status)) {
+      dispatchSessionExpiredEvent();
+    }
+
+    throw new Error(await extractErrorMessage(response));
+  }
+
+  return response;
+};
+
 const filenameFromContentDisposition = (
   header: string | null,
   fallback: string,
@@ -155,32 +183,22 @@ const filenameFromContentDisposition = (
 export const fetchFreePolicyFilters = async ({
   brands = [],
   countryCodes = [],
+  endDate,
+  profile,
   signal,
-}: FetchFreePolicyFiltersParams = {}): Promise<FreePolicyFiltersPayload> => {
-  const authToken = getStoredAuthToken();
-  const url = buildUrl(FREE_POLICY_V2_FILTERS_BASE_URL, "/free-policy", {
+  startDate,
+}: FetchFreePolicyFiltersParams): Promise<FreePolicyFiltersPayload> => {
+  const url = buildUrl(FREE_POLICY_V2_REPORTS_BASE_URL, "/reports/filters", {
     brands: buildCommaSeparatedValue(brands),
     country_codes: buildCommaSeparatedValue(countryCodes),
+    end_date: endDate,
+    profile,
+    start_date: startDate,
   });
-
-  if (authToken) {
-    url.searchParams.set("auth_token", authToken);
-  }
-
-  const response = await fetch(url.toString(), {
-    headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+  const response = await authenticatedFetch(url, {
     method: "GET",
     signal,
   });
-
-  if (!response.ok) {
-    if (authToken && isAuthenticationErrorStatus(response.status)) {
-      dispatchSessionExpiredEvent();
-    }
-
-    throw new Error(await extractErrorMessage(response));
-  }
-
   const payload = (await response.json()) as RawFreePolicyFiltersResponse;
 
   return {
@@ -207,24 +225,9 @@ export const downloadFreePolicyReport = async ({
     pet_types: buildCommaSeparatedValue(petTypes),
     start_date: startDate,
   });
-  const authToken = getStoredAuthToken();
-
-  if (authToken) {
-    url.searchParams.set("auth_token", authToken);
-  }
-
-  const response = await fetch(url.toString(), {
-    headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+  const response = await authenticatedFetch(url, {
     method: "GET",
   });
-
-  if (!response.ok) {
-    if (authToken && isAuthenticationErrorStatus(response.status)) {
-      dispatchSessionExpiredEvent();
-    }
-
-    throw new Error(await extractErrorMessage(response));
-  }
 
   const blob = await response.blob();
   const downloadUrl = window.URL.createObjectURL(blob);

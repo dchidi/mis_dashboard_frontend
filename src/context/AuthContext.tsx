@@ -8,6 +8,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import {
   AUTH_SESSION_EXPIRED_EVENT,
+  authReturnPathStorage,
   authService,
   authStorage,
   type AuthUser,
@@ -33,6 +34,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const handleSessionExpired = () => {
+      authReturnPathStorage.rememberCurrentLocation();
       authStorage.clear();
       setUser(null);
       setIsLoading(false);
@@ -93,10 +95,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     authStorage.setSession(response.access_token, response.user);
     setUser(response.user);
     setIsLoading(false);
-    navigate("/quote_dashboard", { replace: true });
+    navigate(authReturnPathStorage.consume() ?? "/quote_dashboard", {
+      replace: true,
+    });
   };
 
   const logout = () => {
+    authReturnPathStorage.clear();
     authStorage.clear();
     setUser(null);
     setIsLoading(false);

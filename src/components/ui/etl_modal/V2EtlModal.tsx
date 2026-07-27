@@ -1,6 +1,4 @@
 import { useEffect } from "react";
-import { DatePickerInput } from "@mantine/dates";
-import { useMediaQuery } from "@mantine/hooks";
 import {
   RiCheckboxCircleLine,
   RiCloseLine,
@@ -23,6 +21,7 @@ import {
   formatV2EtlDateTime,
   normalizeV2EtlText,
 } from "../../../features/etl/utils";
+import ReportingPeriodPicker from "../reporting_period_picker/ReportingPeriodPicker";
 import style from "./V2EtlModal.module.css";
 
 interface V2EtlModalProps {
@@ -48,29 +47,6 @@ interface V2EtlModalProps {
   statusSummary: V2EtlStatusSummary | null;
 }
 
-const datePickerStyles = {
-  dropdown: {
-    backdropFilter: "blur(20px)",
-    background:
-      "linear-gradient(180deg, rgba(43, 46, 60, 0.98), rgba(35, 38, 51, 0.98))",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-  },
-  input: {
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    border: "1px solid rgba(107, 99, 117, 0.18)",
-    borderRadius: "1rem",
-    color: "var(--text-h)",
-    fontSize: "0.92rem",
-    fontWeight: 600,
-    height: "3.15rem",
-  },
-  label: {
-    display: "none",
-  },
-  section: {
-    color: "var(--text)",
-  },
-} as const;
 
 const renderStatusIcon = (state: V2EtlJobState) => {
   if (state === "running") {
@@ -110,7 +86,7 @@ const V2EtlModal: React.FC<V2EtlModalProps> = ({
   statusError,
   statusSummary,
 }) => {
-  const isMobile = useMediaQuery("(max-width: 640px)") ?? false;
+
   const canRun = Boolean(dateRange[0] && dateRange[1] && !isRunning);
 
   useEffect(() => {
@@ -259,17 +235,13 @@ const V2EtlModal: React.FC<V2EtlModalProps> = ({
           </div>
 
           <div className={style.dateField}>
-            <DatePickerInput
-              aria-label="Select ETL date range"
-              dropdownType={isMobile ? "modal" : "popover"}
+            <ReportingPeriodPicker
+              ariaLabel="Select ETL date or range"
+              modalTitle="Select ETL reporting period"
               onChange={onDateRangeChange}
-              placeholder="Select ETL window"
-              popoverProps={{ withinPortal: true, zIndex: 3200 }}
-              styles={datePickerStyles}
-              allowSingleDateInRange
-                type="range"
+              placeholder="Select an ETL date or range"
               value={dateRange}
-              valueFormat="DD MMM YYYY"
+              zIndex={3200}
             />
             <p className={style.dateHint}>
               Default backend window is the last 365 days up to today. Change

@@ -7,7 +7,7 @@ import type {
   V2EtlRouteKey,
   V2EtlRouteOption,
 } from "./types";
-import { getMonthToDateReportingPeriod } from "../../utils/reportingPeriodPresets";
+
 
 const V2_ETL_JOB_DEFINITIONS: Array<{ key: V2EtlJobKey; label: string }> = [
   { key: "quote", label: "Quote ETL" },
@@ -41,8 +41,10 @@ export const V2_ETL_ROUTE_OPTIONS: V2EtlRouteOption[] = [
   },
 ];
 
-export const createDefaultV2EtlDateRange = (): V2EtlDateRange =>
-  getMonthToDateReportingPeriod();
+export const createDefaultV2EtlDateRange = (): V2EtlDateRange => [
+  dayjs().subtract(1, "year").format("YYYY-MM-DD"),
+  dayjs().format("YYYY-MM-DD"),
+];
 
 export const createInitialV2EtlJobs = (
   jobKeys: V2EtlJobKey[] = V2_ETL_JOB_DEFINITIONS.map((job) => job.key),
