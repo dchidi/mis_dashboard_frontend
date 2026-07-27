@@ -1,4 +1,5 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
 import {
   PremiumOverview,
@@ -31,6 +32,7 @@ import { dashboardMenuItems } from "../config/dashboardMenu";
 import { useAuth } from "../context/AuthContext";
 import { useV2EtlRunner } from "../features/etl/useV2EtlRunner";
 import {
+  downloadQuoteCountry,
   downloadQuoteProductPerformance,
   downloadQuotePromoPerformance,
   fetchQuoteDashboard,
@@ -38,18 +40,20 @@ import {
   type QuoteFilterOption,
 } from "../services/quoteV2";
 import { getUserNameParts } from "../utils/auth";
-import { getDefaultReportingPeriod } from "../utils/reportingPeriodPresets";
 import style from "./page_css/QuoteDashboard.module.css";
 
 interface DashboardChartViewProps {
   activeTrendSeriesKey: TrendSeriesKey;
   dashboardData: QuoteDashboardDataBundle;
+  isCountryDownloadInProgress: boolean;
   isLoading: boolean;
   isPromoPerformanceDownloadInProgress: boolean;
   isProductPerformanceDownloadInProgress: boolean;
+  onCountryDownload: () => void;
   onPromoPerformanceDownload: (view: "promoCode" | "agent") => void;
   onProductPerformanceDownload: () => void;
   onTrendSeriesChange: (key: TrendSeriesKey) => void;
+  reportingPeriodLabel: string;
 }
 
 interface QuoteFilterOptionsState {
@@ -65,7 +69,15 @@ interface SkeletonCardProps {
   title: string;
 }
 
-const defaultReportingPeriod: DashboardDateRange = getDefaultReportingPeriod();
+const defaultDashboardEndDate = dayjs().subtract(1, "day");
+const defaultReportingPeriod: DashboardDateRange = [
+  defaultDashboardEndDate.format("YYYY-MM-DD"),
+  defaultDashboardEndDate.format("YYYY-MM-DD"),
+];
+const defaultQuotePerformancePeriod: DashboardDateRange = [
+  defaultDashboardEndDate.startOf("month").format("YYYY-MM-DD"),
+  defaultDashboardEndDate.format("YYYY-MM-DD"),
+];
 
 const ZERO_PRESERVED_STRING_KEYS = new Set([
   "accentColor",
@@ -468,12 +480,15 @@ const QuoteByPromoSkeleton: React.FC<{ className?: string }> = ({
 const renderChartView = ({
   activeTrendSeriesKey,
   dashboardData,
+  isCountryDownloadInProgress,
   isLoading,
   isPromoPerformanceDownloadInProgress,
   isProductPerformanceDownloadInProgress,
+  onCountryDownload,
   onPromoPerformanceDownload,
   onProductPerformanceDownload,
   onTrendSeriesChange,
+  reportingPeriodLabel,
 }: DashboardChartViewProps) => (
   <div className={style.root}>
     {isLoading ? (
@@ -492,6 +507,10 @@ const renderChartView = ({
         activeTrendSeriesKey={activeTrendSeriesKey}
         className={`${style.section} ${style.countryCard}`}
         data={dashboardData.quoteByCountryData}
+        downloadDisabled={isCountryDownloadInProgress}
+        isDownloadInProgress={isCountryDownloadInProgress}
+        onDownload={onCountryDownload}
+        reportingPeriodLabel={reportingPeriodLabel}
       />
     )}
 
@@ -562,6 +581,8 @@ const Dashboard: React.FC = () => {
     useState<PremiumCurrencyCode>("GBP");
   const [reportingPeriod, setReportingPeriod] =
     useState<DashboardDateRange>(defaultReportingPeriod);
+  const [isReportingPeriodCustomized, setIsReportingPeriodCustomized] =
+    useState(false);
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedPetTypes, setSelectedPetTypes] = useState<string[]>([]);
@@ -582,6 +603,8 @@ const Dashboard: React.FC = () => {
   const [dashboardData, setDashboardData] =
     useState<QuoteDashboardDataBundle>(zeroDashboardData);
   const [isDashboardLoading, setIsDashboardLoading] = useState(true);
+  const [isCountryDownloadInProgress, setIsCountryDownloadInProgress] =
+    useState(false);
   const [isPromoPerformanceDownloadInProgress, setIsPromoPerformanceDownloadInProgress] =
     useState(false);
   const [isProductPerformanceDownloadInProgress, setIsProductPerformanceDownloadInProgress] =
@@ -638,7 +661,16 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const [startDate, endDate] = reportingPeriod;
-    if (!startDate || !endDate) {
+    const [performanceStartDate, performanceEndDate] =
+      isReportingPeriodCustomized
+        ? reportingPeriod
+        : defaultQuotePerformancePeriod;
+    if (
+      !startDate ||
+      !endDate ||
+      !performanceStartDate ||
+      !performanceEndDate
+    ) {
       return;
     }
 
@@ -652,6 +684,8 @@ const Dashboard: React.FC = () => {
       brands: selectedBrands,
       countryCodes: selectedCountries,
       endDate,
+      performanceEndDate,
+      performanceStartDate,
       petTypes: selectedPetTypes,
       signal: abortController.signal,
       startDate,
@@ -690,6 +724,7 @@ const Dashboard: React.FC = () => {
       abortController.abort();
     };
   }, [
+    isReportingPeriodCustomized,
     reportingPeriod,
     selectedBrands,
     selectedCountries,
@@ -823,8 +858,32 @@ const Dashboard: React.FC = () => {
 
   const handleReportingPeriodChange = (nextReportingPeriod: DashboardDateRange) => {
     setIsDashboardLoading(true);
+    setIsReportingPeriodCustomized(true);
     setReportingPeriod(nextReportingPeriod);
   };
+
+  const handleCountryDownload = async () => {
+    const [startDate, endDate] = reportingPeriod;
+    if (!startDate || !endDate || isCountryDownloadInProgress) {
+      return;
+    }
+
+    setIsCountryDownloadInProgress(true);
+    try {
+      await downloadQuoteCountry({
+        brands: selectedBrands,
+        countryCodes: selectedCountries,
+        endDate,
+        petTypes: selectedPetTypes,
+        startDate,
+      });
+    } catch (error: unknown) {
+      console.error("Failed to download Quote by Country workbook", error);
+    } finally {
+      setIsCountryDownloadInProgress(false);
+    }
+  };
+
 
   const handleProductPerformanceDownload = async () => {
     const [startDate, endDate] = reportingPeriod;
@@ -918,13 +977,21 @@ const Dashboard: React.FC = () => {
         {renderChartView({
           activeTrendSeriesKey,
           dashboardData,
+          isCountryDownloadInProgress,
           isLoading: isDashboardLoading,
           isPromoPerformanceDownloadInProgress,
           isProductPerformanceDownloadInProgress,
+          onCountryDownload: () => void handleCountryDownload(),
           onPromoPerformanceDownload: (view) =>
             void handlePromoPerformanceDownload(view),
           onProductPerformanceDownload: () => void handleProductPerformanceDownload(),
           onTrendSeriesChange: setActiveTrendSeriesKey,
+          reportingPeriodLabel:
+            reportingPeriod[0] === reportingPeriod[1]
+              ? dayjs(reportingPeriod[0]).format("DD MMM YYYY")
+              : `${dayjs(reportingPeriod[0]).format("DD MMM YYYY")} to ${dayjs(
+                  reportingPeriod[1],
+                ).format("DD MMM YYYY")}`,
         })}
       </DashboardLayout>
 

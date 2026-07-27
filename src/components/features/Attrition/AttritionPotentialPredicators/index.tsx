@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Bar,
@@ -134,10 +134,24 @@ const workflowReasonColumns: TableColumn<WorkflowReasonTableRow>[] = [
   },
 ];
 
+const QUOTE_WORKFLOW_TAB_ORDER: Record<QuoteWorkflowTabKey, number> = {
+  "converted-quotes": 0,
+  "pending-quotes": 1,
+  "lapsed-quotes": 2,
+};
+
 const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({ className, data }) => {
-  const tabs = data?.tabs ?? [];
+  const tabs = useMemo(
+    () =>
+      [...(data?.tabs ?? [])].sort(
+        (left, right) =>
+          QUOTE_WORKFLOW_TAB_ORDER[left.key] -
+          QUOTE_WORKFLOW_TAB_ORDER[right.key],
+      ),
+    [data?.tabs],
+  );
   const [activeTab, setActiveTab] = useState<QuoteWorkflowTabKey>(
-    tabs[0]?.key ?? "lapsed-quotes",
+    tabs[0]?.key ?? "converted-quotes",
   );
   const [isExpanded, setIsExpanded] = useState(false);
   const modalRef = useRef<HTMLDivElement | null>(null);

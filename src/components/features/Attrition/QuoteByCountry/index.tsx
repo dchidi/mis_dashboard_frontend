@@ -6,6 +6,7 @@ import {
   FaCaretUp,
   FaXmark,
 } from "react-icons/fa6";
+import { RiDownloadCloud2Line, RiLoader4Line } from "react-icons/ri";
 import {
   Bar,
   BarChart,
@@ -36,6 +37,22 @@ import style from "./QuoteByCountry.module.css";
 const formatCount = (value: number) => value.toLocaleString();
 const formatPercent = (value: number) => `${value}%`;
 const formatGrowth = (value: number) => `${value > 0 ? "+" : ""}${value}%`;
+const formatTopPetTypeCoverage = (
+  petTypes: ReadonlyArray<{ totalQuote: number }>,
+  totalQuote: number,
+) => {
+  const topThreeTotal = petTypes.reduce(
+    (total, petType) => total + petType.totalQuote,
+    0,
+  );
+  const coverage = totalQuote
+    ? ((topThreeTotal / totalQuote) * 100).toFixed(1)
+    : "0.0";
+
+  return `${formatCount(topThreeTotal)} out of ${formatCount(
+    totalQuote,
+  )} (${coverage}%)`;
+};
 const formatChartMetricLabel = (
   metricValue: number,
   metricKey: TrendSeriesKey,
@@ -65,14 +82,22 @@ const renderGrowthValue = (growth: number) => {
 interface QuoteByCountryProps extends AttritionComponentProps {
   activeTrendSeriesKey: TrendSeriesKey;
   data?: QuoteByCountryCardData;
+  downloadDisabled?: boolean;
+  isDownloadInProgress?: boolean;
   metricViewVariant?: MetricViewVariant;
+  onDownload?: () => void;
+  reportingPeriodLabel?: string;
 }
 
 const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
   activeTrendSeriesKey,
   className,
   data,
+  downloadDisabled = false,
+  isDownloadInProgress = false,
   metricViewVariant = "quote",
+  onDownload,
+  reportingPeriodLabel,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const modalRef = useRef<HTMLDivElement | null>(null);
@@ -88,6 +113,8 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
     metricViewVariant === "policy" ? "Policy" : "Quote";
   const primaryShareLabel =
     metricViewVariant === "policy" ? "Policy Share" : "Quote Share";
+  const convertedMetricLabel =
+    metricViewVariant === "quote" ? "Converted Quotes" : "Total Sales";
   if (!data) {
     return null;
   }
@@ -96,6 +123,56 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
   if (!activeView || !activeView.tableRows.length) {
     return null;
   }
+  const isQuoteVolumeView =
+    metricViewVariant === "quote" && activeTrendSeriesKey === "totalQuote";
+  const quoteRowsByGrowth = [...activeView.tableRows].sort(
+    (left, right) =>
+      right.growth - left.growth || right.totalQuote - left.totalQuote,
+  );
+  const topQuoteRowsByVolume = [...activeView.tableRows].sort(
+    (left, right) => right.totalQuote - left.totalQuote,
+  );
+  const leadQuoteCountry = topQuoteRowsByVolume[0];
+  const leastQuoteCountry = quoteRowsByGrowth[quoteRowsByGrowth.length - 1];
+  const topTwoQuoteShare = topQuoteRowsByVolume
+    .slice(0, 2)
+    .reduce((total, row) => total + row.quoteShare, 0);
+  const displayedInsights: InsightPanelItem[] = isQuoteVolumeView
+    ? [
+        {
+          id: "quoted-leader",
+          label: "Lead Market",
+          note: `${leadQuoteCountry.countryCode} contributes ${formatPercent(
+            leadQuoteCountry.quoteShare,
+          )} of quoted volume and recorded ${formatGrowth(
+            leadQuoteCountry.growth,
+          )} growth.`,
+          tone: "positive",
+          value: leadQuoteCountry.countryCode,
+        },
+        {
+          id: "quoted-concentration",
+          label: "Top 2 Mix",
+          note: `${topQuoteRowsByVolume[0].countryCode} and ${
+            topQuoteRowsByVolume[1]?.countryCode ??
+            topQuoteRowsByVolume[0].countryCode
+          } account for most quote intake.`,
+          tone: "neutral",
+          value: formatPercent(Number(topTwoQuoteShare.toFixed(1))),
+        },
+        {
+          id: "quoted-trailer",
+          label: "Least Performing",
+          note: `${leastQuoteCountry.countryCode} recorded ${formatGrowth(
+            leastQuoteCountry.growth,
+          )} growth and contributed ${formatPercent(
+            leastQuoteCountry.quoteShare,
+          )} of total quote volume.`,
+          tone: "negative",
+          value: leastQuoteCountry.countryCode,
+        },
+      ]
+    : (activeView.insights as InsightPanelItem[]);
 
   const renderQuoteCountryTooltip = ({
     active,
@@ -117,7 +194,11 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
       <div className={style.tooltip}>
         <div className={style.tooltipTitle}>{datum.country}</div>
         <div className={style.tooltipRow}>
-          <span>{activeTrendSeries.label}</span>
+          <span>
+            {activeTrendSeriesKey === "totalSales"
+              ? convertedMetricLabel
+              : activeTrendSeries.label}
+          </span>
           <strong>{activeTrendSeries.valueFormatter(datum.metricValue)}</strong>
         </div>
         {activeTrendSeriesKey !== "totalQuote" ? (
@@ -128,7 +209,7 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
         ) : null}
         {activeTrendSeriesKey !== "totalSales" ? (
           <div className={style.tooltipRow}>
-            <span>Total Sales</span>
+            <span>{convertedMetricLabel}</span>
             <strong>{formatCount(datum.totalSales)}</strong>
           </div>
         ) : null}
@@ -280,6 +361,12 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
             },
           ];
 
+  const displayedCountryColumns = isQuoteVolumeView
+    ? countryColumns
+        .filter((column) => column.key !== "conversion-rate")
+        .map((column) => ({ ...column, width: "25%" }))
+    : countryColumns;
+
   useEffect(() => {
     if (!isExpanded || typeof document === "undefined") {
       return;
@@ -307,7 +394,7 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
   const tableContent = (minWidth: string, mobileMinWidth: string) => (
     <Table
       className={style.tableRegion}
-      columns={countryColumns}
+      columns={displayedCountryColumns}
       layout="auto"
       minWidth={minWidth}
       mobileMinWidth={mobileMinWidth}
@@ -408,14 +495,36 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
                     {metricDescriptor.countryTitle}
                   </h3>
                 </div>
-                <button
-                  aria-label="Close quote by country expanded view"
-                  className={style.closeButton}
-                  onClick={() => setIsExpanded(false)}
-                  type="button"
-                >
-                  <FaXmark aria-hidden="true" />
-                </button>
+                <div className={style.modalActions}>
+                  {isQuoteVolumeView && onDownload ? (
+                    <button
+                      aria-busy={isDownloadInProgress}
+                      aria-label="Download Quote by Country workbook"
+                      className={style.downloadButton}
+                      disabled={downloadDisabled || isDownloadInProgress}
+                      onClick={onDownload}
+                      title="Download chart and raw quote data"
+                      type="button"
+                    >
+                      {isDownloadInProgress ? (
+                        <RiLoader4Line
+                          aria-hidden="true"
+                          className={style.downloadSpinner}
+                        />
+                      ) : (
+                        <RiDownloadCloud2Line aria-hidden="true" />
+                      )}
+                    </button>
+                  ) : null}
+                  <button
+                    aria-label="Close quote by country expanded view"
+                    className={style.closeButton}
+                    onClick={() => setIsExpanded(false)}
+                    type="button"
+                  >
+                    <FaXmark aria-hidden="true" />
+                  </button>
+                </div>
               </div>
               {/* 
               <p className={style.modalSubtitle}>
@@ -429,12 +538,83 @@ const QuoteByCountry: React.FC<QuoteByCountryProps> = ({
 
                   <InsightPanel
                     accentRgb={activeTrendSeries.accentRgb}
-                    items={activeView.insights as InsightPanelItem[]}
+                    items={displayedInsights}
                   />
                 </div>
 
+                {isQuoteVolumeView && data.topPetTypesByCountry.length ? (
+                  <section
+                    aria-labelledby="quote-country-pet-type-title"
+                    className={style.petTypeInsights}
+                  >
+                    <div className={style.petTypeInsightsHeader}>
+                      <h4
+                        className={style.petTypeInsightsTitle}
+                        id="quote-country-pet-type-title"
+                      >
+                        Top 3 Pet Types by Region
+                      </h4>
+                      <span className={style.petTypeInsightsMeta}>
+                        Ranked by quote volume
+                      </span>
+                    </div>
+
+                    <div className={style.petTypeRegionGrid}>
+                      {data.topPetTypesByCountry.map((region) => (
+                        <article
+                          className={style.petTypeRegionCard}
+                          key={region.countryCode}
+                        >
+                          <div className={style.petTypeRegionHeader}>
+                            <div className={style.petTypeRegionName}>
+                              <strong>{region.countryCode}</strong>
+                              <span>{region.country}</span>
+                            </div>
+                            <span className={style.petTypeRegionTotal}>
+                              {formatTopPetTypeCoverage(
+                                region.petTypes,
+                                region.totalQuote,
+                              )}
+                            </span>
+                          </div>
+
+                          <div className={style.petTypeMiniTableWrap}>
+                            <table className={style.petTypeMiniTable}>
+                              <thead>
+                                <tr>
+                                  <th>Pet Type</th>
+                                  <th>Quotes</th>
+                                  <th>Share</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {region.petTypes.map((petType) => (
+                                  <tr
+                                    key={`${region.countryCode}-${petType.petType}`}
+                                  >
+                                    <td>{petType.petType}</td>
+                                    <td>{formatCount(petType.totalQuote)}</td>
+                                    <td>{formatPercent(petType.quoteShare)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+
                 {tableContent("48rem", "48rem")}
               </div>
+              {reportingPeriodLabel ? (
+                <footer className={style.modalFooter}>
+                  <div className={style.reportingPeriod}>
+                    Reporting period: {reportingPeriodLabel}
+                  </div>
+                </footer>
+              ) : null}
             </div>
           </div>,
           document.body,

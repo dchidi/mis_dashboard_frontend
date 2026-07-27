@@ -96,6 +96,8 @@ interface FetchQuoteDashboardParams {
   brands?: string[];
   countryCodes?: string[];
   endDate: string;
+  performanceEndDate?: string;
+  performanceStartDate?: string;
   petTypes?: string[];
   signal?: AbortSignal;
   startDate: string;
@@ -125,6 +127,16 @@ interface DownloadQuoteProductPerformanceParams {
   petTypes: string[];
   startDate: string;
 }
+
+interface DownloadQuoteCountryParams {
+  brands: string[];
+  countryCodes: string[];
+  endDate: string;
+  filename?: string;
+  petTypes: string[];
+  startDate: string;
+}
+
 
 interface DownloadQuotePromoPerformanceParams {
   brands: string[];
@@ -338,6 +350,8 @@ export const fetchQuoteDashboard = async ({
   brands = [],
   countryCodes = [],
   endDate,
+  performanceEndDate,
+  performanceStartDate,
   petTypes = [],
   signal,
   startDate,
@@ -346,6 +360,8 @@ export const fetchQuoteDashboard = async ({
     brands: buildCommaSeparatedValue(brands),
     country_codes: buildCommaSeparatedValue(countryCodes),
     end_date: endDate,
+    performance_end_date: performanceEndDate,
+    performance_start_date: performanceStartDate,
     pet_types: buildCommaSeparatedValue(petTypes),
     start_date: startDate,
   });
@@ -355,6 +371,42 @@ export const fetchQuoteDashboard = async ({
   });
   return (await response.json()) as RawQuoteDashboardResponse;
 };
+
+export const downloadQuoteCountry = async ({
+  brands,
+  countryCodes,
+  endDate,
+  filename,
+  petTypes,
+  startDate,
+}: DownloadQuoteCountryParams) => {
+  const url = buildUrl(QUOTE_V2_DASHBOARD_BASE_URL, "/country/download", {
+    brands: buildCommaSeparatedValue(brands),
+    country_codes: buildCommaSeparatedValue(countryCodes),
+    end_date: endDate,
+    filename,
+    pet_types: buildCommaSeparatedValue(petTypes),
+    start_date: startDate,
+  });
+  const response = await authenticatedFetch(url, {
+    method: "GET",
+  });
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const resolvedFilename = filenameFromContentDisposition(
+    response.headers.get("content-disposition"),
+    filename || `quote_by_country_${startDate}_to_${endDate}.xlsx`,
+  );
+  const anchor = document.createElement("a");
+
+  anchor.href = downloadUrl;
+  anchor.download = resolvedFilename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+};
+
 
 export const downloadQuoteProductPerformance = async ({
   brands,

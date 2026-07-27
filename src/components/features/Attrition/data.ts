@@ -1,4 +1,4 @@
-export interface AttritionPredictorDatum {
+﻿export interface AttritionPredictorDatum {
   attritionRate: number;
   cohortCount: number;
   predictor: string;
@@ -34,8 +34,21 @@ export interface QuoteByCountryViewData {
   tableRows: QuoteByCountryViewRow[];
 }
 
+export interface QuoteCountryPetTypeInsight {
+  country: string;
+  countryCode: string;
+  petTypes: Array<{
+    petType: string;
+    quoteShare: number;
+    totalQuote: number;
+  }>;
+  totalQuote: number;
+}
+
+
 export interface QuoteByCountryCardData {
   conversionRate: QuoteByCountryViewData;
+  topPetTypesByCountry: QuoteCountryPetTypeInsight[];
   totalQuote: QuoteByCountryViewData;
   totalSales: QuoteByCountryViewData;
 }
