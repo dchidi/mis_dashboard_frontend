@@ -137,6 +137,8 @@ interface DownloadQuoteCountryParams {
   startDate: string;
 }
 
+type DownloadQuoteWorkflowParams = DownloadQuoteCountryParams;
+
 
 interface DownloadQuotePromoPerformanceParams {
   brands: string[];
@@ -277,6 +279,7 @@ const authenticatedFetch = async (url: URL, init?: RequestInit) => {
 
   const response = await fetch(url.toString(), {
     ...init,
+    cache: init?.cache ?? "no-store",
     headers: authToken
       ? {
           Authorization: `Bearer ${authToken}`,
@@ -407,6 +410,41 @@ export const downloadQuoteCountry = async ({
   window.URL.revokeObjectURL(downloadUrl);
 };
 
+
+export const downloadQuoteWorkflow = async ({
+  brands,
+  countryCodes,
+  endDate,
+  filename,
+  petTypes,
+  startDate,
+}: DownloadQuoteWorkflowParams) => {
+  const url = buildUrl(QUOTE_V2_DASHBOARD_BASE_URL, "/workflow/download", {
+    brands: buildCommaSeparatedValue(brands),
+    country_codes: buildCommaSeparatedValue(countryCodes),
+    end_date: endDate,
+    filename,
+    pet_types: buildCommaSeparatedValue(petTypes),
+    start_date: startDate,
+  });
+  const response = await authenticatedFetch(url, {
+    method: "GET",
+  });
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const resolvedFilename = filenameFromContentDisposition(
+    response.headers.get("content-disposition"),
+    filename || `quote_workflow_${startDate}_to_${endDate}.xlsx`,
+  );
+  const anchor = document.createElement("a");
+
+  anchor.href = downloadUrl;
+  anchor.download = resolvedFilename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+};
 
 export const downloadQuoteProductPerformance = async ({
   brands,

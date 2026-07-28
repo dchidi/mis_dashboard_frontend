@@ -145,6 +145,7 @@ const authenticatedFetch = async (url: URL, init?: RequestInit) => {
 
   const response = await fetch(url.toString(), {
     ...init,
+    cache: init?.cache ?? "no-store",
     headers: authToken
       ? {
           Authorization: `Bearer ${authToken}`,

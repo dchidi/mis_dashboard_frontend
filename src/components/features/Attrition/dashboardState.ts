@@ -814,9 +814,131 @@ const buildQuoteWorkflowCardData = (
         : "No data",
     },
   ];
+  const pendingByCountry = new Map(
+    pendingRows.map((row) => [getCountryCode(row.country), row.pendingQuotes]),
+  );
+  const workflowCountryRows: NonNullable<
+    QuoteWorkflowCardData["countryRows"]
+  > = countryRows.map((row) => {
+    const pendingQuotes = pendingByCountry.get(row.countryCode) ?? 0;
+    const lapsedQuotes = Math.max(
+      row.totalQuote - row.totalSales - pendingQuotes,
+      0,
+    );
+
+    return {
+      conversionRate: row.conversionRate,
+      convertedQuotes: row.totalSales,
+      country: row.country,
+      countryCode: row.countryCode,
+      lapsedQuotes,
+      lapsedShare: Number(
+        ((lapsedQuotes / Math.max(row.totalQuote, 1)) * 100).toFixed(1),
+      ),
+      pendingQuotes,
+      pendingShare: Number(
+        ((pendingQuotes / Math.max(row.totalQuote, 1)) * 100).toFixed(1),
+      ),
+      totalQuotes: row.totalQuote,
+    };
+  });
+  const totalWorkflowQuotes = workflowCountryRows.reduce(
+    (sum, row) => sum + row.totalQuotes,
+    0,
+  );
+  const totalWorkflowPending = workflowCountryRows.reduce(
+    (sum, row) => sum + row.pendingQuotes,
+    0,
+  );
+  const totalWorkflowLapsed = workflowCountryRows.reduce(
+    (sum, row) => sum + row.lapsedQuotes,
+    0,
+  );
+  const workflowShare = (value: number) =>
+    Number(((value / Math.max(totalWorkflowQuotes, 1)) * 100).toFixed(1));
+  const funnelLayers: NonNullable<
+    QuoteWorkflowCardData["funnelLayers"]
+  > = [
+    {
+      color: "#8a74e8",
+      count: totalWorkflowQuotes,
+      key: "total-quotes",
+      label: "Total Quotes",
+      share: totalWorkflowQuotes ? 100 : 0,
+    },
+    {
+      color: "#d7a13d",
+      count: totalWorkflowPending,
+      key: "pending-quotes",
+      label: "Pending",
+      share: workflowShare(totalWorkflowPending),
+    },
+    {
+      color: "#d47558",
+      count: totalWorkflowLapsed,
+      key: "lapsed-quotes",
+      label: "Lapsed",
+      share: workflowShare(totalWorkflowLapsed),
+    },
+    {
+      color: "#33b18b",
+      count: totalConvertedVolume,
+      key: "converted-quotes",
+      label: "Converted",
+      share: workflowShare(totalConvertedVolume),
+    },
+  ];
+  const lapseLeadRow = [...workflowCountryRows].sort(
+    (left, right) =>
+      right.lapsedShare - left.lapsedShare ||
+      right.lapsedQuotes - left.lapsedQuotes,
+  )[0];
+  const workflowInsights: DashboardInsightDatum[] = [
+    {
+      id: "conversion-leader",
+      label: "Conversion Leader",
+      note: convertedLeadRow
+        ? `${convertedLeadRow.countryCode} converted ${formatPercent(
+            convertedLeadRow.conversionRate,
+          )} of its quotes.`
+        : "No quote workflow data is available.",
+      tone: "positive",
+      value: convertedLeadRow?.countryCode ?? "No data",
+    },
+    {
+      id: "pending-concentration",
+      label: "Pending Concentration",
+      note: pendingLeadRow
+        ? `${pendingLeadRow.countryCode} holds ${formatPercent(
+            Number(
+              (
+                (pendingLeadRow.value / Math.max(totalWorkflowPending, 1)) *
+                100
+              ).toFixed(1),
+            ),
+          )} of the pending queue.`
+        : "No pending quote data is available.",
+      tone: "neutral",
+      value: pendingLeadRow?.countryCode ?? "No data",
+    },
+    {
+      id: "lapse-exposure",
+      label: "Lapse Exposure",
+      note: lapseLeadRow
+        ? `${lapseLeadRow.countryCode} has the highest lapsed share at ${formatPercent(
+            lapseLeadRow.lapsedShare,
+          )}.`
+        : "No lapsed quote data is available.",
+      tone: "negative",
+      value: lapseLeadRow?.countryCode ?? "No data",
+    },
+  ];
 
   return {
+    countryRows: workflowCountryRows,
+    funnelLayers,
     idBase: "quote-workflow",
+    insights: workflowInsights,
     title: "Quote Workflow",
     tabs: [
       {

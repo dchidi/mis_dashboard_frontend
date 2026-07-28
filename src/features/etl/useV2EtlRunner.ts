@@ -5,6 +5,7 @@ import {
   type V2EtlRunResponse,
   type V2EtlStatusResponse,
 } from "../../services/etlV2";
+import { publishV2EtlDataRefresh } from "./dataRefresh";
 import type {
   V2EtlDateRange,
   V2EtlEvent,
@@ -293,6 +294,13 @@ export const useV2EtlRunner = (): UseV2EtlRunnerResult => {
       }
 
       setCompletedAt(formatV2EtlTime());
+      publishV2EtlDataRefresh({
+        completedAt: new Date().toISOString(),
+        endDate,
+        jobKeys: [...activeRouteOption.jobKeys],
+        startDate,
+      });
+      appendEtlEvent("Platform data refresh triggered.");
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
         return;

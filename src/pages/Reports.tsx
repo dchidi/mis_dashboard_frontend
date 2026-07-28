@@ -74,6 +74,7 @@ import {
   type QuoteReportSummaryItem,
 } from "../services/quoteV2";
 import { useAuth } from "../context/AuthContext";
+import { useV2EtlDataRevision } from "../features/etl/dataRefresh";
 import { useV2EtlRunner } from "../features/etl/useV2EtlRunner";
 import { getUserNameParts } from "../utils/auth";
 import {
@@ -1564,6 +1565,8 @@ const Reports: React.FC = () => {
   const [isQuoteTypeModalOpen, setIsQuoteTypeModalOpen] = useState(false);
   const [isClaimsTypeModalOpen, setIsClaimsTypeModalOpen] = useState(false);
   const etlRunner = useV2EtlRunner();
+  const freePolicyEtlDataRevision = useV2EtlDataRevision("free-policy");
+  const quoteEtlDataRevision = useV2EtlDataRevision("quote");
   const [activeFilterModal, setActiveFilterModal] =
     useState<ReportFilterModalState | null>(null);
   const [reportingPeriod, setReportingPeriod] =
@@ -2117,6 +2120,9 @@ const Reports: React.FC = () => {
       return;
     }
 
+    freePolicyBrandRequestRef.current?.abort();
+    freePolicyPetTypeRequestRef.current?.abort();
+
     const [startDate, endDate] = reportingPeriod;
     const freePolicyProfile = activeFilterModal?.profile;
     if (!freePolicyProfile || !startDate || !endDate) {
@@ -2251,6 +2257,7 @@ const Reports: React.FC = () => {
     };
   }, [
     activeFilterModal?.profile,
+    freePolicyEtlDataRevision,
     isFreePolicyReportActive,
     reportingPeriod,
   ]);
@@ -2311,7 +2318,12 @@ const Reports: React.FC = () => {
     return () => {
       abortController.abort();
     };
-  }, [activeFilterModal, isQuoteTypeModalOpen, reportingPeriod]);
+  }, [
+    activeFilterModal,
+    isQuoteTypeModalOpen,
+    quoteEtlDataRevision,
+    reportingPeriod,
+  ]);
 
   useEffect(() => {
     const [startDate, endDate] = reportingPeriod;
@@ -2334,6 +2346,9 @@ const Reports: React.FC = () => {
       setQuoteFiltersError(null);
       return;
     }
+
+    quoteBrandRequestRef.current?.abort();
+    quotePetTypeRequestRef.current?.abort();
 
     const abortController = new AbortController();
 
@@ -2451,7 +2466,12 @@ const Reports: React.FC = () => {
     return () => {
       abortController.abort();
     };
-  }, [activeQuoteProfile, isQuoteReportActive, reportingPeriod]);
+  }, [
+    activeQuoteProfile,
+    isQuoteReportActive,
+    quoteEtlDataRevision,
+    reportingPeriod,
+  ]);
 
   useEffect(() => {
     const activeQuoteProfile = activeReport?.id as QuoteReportProfile | undefined;

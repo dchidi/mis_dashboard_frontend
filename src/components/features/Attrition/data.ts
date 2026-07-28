@@ -291,8 +291,45 @@ export type QuoteWorkflowViewData =
   | LapsedQuoteWorkflowViewData
   | WorkflowBarViewData;
 
+export interface QuoteWorkflowFunnelLayer {
+  color: string;
+  count: number;
+  key:
+    | "converted-quotes"
+    | "lapsed-quotes"
+    | "pending-quotes"
+    | "total-quotes";
+  label: string;
+  share: number;
+}
+
+export interface QuoteWorkflowCountryRow {
+  conversionRate: number;
+  convertedQuotes: number;
+  country: string;
+  countryCode: string;
+  lapsedQuotes: number;
+  lapsedShare: number;
+  pendingQuotes: number;
+  pendingShare: number;
+  totalQuotes: number;
+}
+
+export interface QuoteWorkflowPetTypeRow {
+  conversionRate: number;
+  convertedQuotes: number;
+  lapsedQuotes: number;
+  pendingQuotes: number;
+  petType: string;
+  totalQuotes: number;
+}
+
 export interface QuoteWorkflowCardData {
+  countryRows?: QuoteWorkflowCountryRow[];
+  funnelLayers?: QuoteWorkflowFunnelLayer[];
   idBase?: string;
+  insights?: DashboardInsightDatum[];
+  petTypeRows?: QuoteWorkflowPetTypeRow[];
   title?: string;
   tabs: QuoteWorkflowViewData[];
 }

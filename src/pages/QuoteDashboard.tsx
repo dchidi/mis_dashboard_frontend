@@ -30,11 +30,13 @@ import V2EtlModal from "../components/ui/etl_modal/V2EtlModal";
 import Skeleton from "../components/ui/skeleton";
 import { dashboardMenuItems } from "../config/dashboardMenu";
 import { useAuth } from "../context/AuthContext";
+import { useV2EtlDataRevision } from "../features/etl/dataRefresh";
 import { useV2EtlRunner } from "../features/etl/useV2EtlRunner";
 import {
   downloadQuoteCountry,
   downloadQuoteProductPerformance,
   downloadQuotePromoPerformance,
+  downloadQuoteWorkflow,
   fetchQuoteDashboard,
   fetchQuoteFilters,
   type QuoteFilterOption,
@@ -49,7 +51,9 @@ interface DashboardChartViewProps {
   isLoading: boolean;
   isPromoPerformanceDownloadInProgress: boolean;
   isProductPerformanceDownloadInProgress: boolean;
+  isWorkflowDownloadInProgress: boolean;
   onCountryDownload: () => void;
+  onWorkflowDownload: () => void;
   onPromoPerformanceDownload: (view: "promoCode" | "agent") => void;
   onProductPerformanceDownload: () => void;
   onTrendSeriesChange: (key: TrendSeriesKey) => void;
@@ -484,8 +488,10 @@ const renderChartView = ({
   isLoading,
   isPromoPerformanceDownloadInProgress,
   isProductPerformanceDownloadInProgress,
+  isWorkflowDownloadInProgress,
   onCountryDownload,
   onPromoPerformanceDownload,
+  onWorkflowDownload,
   onProductPerformanceDownload,
   onTrendSeriesChange,
   reportingPeriodLabel,
@@ -520,6 +526,10 @@ const renderChartView = ({
       <QuoteWorkflow
         className={`${style.section} ${style.workflowCard}`}
         data={dashboardData.quoteWorkflowData}
+        downloadDisabled={isWorkflowDownloadInProgress}
+        isDownloadInProgress={isWorkflowDownloadInProgress}
+        onDownload={onWorkflowDownload}
+        reportingPeriodLabel={reportingPeriodLabel}
       />
     )}
 
@@ -575,6 +585,7 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { isAdmin, logout, user } = useAuth();
   const etlRunner = useV2EtlRunner();
+  const quoteEtlDataRevision = useV2EtlDataRevision("quote");
   const [activeTrendSeriesKey, setActiveTrendSeriesKey] =
     useState<TrendSeriesKey>("totalQuote");
   const [activeCurrencyCode, setActiveCurrencyCode] =
@@ -605,6 +616,8 @@ const Dashboard: React.FC = () => {
   const [isDashboardLoading, setIsDashboardLoading] = useState(true);
   const [isCountryDownloadInProgress, setIsCountryDownloadInProgress] =
     useState(false);
+  const [isWorkflowDownloadInProgress, setIsWorkflowDownloadInProgress] =
+    useState(false);
   const [isPromoPerformanceDownloadInProgress, setIsPromoPerformanceDownloadInProgress] =
     useState(false);
   const [isProductPerformanceDownloadInProgress, setIsProductPerformanceDownloadInProgress] =
@@ -628,6 +641,9 @@ const Dashboard: React.FC = () => {
   );
 
   useEffect(() => {
+    brandRequestRef.current?.abort();
+    petTypeRequestRef.current?.abort();
+
     const abortController = new AbortController();
 
     void fetchQuoteFilters({ signal: abortController.signal })
@@ -657,7 +673,7 @@ const Dashboard: React.FC = () => {
     return () => {
       abortController.abort();
     };
-  }, []);
+  }, [quoteEtlDataRevision]);
 
   useEffect(() => {
     const [startDate, endDate] = reportingPeriod;
@@ -729,6 +745,7 @@ const Dashboard: React.FC = () => {
     selectedBrands,
     selectedCountries,
     selectedPetTypes,
+    quoteEtlDataRevision,
     zeroDashboardData,
   ]);
 
@@ -885,6 +902,28 @@ const Dashboard: React.FC = () => {
   };
 
 
+  const handleWorkflowDownload = async () => {
+    const [startDate, endDate] = reportingPeriod;
+    if (!startDate || !endDate || isWorkflowDownloadInProgress) {
+      return;
+    }
+
+    setIsWorkflowDownloadInProgress(true);
+    try {
+      await downloadQuoteWorkflow({
+        brands: selectedBrands,
+        countryCodes: selectedCountries,
+        endDate,
+        petTypes: selectedPetTypes,
+        startDate,
+      });
+    } catch (error: unknown) {
+      console.error("Failed to download Quote Workflow source data", error);
+    } finally {
+      setIsWorkflowDownloadInProgress(false);
+    }
+  };
+
   const handleProductPerformanceDownload = async () => {
     const [startDate, endDate] = reportingPeriod;
     if (!startDate || !endDate || isProductPerformanceDownloadInProgress) {
@@ -981,7 +1020,9 @@ const Dashboard: React.FC = () => {
           isLoading: isDashboardLoading,
           isPromoPerformanceDownloadInProgress,
           isProductPerformanceDownloadInProgress,
+          isWorkflowDownloadInProgress,
           onCountryDownload: () => void handleCountryDownload(),
+          onWorkflowDownload: () => void handleWorkflowDownload(),
           onPromoPerformanceDownload: (view) =>
             void handlePromoPerformanceDownload(view),
           onProductPerformanceDownload: () => void handleProductPerformanceDownload(),

@@ -35,9 +35,14 @@ import {
 import type { AttritionComponentProps } from "../type";
 import { formatAxisCount } from "../../../../utils/formatters";
 import style from "./AttritionPotentialPredicators.module.css";
+import QuoteWorkflowFunnel from "./QuoteWorkflowFunnel";
 
 interface QuoteWorkflowProps extends AttritionComponentProps {
   data?: QuoteWorkflowCardData;
+  downloadDisabled?: boolean;
+  isDownloadInProgress?: boolean;
+  onDownload?: () => void;
+  reportingPeriodLabel?: string;
 }
 
 const formatCount = (value: number) => value.toLocaleString();
@@ -140,7 +145,10 @@ const QUOTE_WORKFLOW_TAB_ORDER: Record<QuoteWorkflowTabKey, number> = {
   "lapsed-quotes": 2,
 };
 
-const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({ className, data }) => {
+const LegacyQuoteWorkflow: React.FC<QuoteWorkflowProps> = ({
+  className,
+  data,
+}) => {
   const tabs = useMemo(
     () =>
       [...(data?.tabs ?? [])].sort(
@@ -155,20 +163,15 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({ className, data }) => {
   );
   const [isExpanded, setIsExpanded] = useState(false);
   const modalRef = useRef<HTMLDivElement | null>(null);
-  const activeTabData = tabs.find((tab) => tab.key === activeTab) ?? tabs[0];
+  const resolvedActiveTab = tabs.some((tab) => tab.key === activeTab)
+    ? activeTab
+    : tabs[0]?.key;
+  const activeTabData =
+    tabs.find((tab) => tab.key === resolvedActiveTab) ?? tabs[0];
   const workflowTitle = data?.title ?? "Quote Workflow";
   const workflowIdBase = data?.idBase ?? "quote-workflow";
   const workflowTitleLabel = workflowTitle.toLowerCase();
 
-  useEffect(() => {
-    if (!tabs.length) {
-      return;
-    }
-
-    if (!tabs.some((tab) => tab.key === activeTab)) {
-      setActiveTab(tabs[0].key);
-    }
-  }, [activeTab, tabs]);
 
   useEffect(() => {
     if (!isExpanded || typeof document === "undefined") {
@@ -534,7 +537,7 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({ className, data }) => {
 
           <SegmentedTabs
             accentRgb={activeTabData.accentRgb}
-            activeKey={activeTab}
+            activeKey={resolvedActiveTab ?? ""}
             ariaLabel={`${workflowTitle} views`}
             idBase={workflowIdBase}
             onChange={(key) => setActiveTab(key as QuoteWorkflowTabKey)}
@@ -556,5 +559,19 @@ const QuoteWorkflow: React.FC<QuoteWorkflowProps> = ({ className, data }) => {
     </>
   );
 };
+
+const QuoteWorkflow: React.FC<QuoteWorkflowProps> = (props) =>
+  props.data?.funnelLayers?.length ? (
+    <QuoteWorkflowFunnel
+      className={props.className}
+      data={props.data}
+      downloadDisabled={props.downloadDisabled}
+      isDownloadInProgress={props.isDownloadInProgress}
+      onDownload={props.onDownload}
+      reportingPeriodLabel={props.reportingPeriodLabel}
+    />
+  ) : (
+    <LegacyQuoteWorkflow {...props} />
+  );
 
 export default QuoteWorkflow;
