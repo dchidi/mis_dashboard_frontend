@@ -1485,9 +1485,9 @@ const createSelectionInputStyles = (palette: SelectionPalette) =>
       border: `1px solid ${palette.inputBorder}`,
       borderRadius: "1rem",
       color: "var(--text-h)",
-      fontSize: "0.92rem",
-      fontWeight: 600,
-      minHeight: "3.15rem",
+      fontSize: "0.8rem",
+      fontWeight: 500,
+      minHeight: "4.15rem",
     },
     label: {
       display: "none",
@@ -1495,7 +1495,7 @@ const createSelectionInputStyles = (palette: SelectionPalette) =>
     option: {
       borderRadius: 0,
       color: "var(--text-h)",
-      fontSize: "0.88rem",
+      fontSize: "0.8rem",
       minHeight: "2.25rem",
       "&[data-checked]": {
         backgroundColor: palette.activeOptionBackground,
@@ -1508,8 +1508,13 @@ const createSelectionInputStyles = (palette: SelectionPalette) =>
       border: `1px solid ${palette.pillBorder}`,
       borderRadius: "0.55rem",
       color: palette.pillText,
-      fontWeight: 700,
+      fontSize: "0.76rem",
+      fontWeight: 600,
       minHeight: "1.55rem",
+    },
+    pillsList: {
+      paddingBottom: "0.5rem",
+      paddingTop: "1.55rem",
     },
     section: {
       color: palette.sectionColor,
@@ -4004,9 +4009,6 @@ const Reports: React.FC = () => {
                   >
                     {reportModalTitle}
                   </h3>
-                  <p className={style.modalDescription}>
-                    {activeFilterModal.description}
-                  </p>
                 </div>
 
                 <button
@@ -4019,22 +4021,21 @@ const Reports: React.FC = () => {
                 </button>
               </div>
 
-              <div className={style.formIntro}>
-                <p className={style.formHint}>
-                  All filter groups start selected by default. Refine only what
-                  you need, then download the report.
-                </p>
-                {isFreePolicyReportActive && freePolicyFiltersError ? (
-                  <span className={style.feedbackText}>
-                    {freePolicyFiltersError}
-                  </span>
-                ) : null}
-                {isQuoteReportActive && quoteFiltersError ? (
-                  <span className={style.feedbackText}>
-                    {quoteFiltersError}
-                  </span>
-                ) : null}
-              </div>
+              {(isFreePolicyReportActive && freePolicyFiltersError) ||
+              (isQuoteReportActive && quoteFiltersError) ? (
+                <div className={style.formIntro}>
+                  {isFreePolicyReportActive && freePolicyFiltersError ? (
+                    <span className={style.feedbackText}>
+                      {freePolicyFiltersError}
+                    </span>
+                  ) : null}
+                  {isQuoteReportActive && quoteFiltersError ? (
+                    <span className={style.feedbackText}>
+                      {quoteFiltersError}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className={style.filterGrid}>
                 {!isActivePolicyReportActive ? (
@@ -4046,6 +4047,7 @@ const Reports: React.FC = () => {
                       modalTitle={`Select ${reportModalTitle} reporting period`}
                       onChange={setReportingPeriod}
                       placeholder="Select a date or range"
+                      variant="inset"
                       value={reportingPeriod}
                       zIndex={3000}
                     />

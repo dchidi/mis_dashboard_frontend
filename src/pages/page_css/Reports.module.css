@@ -177,7 +177,9 @@
 }
 
 .fieldLabel {
-  font-size: 0.82rem;
+  color: var(--text);
+  font-size: 0.74rem;
+  font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -203,7 +205,7 @@
   cursor: pointer;
   display: inline-flex;
   flex: 0 0 auto;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 800;
   gap: 0.42rem;
   letter-spacing: 0.09em;
@@ -392,6 +394,42 @@
   align-content: start;
 }
 
+.filterModal .fieldGroup {
+  gap: 0.45rem;
+  position: relative;
+}
+
+.filterModal .fieldGroup > .fieldLabel {
+  left: 0.8rem;
+  top: 0.58rem;
+}
+
+.filterModal .selectFieldHeader {
+  justify-content: flex-end;
+  position: static;
+  width: 100%;
+}
+
+.filterModal .fieldGroup > .fieldLabel,
+.filterModal .selectFieldHeader .fieldLabel {
+  background: transparent;
+  padding: 0 0.38rem;
+  pointer-events: none;
+  position: absolute;
+  z-index: 3;
+}
+
+.filterModal .selectFieldHeader .fieldLabel {
+  left: 0.8rem;
+  top: 1.92rem;
+}
+
+.filterModal .selectFieldHeader .selectAllControl {
+  background: transparent;
+  padding-left: 0;
+  padding-right: 0;
+}
+
 .fieldGroupWide {
   grid-column: 1 / -1;
 }
@@ -530,8 +568,8 @@
   border-radius: 1rem;
   box-sizing: border-box;
   display: flex;
-  min-height: 3.15rem;
-  padding: 0.55rem;
+  min-height: 4.15rem;
+  padding: 1.65rem 0.55rem 0.55rem;
   width: 100%;
 }
 

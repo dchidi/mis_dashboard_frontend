@@ -24,7 +24,7 @@ interface ReportingPeriodPickerProps
   modalTitle?: string;
   onChange: (value: ReportingPeriodValue) => void;
   value: ReportingPeriodValue;
-  variant?: "compact" | "field";
+  variant?: "compact" | "field" | "inset";
   zIndex?: number;
 }
 
@@ -49,7 +49,21 @@ const getPickerStyles = (
           fontWeight: 600,
           height: isMobile ? "2rem" : "2.2rem",
         }
-      : {
+      : variant === "inset"
+        ? {
+            alignItems: "flex-end",
+            backgroundColor: "rgba(255, 255, 255, 0.03)",
+            border: "1px solid rgba(107, 99, 117, 0.18)",
+            borderRadius: "1rem",
+            color: "var(--text-h)",
+            fontSize: "0.8rem",
+            fontWeight: 500,
+            height: "4.15rem",
+            lineHeight: 1.2,
+            paddingBottom: "0.72rem",
+            paddingTop: "1.8rem",
+          }
+        : {
           backgroundColor: "rgba(255, 255, 255, 0.03)",
           border: "1px solid rgba(107, 99, 117, 0.18)",
           borderRadius: "1rem",
