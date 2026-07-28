@@ -510,7 +510,7 @@ export const downloadQuotePromoPerformance = async ({
   const resolvedFilename = filenameFromContentDisposition(
     response.headers.get("content-disposition"),
     filename ||
-      `${view === "promoCode" ? "quote_by_promo_code" : "quote_by_agent"}_${startDate}_to_${endDate}.csv`,
+      `${view === "promoCode" ? "quote_by_promo_code" : "quote_by_agent"}_${startDate}_to_${endDate}.xlsx`,
   );
   const anchor = document.createElement("a");
 

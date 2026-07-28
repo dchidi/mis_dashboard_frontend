@@ -497,74 +497,88 @@ const renderChartView = ({
   reportingPeriodLabel,
 }: DashboardChartViewProps) => (
   <div className={style.root}>
-    {isLoading ? (
-      <QuoteByCountrySkeleton
-        className={`${style.section} ${style.countryCard}`}
-        title={
-          activeTrendSeriesKey === "conversionRate"
-            ? "Conversion by Country"
-            : activeTrendSeriesKey === "totalSales"
-              ? "Sales by Country"
-              : "Quote by Country"
-        }
-      />
-    ) : (
-      <QuoteByCountry
-        activeTrendSeriesKey={activeTrendSeriesKey}
-        className={`${style.section} ${style.countryCard}`}
-        data={dashboardData.quoteByCountryData}
-        downloadDisabled={isCountryDownloadInProgress}
-        isDownloadInProgress={isCountryDownloadInProgress}
-        onDownload={onCountryDownload}
-        reportingPeriodLabel={reportingPeriodLabel}
-      />
-    )}
+    <div className={style.dashboardColumn}>
+      {isLoading ? (
+        <QuoteByCountrySkeleton
+          className={`${style.section} ${style.countryCard}`}
+          title={
+            activeTrendSeriesKey === "conversionRate"
+              ? "Conversion by Country"
+              : activeTrendSeriesKey === "totalSales"
+                ? "Sales by Country"
+                : "Quote by Country"
+          }
+        />
+      ) : (
+        <QuoteByCountry
+          activeTrendSeriesKey={activeTrendSeriesKey}
+          className={`${style.section} ${style.countryCard}`}
+          data={dashboardData.quoteByCountryData}
+          downloadDisabled={isCountryDownloadInProgress}
+          isDownloadInProgress={isCountryDownloadInProgress}
+          onDownload={onCountryDownload}
+          reportingPeriodLabel={reportingPeriodLabel}
+        />
+      )}
 
-    {isLoading ? (
-      <QuoteWorkflowSkeleton className={`${style.section} ${style.workflowCard}`} />
-    ) : (
-      <QuoteWorkflow
-        className={`${style.section} ${style.workflowCard}`}
-        data={dashboardData.quoteWorkflowData}
-        downloadDisabled={isWorkflowDownloadInProgress}
-        isDownloadInProgress={isWorkflowDownloadInProgress}
-        onDownload={onWorkflowDownload}
-        reportingPeriodLabel={reportingPeriodLabel}
-      />
-    )}
+      {isLoading ? (
+        <QuoteWorkflowSkeleton
+          className={`${style.section} ${style.workflowCard}`}
+        />
+      ) : (
+        <QuoteWorkflow
+          className={`${style.section} ${style.workflowCard}`}
+          data={dashboardData.quoteWorkflowData}
+          downloadDisabled={isWorkflowDownloadInProgress}
+          isDownloadInProgress={isWorkflowDownloadInProgress}
+          onDownload={onWorkflowDownload}
+          reportingPeriodLabel={reportingPeriodLabel}
+        />
+      )}
+    </div>
 
-    {isLoading ? (
-      <PremiumOverviewSkeleton className={`${style.section} ${style.premiumCard}`} />
-    ) : (
-      <PremiumOverview
-        className={`${style.section} ${style.premiumCard}`}
-        data={dashboardData.premiumOverviewData}
-      />
-    )}
+    <div className={style.dashboardColumn}>
+      {isLoading ? (
+        <PremiumOverviewSkeleton
+          className={`${style.section} ${style.premiumCard}`}
+        />
+      ) : (
+        <PremiumOverview
+          className={`${style.section} ${style.premiumCard}`}
+          data={dashboardData.premiumOverviewData}
+        />
+      )}
+    </div>
 
-    {isLoading ? (
-      <QuotePerformanceSkeleton className={`${style.section} ${style.trendCard}`} />
-    ) : (
-      <QuoteTrend
-        activeTrendSeriesKey={activeTrendSeriesKey}
-        className={`${style.section} ${style.trendCard}`}
-        data={dashboardData.quotePerformanceData}
-        onTrendSeriesChange={onTrendSeriesChange}
-      />
-    )}
+    <div className={style.dashboardColumn}>
+      {isLoading ? (
+        <QuotePerformanceSkeleton
+          className={`${style.section} ${style.trendCard}`}
+        />
+      ) : (
+        <QuoteTrend
+          activeTrendSeriesKey={activeTrendSeriesKey}
+          className={`${style.section} ${style.trendCard}`}
+          data={dashboardData.quotePerformanceData}
+          onTrendSeriesChange={onTrendSeriesChange}
+        />
+      )}
 
-    {isLoading ? (
-      <ProductPerformanceSkeleton className={`${style.section} ${style.productCard}`} />
-    ) : (
-      <ProductPerformance
-        activeTrendSeriesKey={activeTrendSeriesKey}
-        className={`${style.section} ${style.productCard}`}
-        data={dashboardData.productPerformanceData}
-        downloadDisabled={isProductPerformanceDownloadInProgress}
-        isDownloadInProgress={isProductPerformanceDownloadInProgress}
-        onDownload={onProductPerformanceDownload}
-      />
-    )}
+      {isLoading ? (
+        <ProductPerformanceSkeleton
+          className={`${style.section} ${style.productCard}`}
+        />
+      ) : (
+        <ProductPerformance
+          activeTrendSeriesKey={activeTrendSeriesKey}
+          className={`${style.section} ${style.productCard}`}
+          data={dashboardData.productPerformanceData}
+          downloadDisabled={isProductPerformanceDownloadInProgress}
+          isDownloadInProgress={isProductPerformanceDownloadInProgress}
+          onDownload={onProductPerformanceDownload}
+        />
+      )}
+    </div>
 
     {isLoading ? (
       <QuoteByPromoSkeleton className={`${style.section} ${style.promoCard}`} />

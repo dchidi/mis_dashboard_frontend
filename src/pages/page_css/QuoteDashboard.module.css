@@ -2,19 +2,24 @@
   display: grid;
   gap: 10px;
   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.15fr) minmax(0, 2.35fr);
-  grid-template-areas:
-    "country premium trend"
-    "workflow premium product"
-    "promo promo promo";
   min-width: 0;
   padding: 10px;
   width: 100%;
-  align-items: stretch;
+  align-items: start;
+}
+
+.dashboardColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
 }
 
 .section {
-  height: 100%;
+  align-self: start;
+  height: auto;
   min-width: 0;
+  width: 100%;
 }
 
 .skeletonCard {
@@ -296,28 +301,16 @@
   height: 1rem;
 }
 
-.countryCard {
-  grid-area: country;
-}
-
-.workflowCard {
-  grid-area: workflow;
-}
-
-.premiumCard {
-  grid-area: premium;
-}
-
-.trendCard {
-  grid-area: trend;
-}
-
+.countryCard,
+.workflowCard,
+.premiumCard,
+.trendCard,
 .productCard {
-  grid-area: product;
+  min-width: 0;
 }
 
 .promoCard {
-  grid-area: promo;
+  grid-column: 1 / -1;
 }
 
 .statusBanner,
@@ -357,13 +350,10 @@
   .root {
     gap: 16px;
     grid-template-columns: 1fr;
-    grid-template-areas:
-      "country"
-      "workflow"
-      "premium"
-      "trend"
-      "product"
-      "promo";
+  }
+
+  .dashboardColumn {
+    gap: 16px;
   }
 
   .section {
