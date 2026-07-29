@@ -11,21 +11,25 @@ export const dashboardMenuItems: DashboardMenuItem[] = [
     end: true,
     icon: FaFileLines,
     label: "Quote",
+    permissionKey: "quote",
     to: "/quote_dashboard",
   },
   {
     icon: FaFileShield,
     label: "Policy",
+    permissionKey: "policy",
     to: "/policy",
   },
   {
     icon: FaArrowsRotate,
     label: "Renewals",
+    permissionKey: "renewals",
     to: "/renewals",
   },
   {
     icon: FaChartLine,
     label: "Reports",
+    permissionKey: "reports",
     to: "/reports",
   },
 ];

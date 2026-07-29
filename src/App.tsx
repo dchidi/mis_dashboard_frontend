@@ -7,7 +7,18 @@ import Login from "./pages/Login";
 import ManageUsers from "./pages/ManageUsers";
 import PolicyDashboard from "./pages/PolicyDashboard";
 import Reports from "./pages/Reports";
+import RoleMenuAccess from "./pages/RoleMenuAccess";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { getFirstAllowedMenuPath } from "./config/menuAccess";
+import type { AuthMenuKey } from "./services/auth";
+
+function LoadingPage() {
+  return (
+    <Center mih="100vh">
+      <Loader color="indigo" size="lg" />
+    </Center>
+  );
+}
 
 function NotFoundPage() {
   return (
@@ -30,15 +41,40 @@ function NotFoundPage() {
   );
 }
 
+function AccessDeniedPage() {
+  const { allowedMenuKeys, isAdmin } = useAuth();
+  const destination =
+    getFirstAllowedMenuPath(allowedMenuKeys) ??
+    (isAdmin ? "/manage_users" : null);
+
+  return (
+    <Center mih="100vh" px="md">
+      <Paper p="xl" radius="lg" shadow="sm" withBorder>
+        <Stack gap="sm" ta="center">
+          <Text c="dimmed" fw={700} size="sm" tt="uppercase">
+            Access restricted
+          </Text>
+          <Title order={1}>No menu access</Title>
+          <Text c="dimmed" maw={460}>
+            Your role does not currently have access to this area. Contact a
+            SuperAdmin if your responsibilities have changed.
+          </Text>
+          {destination ? (
+            <Anchor component={Link} fw={600} to={destination}>
+              Open an available area
+            </Anchor>
+          ) : null}
+        </Stack>
+      </Paper>
+    </Center>
+  );
+}
+
 function ProtectedRoute({ children }: { children: ReactElement }) {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <Center mih="100vh">
-        <Loader color="indigo" size="lg" />
-      </Center>
-    );
+    return <LoadingPage />;
   }
 
   if (!isAuthenticated) {
@@ -48,15 +84,38 @@ function ProtectedRoute({ children }: { children: ReactElement }) {
   return children;
 }
 
-function AdminRoute({ children }: { children: ReactElement }) {
-  const { isAdmin, isAuthenticated, isLoading } = useAuth();
+function MenuRoute({
+  children,
+  menuKey,
+}: {
+  children: ReactElement;
+  menuKey: AuthMenuKey;
+}) {
+  const { allowedMenuKeys, isAdmin, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <Center mih="100vh">
-        <Loader color="indigo" size="lg" />
-      </Center>
-    );
+    return <LoadingPage />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate replace to="/" />;
+  }
+
+  if (!allowedMenuKeys.includes(menuKey)) {
+    const destination =
+      getFirstAllowedMenuPath(allowedMenuKeys) ??
+      (isAdmin ? "/manage_users" : "/access-denied");
+    return <Navigate replace to={destination} />;
+  }
+
+  return children;
+}
+
+function AdminRoute({ children }: { children: ReactElement }) {
+  const { allowedMenuKeys, isAdmin, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <LoadingPage />;
   }
 
   if (!isAuthenticated) {
@@ -64,25 +123,66 @@ function AdminRoute({ children }: { children: ReactElement }) {
   }
 
   if (!isAdmin) {
-    return <Navigate replace to="/quote_dashboard" />;
+    return (
+      <Navigate
+        replace
+        to={getFirstAllowedMenuPath(allowedMenuKeys) ?? "/access-denied"}
+      />
+    );
+  }
+
+  return children;
+}
+
+function SuperAdminRoute({ children }: { children: ReactElement }) {
+  const {
+    allowedMenuKeys,
+    isAdmin,
+    isAuthenticated,
+    isLoading,
+    isSuperAdmin,
+  } = useAuth();
+
+  if (isLoading) {
+    return <LoadingPage />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate replace to="/" />;
+  }
+
+  if (!isSuperAdmin) {
+    return (
+      <Navigate
+        replace
+        to={
+          getFirstAllowedMenuPath(allowedMenuKeys) ??
+          (isAdmin ? "/manage_users" : "/access-denied")
+        }
+      />
+    );
   }
 
   return children;
 }
 
 function PublicOnlyRoute({ children }: { children: ReactElement }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { allowedMenuKeys, isAdmin, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <Center mih="100vh">
-        <Loader color="indigo" size="lg" />
-      </Center>
-    );
+    return <LoadingPage />;
   }
 
   if (isAuthenticated) {
-    return <Navigate replace to="/quote_dashboard" />;
+    return (
+      <Navigate
+        replace
+        to={
+          getFirstAllowedMenuPath(allowedMenuKeys) ??
+          (isAdmin ? "/manage_users" : "/access-denied")
+        }
+      />
+    );
   }
 
   return children;
@@ -102,9 +202,9 @@ function AppRoutes() {
       <Route
         path="/quote_dashboard"
         element={
-          <ProtectedRoute>
+          <MenuRoute menuKey="quote">
             <AttritionDashboard />
-          </ProtectedRoute>
+          </MenuRoute>
         }
       />
       <Route
@@ -118,15 +218,15 @@ function AppRoutes() {
       <Route
         path="/policy"
         element={
-          <ProtectedRoute>
+          <MenuRoute menuKey="policy">
             <PolicyDashboard />
-          </ProtectedRoute>
+          </MenuRoute>
         }
       />
       <Route
         path="/renewals"
         element={
-          <ProtectedRoute>
+          <MenuRoute menuKey="renewals">
             <FeaturePlaceholderDashboard
               description="Surface renewal pipeline, retention pressure, and upcoming renewal cohorts so teams can see where conversion and renewal risk are building."
               focusAreas={[
@@ -137,14 +237,30 @@ function AppRoutes() {
               note="Renewals should become the retention view that explains what portion of the book is being defended, saved, or lost."
               title="Renewals Dashboard"
             />
-          </ProtectedRoute>
+          </MenuRoute>
         }
       />
       <Route
         path="/reports"
         element={
-          <ProtectedRoute>
+          <MenuRoute menuKey="reports">
             <Reports />
+          </MenuRoute>
+        }
+      />
+      <Route
+        path="/role_menu_access"
+        element={
+          <SuperAdminRoute>
+            <RoleMenuAccess />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/access-denied"
+        element={
+          <ProtectedRoute>
+            <AccessDeniedPage />
           </ProtectedRoute>
         }
       />

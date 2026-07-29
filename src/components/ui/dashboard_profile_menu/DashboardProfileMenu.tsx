@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   FaArrowRightFromBracket,
   FaDatabase,
   FaFilter,
+  FaShieldHalved,
   FaUsers,
 } from "react-icons/fa6";
+import { useAuth } from "../../../context/AuthContext";
 import type { PremiumCurrencyCode } from "../../features/Attrition/data";
 import type { SelectionOption } from "../../features/Attrition/dashboardState";
 import type { TrendSeriesKey } from "../../features/Attrition/QuotePerformance/types";
@@ -142,6 +145,9 @@ const DashboardProfileMenu: React.FC<DashboardProfileMenuProps> = ({
   showRunEtlControl = true,
   userManagementActive = false,
 }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { isSuperAdmin } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -237,6 +243,25 @@ const DashboardProfileMenu: React.FC<DashboardProfileMenuProps> = ({
             </button>
           ) : null}
 
+          {isSuperAdmin ? (
+            <button
+              className={`${style.actionButton} ${
+                location.pathname === "/role_menu_access"
+                  ? style.actionButtonActive
+                  : ""
+              }`}
+              onClick={() => {
+                setIsOpen(false);
+                setShowFilters(false);
+                navigate("/role_menu_access");
+              }}
+              role="menuitem"
+              type="button"
+            >
+              <FaShieldHalved aria-hidden="true" />
+              <span>Role Menu Access</span>
+            </button>
+          ) : null}
           {showRunEtlControl ? (
             <button
               className={`${style.actionButton} ${

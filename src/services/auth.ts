@@ -1,16 +1,39 @@
-export type AuthUserRole = "admin" | "user";
+export type AuthUserRole =
+  | "mis"
+  | "admin"
+  | "super_admin"
+  | "marketing"
+  | "biz_dev"
+  | "exec_user";
 
+export type AuthMenuKey = "quote" | "policy" | "renewals" | "reports";
+
+export interface RoleMenuPermissions {
+  allowed_menus: AuthMenuKey[];
+  role: AuthUserRole;
+}
 export interface AuthUser {
   created_at: string;
   email: string;
   full_name: string;
   id: string;
   is_email_verified: boolean;
+  must_change_password: boolean;
+  password_changed_at: string | null;
   role: AuthUserRole;
+  updated_at: string | null;
 }
 
-interface AuthResponse {
+export interface AuthResponse {
   access_token: string;
+  token_type: "bearer";
+  user: AuthUser;
+}
+
+export interface LoginResponse {
+  access_token: string | null;
+  password_change_required: boolean;
+  password_change_token: string | null;
   token_type: "bearer";
   user: AuthUser;
 }
@@ -18,6 +41,25 @@ interface AuthResponse {
 interface LoginPayload {
   email: string;
   password: string;
+}
+
+export interface CreateUserPayload {
+  email: string;
+  full_name: string;
+  password: string;
+  role: AuthUserRole;
+}
+
+export interface UpdateUserPayload {
+  email: string;
+  full_name: string;
+  role: AuthUserRole;
+}
+
+interface RequiredPasswordChangePayload {
+  confirm_password: string;
+  new_password: string;
+  password_change_token: string;
 }
 
 const AUTH_TOKEN_STORAGE_KEY = "authToken";
@@ -28,8 +70,7 @@ const API_V1_BASE_URL =
   import.meta.env.VITE_API_V1_BASE_URL?.replace(/\/+$/, "") ??
   "http://127.0.0.1:8000/api/v1";
 
-export const isAuthenticationErrorStatus = (status: number) =>
-  status === 401 || status === 403;
+export const isAuthenticationErrorStatus = (status: number) => status === 401;
 
 export const dispatchSessionExpiredEvent = () => {
   if (typeof window === "undefined") {
@@ -186,15 +227,85 @@ const authenticatedFetch = async (
 };
 
 export const authService = {
+  changeRequiredPassword: async (
+    payload: RequiredPasswordChangePayload,
+  ): Promise<AuthResponse> => {
+    const response = await authenticatedFetch("/auth/change-required-password", {
+      body: JSON.stringify(payload),
+      method: "POST",
+    });
+    return (await response.json()) as AuthResponse;
+  },
+  createUser: async (payload: CreateUserPayload): Promise<AuthUser> => {
+    const response = await authenticatedFetch("/auth/users", {
+      body: JSON.stringify(payload),
+      method: "POST",
+    });
+    return (await response.json()) as AuthUser;
+  },
+  deleteUser: async (userId: string): Promise<void> => {
+    await authenticatedFetch(`/auth/users/${encodeURIComponent(userId)}`, {
+      method: "DELETE",
+    });
+  },
   getCurrentUser: async (token?: string): Promise<AuthUser> => {
     const response = await authenticatedFetch("/auth/me", { method: "GET" }, token);
     return (await response.json()) as AuthUser;
   },
-  login: async ({ email, password }: LoginPayload): Promise<AuthResponse> => {
+  getMenuPermissions: async (token?: string): Promise<RoleMenuPermissions> => {
+    const response = await authenticatedFetch(
+      "/auth/menu-permissions",
+      { method: "GET" },
+      token,
+    );
+    return (await response.json()) as RoleMenuPermissions;
+  },
+  listRoleMenuPermissions: async (): Promise<RoleMenuPermissions[]> => {
+    const response = await authenticatedFetch("/auth/role-menu-permissions", {
+      method: "GET",
+    });
+    return (await response.json()) as RoleMenuPermissions[];
+  },  listUsers: async (): Promise<AuthUser[]> => {
+    const response = await authenticatedFetch("/auth/users", { method: "GET" });
+    return (await response.json()) as AuthUser[];
+  },
+  login: async ({ email, password }: LoginPayload): Promise<LoginResponse> => {
     const response = await authenticatedFetch("/auth/login", {
       body: JSON.stringify({ email, password }),
       method: "POST",
     });
-    return (await response.json()) as AuthResponse;
+    return (await response.json()) as LoginResponse;
+  },
+  requestPasswordChange: async (userId: string): Promise<AuthUser> => {
+    const response = await authenticatedFetch(
+      `/auth/users/${encodeURIComponent(userId)}/require-password-change`,
+      { method: "POST" },
+    );
+    return (await response.json()) as AuthUser;
+  },
+  updateRoleMenuPermissions: async (
+    role: AuthUserRole,
+    allowedMenus: AuthMenuKey[],
+  ): Promise<RoleMenuPermissions> => {
+    const response = await authenticatedFetch(
+      `/auth/role-menu-permissions/${encodeURIComponent(role)}`,
+      {
+        body: JSON.stringify({ allowed_menus: allowedMenus }),
+        method: "PUT",
+      },
+    );
+    return (await response.json()) as RoleMenuPermissions;
+  },  updateUser: async (
+    userId: string,
+    payload: UpdateUserPayload,
+  ): Promise<AuthUser> => {
+    const response = await authenticatedFetch(
+      `/auth/users/${encodeURIComponent(userId)}`,
+      {
+        body: JSON.stringify(payload),
+        method: "PUT",
+      },
+    );
+    return (await response.json()) as AuthUser;
   },
 };

@@ -1,14 +1,17 @@
 import clsx from "clsx";
-import { useEffect, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { NavLink } from "react-router-dom";
 import type { IconType } from "react-icons";
 import { FaChevronRight } from "react-icons/fa6";
+import { useAuth } from "../../../context/AuthContext";
+import type { AuthMenuKey } from "../../../services/auth";
 import style from "./Menu.module.css";
 
 export interface DashboardMenuItem {
   end?: boolean;
   icon: IconType;
   label: string;
+  permissionKey?: AuthMenuKey;
   to: string;
 }
 
@@ -20,11 +23,12 @@ interface MenuProps {
 
 const Menu: React.FC<MenuProps> = ({ className, inline = false, items }) => {
   const [expanded, setExpanded] = useState(false);
-  const location = useLocation();
 
-  useEffect(() => {
-    setExpanded(false);
-  }, [location.pathname]);
+  const { allowedMenuKeys } = useAuth();
+  const visibleItems = items.filter(
+    ({ permissionKey }) =>
+      !permissionKey || allowedMenuKeys.includes(permissionKey),
+  );
 
   const handleNavigate = () => {
     setExpanded(false);
@@ -58,7 +62,7 @@ const Menu: React.FC<MenuProps> = ({ className, inline = false, items }) => {
         </button>
 
         <ul className={style.list}>
-          {items.map(({ end, icon: Icon, label, to }) => (
+          {visibleItems.map(({ end, icon: Icon, label, to }) => (
             <li className={style.listItem} key={to}>
               <NavLink
                 className={({ isActive }) =>

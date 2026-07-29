@@ -1,12 +1,7 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-} from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Alert, Modal, PasswordInput } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
-import { FaAngleDown, FaCheck } from "react-icons/fa6";
+import { RiAlertLine, RiLockPasswordLine } from "react-icons/ri";
 import Card from "../components/ui/card/Card";
 import Table, { type TableColumn } from "../components/ui/table/Table";
 import DashboardLayout from "../components/layout/DashboardLayout/DashboardLayout";
@@ -21,257 +16,404 @@ import {
 } from "../components/features/Attrition/dashboardState";
 import type { PremiumCurrencyCode } from "../components/features/Attrition/data";
 import type { TrendSeriesKey } from "../components/features/Attrition/QuotePerformance/types";
-import style from "./page_css/ManageUsers.module.css";
 import { useAuth } from "../context/AuthContext";
+import {
+  authService,
+  type AuthUser,
+  type AuthUserRole,
+} from "../services/auth";
 import { getUserNameParts } from "../utils/auth";
+import style from "./page_css/ManageUsers.module.css";
 
-type UserRole = "Admin" | "Analyst" | "Executive" | "Viewer";
-type UserStatus = "Active" | "Password change required";
+const roleLabels: Record<AuthUserRole, string> = {
+  mis: "MIS",
+  admin: "Admin",
+  super_admin: "SuperAdmin",
+  marketing: "Marketing",
+  biz_dev: "BizDev",
+  exec_user: "ExecUser",
+};
 
-interface UserRow {
-  email: string;
-  id: string;
-  name: string;
-  role: UserRole;
-  status: UserStatus;
-  updatedAt: string;
-}
-
-const roleOptions: UserRole[] = ["Admin", "Analyst", "Executive", "Viewer"];
-
-const initialUsers: UserRow[] = [
-  {
-    email: "chidi.duru@company.com",
-    id: "usr-1",
-    name: "Chidi Duru",
-    role: "Admin",
-    status: "Active",
-    updatedAt: "21 Jun 2026",
-  },
-  {
-    email: "amara.okafor@company.com",
-    id: "usr-2",
-    name: "Amara Okafor",
-    role: "Executive",
-    status: "Active",
-    updatedAt: "19 Jun 2026",
-  },
-  {
-    email: "liam.kelly@company.com",
-    id: "usr-3",
-    name: "Liam Kelly",
-    role: "Analyst",
-    status: "Password change required",
-    updatedAt: "20 Jun 2026",
-  },
-  {
-    email: "olivia.stone@company.com",
-    id: "usr-4",
-    name: "Olivia Stone",
-    role: "Viewer",
-    status: "Active",
-    updatedAt: "18 Jun 2026",
-  },
+const allRoleOptions: AuthUserRole[] = [
+  "mis",
+  "admin",
+  "super_admin",
+  "marketing",
+  "biz_dev",
+  "exec_user",
+];
+const adminVisibleRoleOptions: AuthUserRole[] = [
+  "mis",
+  "admin",
+  "marketing",
+  "biz_dev",
+  "exec_user",
 ];
 
-const formatToday = () =>
-  new Intl.DateTimeFormat("en-GB", {
+const passwordStyles = {
+  input: {
+    background: "rgba(255, 255, 255, 0.035)",
+    border: "1px solid rgba(107, 99, 117, 0.18)",
+    color: "#f5f7ff",
+    minHeight: "2.9rem",
+  },
+  label: {
+    color: "rgba(203, 211, 230, 0.76)",
+    fontSize: "0.74rem",
+    fontWeight: 600,
+  },
+};
+
+const formatDate = (value: string | null | undefined) => {
+  if (!value) {
+    return "Not yet";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "Unknown";
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  }).format(new Date());
+  }).format(parsed);
+};
+
+const sortUsers = (users: AuthUser[]) =>
+  [...users].sort((left, right) =>
+    left.full_name.localeCompare(right.full_name, undefined, {
+      sensitivity: "base",
+    }),
+  );
 
 const ManageUsers: React.FC = () => {
   const navigate = useNavigate();
-  const { isAdmin, logout, user } = useAuth();
-  const [users, setUsers] = useState<UserRow[]>(initialUsers);
+  const { isAdmin, isSuperAdmin, logout, user } = useAuth();
+  const [users, setUsers] = useState<AuthUser[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [pageError, setPageError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busyUserId, setBusyUserId] = useState<string | null>(null);
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<UserRole>("Analyst");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState<AuthUserRole>("exec_user");
   const [formError, setFormError] = useState("");
-  const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
-  const roleMenuRef = useRef<HTMLDivElement | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
-  const totalAdmins = useMemo(
-    () => users.filter((user) => user.role === "Admin").length,
+  const [editingUser, setEditingUser] = useState<AuthUser | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editRole, setEditRole] = useState<AuthUserRole>("exec_user");
+  const [editError, setEditError] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [deletingUser, setDeletingUser] = useState<AuthUser | null>(null);
+
+
+  const roleOptions = isSuperAdmin ? allRoleOptions : adminVisibleRoleOptions;
+  const privilegedUsers = useMemo(
+    () =>
+      users.filter((entry) => ["admin", "super_admin"].includes(entry.role))
+        .length,
     [users],
   );
   const passwordRequests = useMemo(
-    () =>
-      users.filter((user) => user.status === "Password change required").length,
+    () => users.filter((entry) => entry.must_change_password).length,
     [users],
   );
   const { firstName, lastName } = getUserNameParts(user);
 
   useEffect(() => {
-    if (!isRoleMenuOpen) {
-      return;
-    }
+    let isActive = true;
 
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!roleMenuRef.current?.contains(event.target as Node)) {
-        setIsRoleMenuOpen(false);
-      }
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsRoleMenuOpen(false);
-      }
-    };
-
-    window.addEventListener("mousedown", handlePointerDown);
-    window.addEventListener("keydown", handleKeyDown);
+    void authService
+      .listUsers()
+      .then((systemUsers) => {
+        if (isActive) {
+          setUsers(sortUsers(systemUsers));
+        }
+      })
+      .catch((error) => {
+        if (isActive) {
+          setPageError(
+            error instanceof Error
+              ? error.message
+              : "Unable to load system users.",
+          );
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      });
 
     return () => {
-      window.removeEventListener("mousedown", handlePointerDown);
-      window.removeEventListener("keydown", handleKeyDown);
+      isActive = false;
     };
-  }, [isRoleMenuOpen]);
+  }, []);
 
-  const requestPasswordChange = (id: string) => {
+
+  const canManage = (target: AuthUser) => {
+    if (!user || target.id === user.id) {
+      return false;
+    }
+    if (isSuperAdmin) {
+      return true;
+    }
+    return (
+      user.role === "admin" &&
+      !["admin", "super_admin"].includes(target.role)
+    );
+  };
+
+  const replaceUser = (updatedUser: AuthUser) => {
     setUsers((current) =>
-      current.map((user) =>
-        user.id === id
-          ? {
-              ...user,
-              status: "Password change required",
-              updatedAt: formatToday(),
-            }
-          : user,
+      sortUsers(
+        current.map((entry) =>
+          entry.id === updatedUser.id ? updatedUser : entry,
+        ),
       ),
     );
   };
 
-  const deleteUser = (id: string) => {
-    const targetUser = users.find((user) => user.id === id);
-    if (!targetUser) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Delete ${targetUser.name} from user access?`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setUsers((current) => current.filter((user) => user.id !== id));
-  };
-
-  const handleAddUser = (event: FormEvent<HTMLFormElement>) => {
+  const handleAddUser = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedName = name.trim();
     const normalizedEmail = email.trim().toLowerCase();
+    setFormError("");
+    setNotice("");
 
     if (!normalizedName || !normalizedEmail) {
-      setFormError("Name and email are required.");
+      setFormError("Full name and email are required.");
+      return;
+    }
+    if (password.length < 8) {
+      setFormError("The temporary password must contain at least 8 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setFormError("Temporary password confirmation does not match.");
       return;
     }
 
-    if (!/.+@.+\..+/.test(normalizedEmail)) {
-      setFormError("Enter a valid email address.");
-      return;
-    }
-
-    if (
-      users.some((user) => user.email.toLowerCase() === normalizedEmail)
-    ) {
-      setFormError("That email already exists.");
-      return;
-    }
-
-    setUsers((current) => [
-      {
+    setIsCreating(true);
+    try {
+      const createdUser = await authService.createUser({
         email: normalizedEmail,
-        id: `usr-${Date.now()}`,
-        name: normalizedName,
+        full_name: normalizedName,
+        password,
         role,
-        status: "Password change required",
-        updatedAt: formatToday(),
-      },
-      ...current,
-    ]);
-    setName("");
-    setEmail("");
-    setRole("Analyst");
-    setIsRoleMenuOpen(false);
-    setFormError("");
+      });
+      setUsers((current) => sortUsers([...current, createdUser]));
+      setName("");
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+      setRole("exec_user");
+      setNotice(
+        `${createdUser.full_name} was created and must change their password at first sign-in.`,
+      );
+    } catch (error) {
+      setFormError(
+        error instanceof Error ? error.message : "Unable to create the user.",
+      );
+    } finally {
+      setIsCreating(false);
+    }
   };
 
-  const columns: TableColumn<UserRow>[] = [
+  const openEditModal = (target: AuthUser) => {
+    setEditingUser(target);
+    setEditName(target.full_name);
+    setEditEmail(target.email);
+    setEditRole(target.role);
+    setEditError("");
+  };
+
+  const handleUpdateUser = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingUser) {
+      return;
+    }
+
+    setEditError("");
+    setNotice("");
+    setIsUpdating(true);
+    try {
+      const updatedUser = await authService.updateUser(editingUser.id, {
+        email: editEmail.trim().toLowerCase(),
+        full_name: editName.trim(),
+        role: editRole,
+      });
+      replaceUser(updatedUser);
+      setEditingUser(null);
+      setNotice(`${updatedUser.full_name}'s account was updated.`);
+    } catch (error) {
+      setEditError(
+        error instanceof Error ? error.message : "Unable to update the user.",
+      );
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handlePasswordChangeRequest = async (target: AuthUser) => {
+    setBusyUserId(target.id);
+    setPageError("");
+    setNotice("");
+    try {
+      const updatedUser = await authService.requestPasswordChange(target.id);
+      replaceUser(updatedUser);
+      setNotice(
+        `${updatedUser.full_name} must change their password at next sign-in.`,
+      );
+    } catch (error) {
+      setPageError(
+        error instanceof Error
+          ? error.message
+          : "Unable to request a password change.",
+      );
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deletingUser) {
+      return;
+    }
+
+    const target = deletingUser;
+    setBusyUserId(target.id);
+    setPageError("");
+    setNotice("");
+    try {
+      await authService.deleteUser(target.id);
+      setUsers((current) => current.filter((entry) => entry.id !== target.id));
+      setDeletingUser(null);
+      setNotice(`${target.full_name} was removed from the system.`);
+    } catch (error) {
+      setPageError(
+        error instanceof Error ? error.message : "Unable to delete the user.",
+      );
+    } finally {
+      setBusyUserId(null);
+    }
+  };
+
+  const columns: TableColumn<AuthUser>[] = [
     {
       header: "User",
       isRowHeader: true,
-      key: "name",
+      key: "user",
       render: (row) => (
         <div className={style.userCell}>
-          <span className={style.userName}>{row.name}</span>
-          <span className={style.userEmailMobile}>{row.email}</span>
+          <span className={style.userName}>
+            {row.full_name}
+            {row.id === user?.id ? (
+              <span className={style.currentUserLabel}>You</span>
+            ) : null}
+          </span>
+          <span className={style.userEmail}>{row.email}</span>
         </div>
       ),
-      width: "20%",
-    },
-    {
-      header: "Email",
-      key: "email",
-      render: (row) => <span className={style.emailCell}>{row.email}</span>,
-      width: "24%",
+      width: "25%",
     },
     {
       header: "Role",
       key: "role",
-      render: (row) => <span className={style.roleBadge}>{row.role}</span>,
+      render: (row) => (
+        <span
+          className={`${style.roleBadge} ${
+            row.role === "super_admin" ? style.superAdminBadge : ""
+          }`}
+        >
+          {roleLabels[row.role]}
+        </span>
+      ),
       width: "12%",
     },
     {
-      header: "Status",
+      header: "Password Status",
       key: "status",
       render: (row) => (
         <span
           className={`${style.statusBadge} ${
-            row.status === "Password change required"
-              ? style.statusWarning
-              : style.statusActive
+            row.must_change_password ? style.statusWarning : style.statusActive
           }`}
         >
-          {row.status}
+          {row.must_change_password ? "Change required" : "Current"}
         </span>
       ),
-      width: "18%",
+      width: "16%",
     },
     {
-      header: "Updated",
-      key: "updatedAt",
-      render: (row) => <span className={style.updatedCell}>{row.updatedAt}</span>,
-      width: "10%",
+      header: "Created",
+      key: "created",
+      render: (row) => (
+        <span className={style.dateCell}>{formatDate(row.created_at)}</span>
+      ),
+      width: "11%",
+    },
+    {
+      header: "Last Updated",
+      key: "updated",
+      render: (row) => (
+        <span className={style.dateCell}>
+          {formatDate(row.updated_at ?? row.password_changed_at)}
+        </span>
+      ),
+      width: "11%",
     },
     {
       header: "Actions",
       key: "actions",
-      render: (row) => (
-        <div className={style.actionGroup}>
-          <button
-            className={`${style.inlineAction} ${style.inlineActionPrimary}`}
-            disabled={row.status === "Password change required"}
-            onClick={() => requestPasswordChange(row.id)}
-            type="button"
-          >
-            {row.status === "Password change required"
-              ? "Requested"
-              : "Request Password Change"}
-          </button>
-          <button
-            className={`${style.inlineAction} ${style.inlineActionDanger}`}
-            onClick={() => deleteUser(row.id)}
-            type="button"
-          >
-            Delete
-          </button>
-        </div>
-      ),
-      width: "16%",
+      render: (row) => {
+        const isManageable = canManage(row);
+        if (!isManageable) {
+          return (
+            <span className={style.restrictedLabel}>
+              {row.id === user?.id ? "Current account" : "SuperAdmin only"}
+            </span>
+          );
+        }
+
+        const isBusy = busyUserId === row.id;
+        return (
+          <div className={style.actionGroup}>
+            <button
+              className={style.inlineAction}
+              disabled={isBusy}
+              onClick={() => openEditModal(row)}
+              type="button"
+            >
+              Edit
+            </button>
+            <button
+              className={`${style.inlineAction} ${style.inlineActionPrimary}`}
+              disabled={row.must_change_password || isBusy}
+              onClick={() => void handlePasswordChangeRequest(row)}
+              type="button"
+            >
+              {row.must_change_password ? "Requested" : "Request change"}
+            </button>
+            <button
+              className={`${style.inlineAction} ${style.inlineActionDanger}`}
+              disabled={isBusy}
+              onClick={() => setDeletingUser(row)}
+              type="button"
+            >
+              Delete
+            </button>
+          </div>
+        );
+      },
+      width: "25%",
     },
   ];
 
@@ -306,9 +448,22 @@ const ManageUsers: React.FC = () => {
         />
       }
       menuItems={dashboardMenuItems}
+      showDownloadControl={false}
+      showReportingPeriodControl={false}
       title="Manage Users"
     >
       <div className={style.root}>
+        {pageError ? (
+          <Alert color="red" icon={<RiAlertLine />} radius="lg" variant="light">
+            {pageError}
+          </Alert>
+        ) : null}
+        {notice ? (
+          <div className={style.notice} role="status">
+            {notice}
+          </div>
+        ) : null}
+
         <div className={style.topGrid}>
           <Card className={style.formCard}>
             <div className={style.cardHeader}>
@@ -317,95 +472,92 @@ const ManageUsers: React.FC = () => {
                 <h2 className={style.title}>Add User</h2>
               </div>
               <p className={style.copy}>
-                Create a new user, assign a role, and force a password change on
-                first access.
+                Set a temporary password. The user must replace it at first
+                sign-in.
               </p>
             </div>
 
             <form className={style.form} onSubmit={handleAddUser}>
-              <label className={style.field}>
-                <span className={style.fieldLabel}>Full Name</span>
-                <input
-                  className={style.input}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Enter full name"
-                  type="text"
-                  value={name}
+              <div className={style.formGrid}>
+                <label className={style.field}>
+                  <span className={style.fieldLabel}>Full Name</span>
+                  <input
+                    className={style.input}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Enter full name"
+                    required
+                    type="text"
+                    value={name}
+                  />
+                </label>
+
+                <label className={style.field}>
+                  <span className={style.fieldLabel}>Email</span>
+                  <input
+                    className={style.input}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="name@company.com"
+                    required
+                    type="email"
+                    value={email}
+                  />
+                </label>
+
+                <PasswordInput
+                  autoComplete="new-password"
+                  label="Temporary Password"
+                  leftSection={<RiLockPasswordLine />}
+                  onChange={(event) => setPassword(event.currentTarget.value)}
+                  placeholder="Minimum 8 characters"
+                  required
+                  styles={passwordStyles}
+                  value={password}
                 />
-              </label>
 
-              <label className={style.field}>
-                <span className={style.fieldLabel}>Email</span>
-                <input
-                  className={style.input}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="name@company.com"
-                  type="email"
-                  value={email}
+                <PasswordInput
+                  autoComplete="new-password"
+                  label="Confirm Temporary Password"
+                  leftSection={<RiLockPasswordLine />}
+                  onChange={(event) =>
+                    setConfirmPassword(event.currentTarget.value)
+                  }
+                  placeholder="Re-enter temporary password"
+                  required
+                  styles={passwordStyles}
+                  value={confirmPassword}
                 />
-              </label>
 
-              <div className={style.field}>
-                <span className={style.fieldLabel}>Role</span>
-                <div className={style.selectField} ref={roleMenuRef}>
-                  <button
-                    aria-expanded={isRoleMenuOpen}
-                    aria-haspopup="listbox"
-                    className={style.selectTrigger}
-                    onClick={() => setIsRoleMenuOpen((current) => !current)}
-                    type="button"
+                <label className={style.field}>
+                  <span className={style.fieldLabel}>Role</span>
+                  <select
+                    className={style.input}
+                    onChange={(event) =>
+                      setRole(event.target.value as AuthUserRole)
+                    }
+                    value={role}
                   >
-                    <span className={style.selectValue}>{role}</span>
-                    <FaAngleDown
-                      aria-hidden="true"
-                      className={`${style.selectIcon} ${
-                        isRoleMenuOpen ? style.selectIconOpen : ""
-                      }`}
-                    />
-                  </button>
-
-                  <div
-                    className={`${style.selectMenu} ${
-                      isRoleMenuOpen ? style.selectMenuOpen : ""
-                    }`}
-                    role="listbox"
-                  >
-                    {roleOptions.map((option) => {
-                      const isActive = option === role;
-
-                      return (
-                        <button
-                          aria-selected={isActive}
-                          className={`${style.selectOption} ${
-                            isActive ? style.selectOptionActive : ""
-                          }`}
-                          key={option}
-                          onClick={() => {
-                            setRole(option);
-                            setIsRoleMenuOpen(false);
-                          }}
-                          role="option"
-                          type="button"
-                        >
-                          <span>{option}</span>
-                          {isActive ? (
-                            <FaCheck
-                              aria-hidden="true"
-                              className={style.selectOptionCheck}
-                            />
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                    {roleOptions.map((option) => (
+                      <option
+                        disabled={!isSuperAdmin && option === "admin"}
+                        key={option}
+                        value={option}
+                      >
+                        {roleLabels[option]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
 
               {formError ? <p className={style.formError}>{formError}</p> : null}
 
               <div className={style.formActions}>
-                <button className={style.primaryButton} type="submit">
-                  Add User
+                <button
+                  className={style.primaryButton}
+                  disabled={isCreating}
+                  type="submit"
+                >
+                  {isCreating ? "Creating..." : "Add User"}
                 </button>
               </div>
             </form>
@@ -415,11 +567,11 @@ const ManageUsers: React.FC = () => {
             <div className={style.cardHeader}>
               <div>
                 <p className={style.eyebrow}>Access Summary</p>
-                <h2 className={style.title}>User Access</h2>
+                <h2 className={style.title}>System Accounts</h2>
               </div>
               <p className={style.copy}>
-                Review the size of the access list and where password-change
-                requests are currently outstanding.
+                Every account stored in the application user table is included
+                below.
               </p>
             </div>
 
@@ -429,11 +581,11 @@ const ManageUsers: React.FC = () => {
                 <strong className={style.summaryValue}>{users.length}</strong>
               </div>
               <div className={style.summaryMetric}>
-                <span className={style.summaryLabel}>Admins</span>
-                <strong className={style.summaryValue}>{totalAdmins}</strong>
+                <span className={style.summaryLabel}>Privileged Accounts</span>
+                <strong className={style.summaryValue}>{privilegedUsers}</strong>
               </div>
               <div className={style.summaryMetric}>
-                <span className={style.summaryLabel}>Password Requests</span>
+                <span className={style.summaryLabel}>Password Changes</span>
                 <strong className={style.summaryValue}>{passwordRequests}</strong>
               </div>
             </div>
@@ -446,21 +598,138 @@ const ManageUsers: React.FC = () => {
               <p className={style.eyebrow}>Access Register</p>
               <h2 className={style.tableTitle}>Users and Roles</h2>
             </div>
+            <span className={style.tableCount}>
+              {isLoading ? "Loading..." : `${users.length} accounts`}
+            </span>
           </div>
 
-          <Table
-            className={style.tableRegion}
-            columns={columns}
-            layout="fixed"
-            minWidth="72rem"
-            mobileMinWidth="72rem"
-            rowKey={(row) => row.id}
-            rows={users}
-            size="small"
-            stickySpacerWidth="0.55rem"
-          />
+          {isLoading ? (
+            <div className={style.loadingState}>Loading system users...</div>
+          ) : (
+            <Table
+              className={style.tableRegion}
+              columns={columns}
+              layout="fixed"
+              minWidth="76rem"
+              mobileMinWidth="76rem"
+              rowKey={(row) => row.id}
+              rows={users}
+              size="small"
+              stickySpacerWidth="0.55rem"
+            />
+          )}
         </Card>
       </div>
+
+      <Modal
+        centered
+        classNames={{
+          body: style.modalBody,
+          content: style.modalContent,
+          header: style.modalHeader,
+          title: style.modalTitle,
+        }}
+        onClose={() => setEditingUser(null)}
+        opened={Boolean(editingUser)}
+        title="Edit User"
+      >
+        <form className={style.form} onSubmit={handleUpdateUser}>
+          <label className={style.field}>
+            <span className={style.fieldLabel}>Full Name</span>
+            <input
+              className={style.input}
+              onChange={(event) => setEditName(event.target.value)}
+              required
+              type="text"
+              value={editName}
+            />
+          </label>
+          <label className={style.field}>
+            <span className={style.fieldLabel}>Email</span>
+            <input
+              className={style.input}
+              onChange={(event) => setEditEmail(event.target.value)}
+              required
+              type="email"
+              value={editEmail}
+            />
+          </label>
+          <label className={style.field}>
+            <span className={style.fieldLabel}>Role</span>
+            <select
+              className={style.input}
+              onChange={(event) =>
+                setEditRole(event.target.value as AuthUserRole)
+              }
+              value={editRole}
+            >
+              {roleOptions.map((option) => (
+                <option
+                  disabled={!isSuperAdmin && option === "admin"}
+                  key={option}
+                  value={option}
+                >
+                  {roleLabels[option]}
+                </option>
+              ))}
+            </select>
+          </label>
+          {editError ? <p className={style.formError}>{editError}</p> : null}
+          <div className={style.modalActions}>
+            <button
+              className={style.secondaryButton}
+              disabled={isUpdating}
+              onClick={() => setEditingUser(null)}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className={style.primaryButton}
+              disabled={isUpdating}
+              type="submit"
+            >
+              {isUpdating ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        centered
+        classNames={{
+          body: style.modalBody,
+          content: style.modalContent,
+          header: style.modalHeader,
+          title: style.modalTitle,
+        }}
+        onClose={() => setDeletingUser(null)}
+        opened={Boolean(deletingUser)}
+        title="Delete User"
+      >
+        <p className={style.modalCopy}>
+          Delete <strong>{deletingUser?.full_name}</strong> from the system? This
+          immediately removes their access and cannot be undone.
+        </p>
+        <div className={style.modalActions}>
+          <button
+            className={style.secondaryButton}
+            disabled={Boolean(busyUserId)}
+            onClick={() => setDeletingUser(null)}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className={style.dangerButton}
+            disabled={Boolean(busyUserId)}
+            onClick={() => void handleDeleteUser()}
+            type="button"
+          >
+            {busyUserId ? "Deleting..." : "Delete User"}
+          </button>
+        </div>
+      </Modal>
     </DashboardLayout>
   );
 };
