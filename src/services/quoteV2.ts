@@ -470,7 +470,7 @@ export const downloadQuoteProductPerformance = async ({
   const downloadUrl = window.URL.createObjectURL(blob);
   const resolvedFilename = filenameFromContentDisposition(
     response.headers.get("content-disposition"),
-    filename || `quote_product_performance_source_${startDate}_to_${endDate}.csv`,
+    filename || `quote_volume_by_product_raw_data_${startDate}_to_${endDate}.csv`,
   );
   const anchor = document.createElement("a");
 

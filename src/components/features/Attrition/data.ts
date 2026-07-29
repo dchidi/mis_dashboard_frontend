@@ -165,13 +165,11 @@ export interface ProductPerformanceDatum {
   quotedVolume: number;
 }
 
-export type ProductMetricTabKey = "value" | "volume";
-
 export interface ProductPerformanceRowData {
   fillPercent: number;
   metaDisplay: string;
   metricDisplay: string;
-  petType?: string;
+  petType: string;
   product: string;
   rankLabel: string;
 }
@@ -184,7 +182,6 @@ export interface ProductPerformanceViewData {
 }
 
 export interface ProductPerformanceCardData {
-  value: MetricKeyed<ProductPerformanceViewData>;
   volume: MetricKeyed<ProductPerformanceViewData>;
 }
 

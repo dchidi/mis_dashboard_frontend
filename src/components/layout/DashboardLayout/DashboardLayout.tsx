@@ -19,6 +19,7 @@ interface DashboardLayoutProps {
   onDownload?: () => void;
   onReportingPeriodChange?: (value: DashboardDateRange) => void;
   reportingPeriod?: DashboardDateRange;
+  showDownloadControl?: boolean;
   showReportingPeriodControl?: boolean;
   title?: string;
 }
@@ -32,6 +33,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   onDownload,
   onReportingPeriodChange,
   reportingPeriod,
+  showDownloadControl = true,
   showReportingPeriodControl = true,
   title,
 }) => {
@@ -69,15 +71,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 variant="compact"
               />
             ) : null}
-            <button
-              aria-label={downloadAriaLabel}
-              className={style.iconButton}
-              disabled={downloadDisabled}
-              onClick={onDownload}
-              type="button"
-            >
-              <RiDownloadCloud2Line />
-            </button>
+            {showDownloadControl ? (
+              <button
+                aria-label={downloadAriaLabel}
+                className={style.iconButton}
+                disabled={downloadDisabled}
+                onClick={onDownload}
+                type="button"
+              >
+                <RiDownloadCloud2Line />
+              </button>
+            ) : null}
             {headerProfile ? (
               <div className={style.profileSlot}>{headerProfile}</div>
             ) : null}

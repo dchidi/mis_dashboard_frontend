@@ -1,11 +1,7 @@
-import { useState, type CSSProperties } from "react";
+import { type CSSProperties } from "react";
 import { RiDownloadCloud2Line } from "react-icons/ri";
 import Card from "../../../ui/card/Card";
-import SegmentedTabs from "../../../ui/segmented_tabs";
-import {
-  type ProductMetricTabKey,
-  type ProductPerformanceCardData,
-} from "../data";
+import { type ProductPerformanceCardData } from "../data";
 import type { TrendSeriesKey } from "../QuotePerformance/types";
 import type { AttritionComponentProps } from "../type";
 import style from "./ProductPerformance.module.css";
@@ -18,11 +14,6 @@ interface ProductPerformanceProps extends AttritionComponentProps {
   onDownload?: () => void;
 }
 
-const productMetricTabs = [
-  { key: "volume" as const, label: "Volume" },
-  { key: "value" as const, label: "Value" },
-];
-
 const ProductPerformance: React.FC<ProductPerformanceProps> = ({
   activeTrendSeriesKey,
   className,
@@ -31,8 +22,7 @@ const ProductPerformance: React.FC<ProductPerformanceProps> = ({
   isDownloadInProgress = false,
   onDownload,
 }) => {
-  const [activeTab, setActiveTab] = useState<ProductMetricTabKey>("volume");
-  const activeView = data?.[activeTab]?.[activeTrendSeriesKey];
+  const activeView = data?.volume?.[activeTrendSeriesKey];
 
   if (!activeView) {
     return null;
@@ -58,13 +48,13 @@ const ProductPerformance: React.FC<ProductPerformanceProps> = ({
               <button
                 aria-label={
                   isDownloadInProgress
-                    ? "Downloading product performance source data"
-                    : "Download product performance source data"
+                    ? "Downloading quote volume raw data"
+                    : "Download quote volume raw data"
                 }
                 className={style.downloadButton}
                 disabled={downloadDisabled || isDownloadInProgress}
                 onClick={onDownload}
-                title="Download product performance source data"
+                title="Download quote volume raw data"
                 type="button"
               >
                 <RiDownloadCloud2Line className={style.downloadButtonIcon} />
@@ -73,37 +63,21 @@ const ProductPerformance: React.FC<ProductPerformanceProps> = ({
           </div>
         </div>
 
-        <SegmentedTabs
-          accentRgb={activeView.accentRgb}
-          activeKey={activeTab}
-          ariaLabel="Product ranking views"
-          idBase="product-performance"
-          onChange={(key) => setActiveTab(key as ProductMetricTabKey)}
-          options={productMetricTabs}
-        />
-
-        <section
-          aria-labelledby={`product-performance-tab-${activeTab}`}
-          className={style.panelBody}
-          id={`product-performance-panel-${activeTab}`}
-          role="tabpanel"
-        >
+        <section className={style.panelBody}>
           <div className={style.panelContent}>
             <div className={style.list}>
               {activeView.rows.map((row) => (
                 <div
                   className={style.row}
-                  key={`${row.product}-${row.petType ?? ""}`}
-                  title={`${row.product}${row.petType ? ` (${row.petType})` : ""}: ${row.metricDisplay}`}
+                  key={`${row.product}-${row.petType}`}
+                  title={`${row.product} (${row.petType}): ${row.metricDisplay}`}
                 >
                   <div className={style.rowTop}>
                     <div className={style.identity}>
                       <span className={style.rank}>{row.rankLabel}</span>
                       <div className={style.identityText}>
                         <span className={style.productName}>{row.product}</span>
-                        {row.petType ? (
-                          <span className={style.petTypeTag}>{row.petType}</span>
-                        ) : null}
+                        <span className={style.petType}>{row.petType}</span>
                       </div>
                     </div>
 

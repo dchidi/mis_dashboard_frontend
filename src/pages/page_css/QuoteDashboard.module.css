@@ -1,25 +1,50 @@
 .root {
+  --dashboard-widget-gap: 10px;
   display: grid;
-  gap: 10px;
+  gap: var(--dashboard-widget-gap);
   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.15fr) minmax(0, 2.35fr);
   min-width: 0;
   padding: 10px;
   width: 100%;
-  align-items: start;
+  align-items: stretch;
 }
 
 .dashboardColumn {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  gap: var(--dashboard-widget-gap);
+  grid-auto-rows: minmax(0, 1fr);
+  min-height: 0;
   min-width: 0;
 }
 
-.section {
+.stackedColumn {
+  align-self: stretch;
+  contain: size;
+}
+
+.middleColumn {
   align-self: start;
-  height: auto;
+}
+
+.performanceColumn {
+  grid-template-rows: minmax(0, 5fr) minmax(0, 3fr);
+}
+
+.section {
+  align-self: stretch;
+  height: 100%;
+  min-height: 0;
   min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   width: 100%;
+}
+
+.middleColumn > .section {
+  height: auto;
+  min-height: auto;
+  overflow-y: visible;
+  overscroll-behavior: auto;
 }
 
 .skeletonCard {
@@ -310,7 +335,11 @@
 }
 
 .promoCard {
+  align-self: start;
   grid-column: 1 / -1;
+  height: auto;
+  overflow-y: visible;
+  overscroll-behavior: auto;
 }
 
 .statusBanner,
@@ -353,12 +382,22 @@
   }
 
   .dashboardColumn {
+    display: flex;
+    flex-direction: column;
     gap: 16px;
+    height: auto;
+  }
+
+  .stackedColumn {
+    contain: none;
   }
 
   .section {
+    align-self: start;
     height: auto;
     min-height: auto;
+    overflow-y: visible;
+    overscroll-behavior: auto;
   }
 
   .skeletonCountryChart {

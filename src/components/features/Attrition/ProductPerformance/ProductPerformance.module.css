@@ -81,7 +81,7 @@
     linear-gradient(180deg, rgba(107, 99, 117, 0.08), rgba(107, 99, 117, 0.04));
   border: 1px solid rgba(107, 99, 117, 0.14);
   border-radius: 1.1rem;
-  min-height: 18.5rem;
+  min-height: 17rem;
   overflow: hidden;
   padding: 1rem;
   position: relative;
@@ -148,17 +148,17 @@
   white-space: nowrap;
 }
 
-.petTypeTag {
-  background: rgba(var(--accent-rgb), 0.14);
+.petType {
+  background: rgba(var(--accent-rgb), 0.12);
   border: 1px solid rgba(var(--accent-rgb), 0.28);
   border-radius: 999px;
-  color: rgba(223, 229, 243, 0.72);
+  color: rgba(177, 202, 246, 0.86);
   flex: 0 0 auto;
-  font-size: 0.65rem;
+  font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 1;
-  padding: 0.24rem 0.45rem;
+  padding: 0.2rem 0.4rem;
   text-transform: uppercase;
 }
 

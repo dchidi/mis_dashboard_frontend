@@ -64,7 +64,6 @@ import {
 } from "./QuotePerformance/helpers";
 import { buildAnalysisContent } from "./QuotePerformance/insights";
 import type { TrendSeriesKey } from "./QuotePerformance/types";
-import { formatCompactCurrency } from "../../../utils/formatters";
 
 export interface QuoteDashboardFilters {
   brands: string[];
@@ -474,9 +473,6 @@ const scaleTrendData = (rows: QuoteTrendDatum[], scaleFactor: number) =>
   });
 
 const formatDays = (value: number) => `${value}d`;
-
-const formatCurrency = (value: number) =>
-  formatCompactCurrency(value, { currencySymbol: "\u00A3" });
 
 const countryAbbreviationMap: Record<string, string> = {
   France: "FR",
@@ -1013,62 +1009,74 @@ const scaleAgentData = (
     quotedVolume: scaleCount(row.quotedVolume, scaleFactor),
   }));
 
-const buildProductPerformanceViewData = (
+type ProductVolumeRow = {
+  convertedVolume: number;
+  petType: string;
+  product: string;
+  quotedVolume: number;
+};
+
+const aggregateProductVolumeRows = (
   rows: ReturnType<typeof scaleProductData>,
+): ProductVolumeRow[] => {
+  const grouped = new Map<string, ProductVolumeRow>();
+
+  rows.forEach((row) => {
+    const petType = row.petType?.trim() || "Uncategorized";
+    const groupKey = `${row.product}\u0000${petType}`;
+    const existing = grouped.get(groupKey) ?? {
+      convertedVolume: 0,
+      petType,
+      product: row.product,
+      quotedVolume: 0,
+    };
+    existing.convertedVolume += row.convertedVolume;
+    existing.quotedVolume += row.quotedVolume;
+    grouped.set(groupKey, existing);
+  });
+
+  return Array.from(grouped.values());
+};
+
+const buildProductPerformanceViewData = (
+  rows: ProductVolumeRow[],
   activeMetricKey: TrendSeriesKey,
-  metricTab: "value" | "volume",
 ): ProductPerformanceViewData => {
   const metricDescriptor = getMetricViewDescriptor(activeMetricKey);
-  const isVolumeTab = metricTab === "volume";
-  const accentRgb = isVolumeTab ? "78, 141, 245" : "212, 117, 88";
-  const totalQuotedMetric = rows.reduce(
-    (sum, row) => sum + (isVolumeTab ? row.quotedVolume : row.quotedValue),
-    0,
-  );
-  const totalConvertedMetric = rows.reduce(
-    (sum, row) => sum + (isVolumeTab ? row.convertedVolume : row.convertedValue),
-    0,
-  );
-  const title = isVolumeTab
-    ? metricDescriptor.productVolumeTitle
-    : metricDescriptor.productValueTitle;
+  const totalQuoted = rows.reduce((sum, row) => sum + row.quotedVolume, 0);
+  const totalConverted = rows.reduce((sum, row) => sum + row.convertedVolume, 0);
   const metricTotal =
-    activeMetricKey === "totalSales" ? totalConvertedMetric : totalQuotedMetric;
+    activeMetricKey === "totalSales" ? totalConverted : totalQuoted;
   const rankedRows = rows
     .map((row) => {
-      const quotedMetric = isVolumeTab ? row.quotedVolume : row.quotedValue;
-      const convertedMetric = isVolumeTab ? row.convertedVolume : row.convertedValue;
-
       if (activeMetricKey === "conversionRate") {
         const conversionRate = Number(
-          ((convertedMetric / Math.max(quotedMetric, 1)) * 100).toFixed(1),
+          ((row.convertedVolume / Math.max(row.quotedVolume, 1)) * 100).toFixed(1),
         );
 
         return {
-          contributionValue: convertedMetric,
+          contributionValue: row.convertedVolume,
           metricDisplay: formatPercent(conversionRate),
           metricValue: conversionRate,
-          metaDisplay: isVolumeTab
-            ? `${formatCount(row.convertedVolume)} / ${formatCount(row.quotedVolume)}`
-            : `${formatCurrency(row.convertedValue)} / ${formatCurrency(row.quotedValue)}`,
+          metaDisplay: `${formatCount(row.convertedVolume)} / ${formatCount(row.quotedVolume)}`,
           petType: row.petType,
           product: row.product,
         };
       }
 
       const metricValue =
-        activeMetricKey === "totalSales" ? convertedMetric : quotedMetric;
+        activeMetricKey === "totalSales"
+          ? row.convertedVolume
+          : row.quotedVolume;
       const share = Number(
         ((metricValue / Math.max(metricTotal, 1)) * 100).toFixed(1),
       );
 
       return {
         contributionValue: metricValue,
-        metricDisplay: isVolumeTab
-          ? formatCount(metricValue)
-          : formatCurrency(metricValue),
+        metricDisplay: formatCount(metricValue),
         metricValue,
-        metaDisplay: `${share}%`,
+        metaDisplay: formatPercent(share),
         petType: row.petType,
         product: row.product,
       };
@@ -1076,7 +1084,7 @@ const buildProductPerformanceViewData = (
     .sort((left, right) => right.metricValue - left.metricValue)
     .slice(0, 5);
   const contributionTotal =
-    activeMetricKey === "totalQuote" ? totalQuotedMetric : totalConvertedMetric;
+    activeMetricKey === "totalQuote" ? totalQuoted : totalConverted;
   const topFiveShare = Number(
     (
       (rankedRows.reduce((sum, row) => sum + row.contributionValue, 0) /
@@ -1091,7 +1099,9 @@ const buildProductPerformanceViewData = (
   const displayRows: ProductPerformanceRowData[] = rankedRows.map(
     (row, index) => ({
       fillPercent:
-        maxValue === 0 ? 0 : Number(((row.metricValue / maxValue) * 100).toFixed(1)),
+        maxValue === 0
+          ? 0
+          : Number(((row.metricValue / maxValue) * 100).toFixed(1)),
       metaDisplay: row.metaDisplay,
       metricDisplay: row.metricDisplay,
       petType: row.petType,
@@ -1101,36 +1111,29 @@ const buildProductPerformanceViewData = (
   );
 
   return {
-    accentRgb,
+    accentRgb: "78, 141, 245",
     rows: displayRows,
     summaryValue: formatPercent(topFiveShare),
-    title,
+    title: metricDescriptor.productVolumeTitle,
   };
 };
 
 const buildProductPerformanceCardData = (
   rows: ReturnType<typeof scaleProductData>,
-): ProductPerformanceCardData => ({
-  value: {
-    conversionRate: buildProductPerformanceViewData(
-      rows,
-      "conversionRate",
-      "value",
-    ),
-    totalQuote: buildProductPerformanceViewData(rows, "totalQuote", "value"),
-    totalSales: buildProductPerformanceViewData(rows, "totalSales", "value"),
-  },
-  volume: {
-    conversionRate: buildProductPerformanceViewData(
-      rows,
-      "conversionRate",
-      "volume",
-    ),
-    totalQuote: buildProductPerformanceViewData(rows, "totalQuote", "volume"),
-    totalSales: buildProductPerformanceViewData(rows, "totalSales", "volume"),
-  },
-});
+): ProductPerformanceCardData => {
+  const productRows = aggregateProductVolumeRows(rows);
 
+  return {
+    volume: {
+      conversionRate: buildProductPerformanceViewData(
+        productRows,
+        "conversionRate",
+      ),
+      totalQuote: buildProductPerformanceViewData(productRows, "totalQuote"),
+      totalSales: buildProductPerformanceViewData(productRows, "totalSales"),
+    },
+  };
+};
 const buildPromoPerformanceViewData = (
   sourceRows: Array<{
     averageTimeToConvertDays: number;
@@ -2000,7 +2003,7 @@ const buildCumulativeTabData = (
           )} year over year change.`,
       direction: changeDirection,
       kind: "trend",
-      label: isConversionMetric ? "Gap" : "YTD",
+      label: isConversionMetric ? "Gap" : "YoY",
       tone: signalTone,
       value: signalValue,
     },

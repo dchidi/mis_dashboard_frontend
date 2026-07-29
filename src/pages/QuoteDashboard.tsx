@@ -497,7 +497,7 @@ const renderChartView = ({
   reportingPeriodLabel,
 }: DashboardChartViewProps) => (
   <div className={style.root}>
-    <div className={style.dashboardColumn}>
+    <div className={`${style.dashboardColumn} ${style.stackedColumn}`}>
       {isLoading ? (
         <QuoteByCountrySkeleton
           className={`${style.section} ${style.countryCard}`}
@@ -537,7 +537,7 @@ const renderChartView = ({
       )}
     </div>
 
-    <div className={style.dashboardColumn}>
+    <div className={`${style.dashboardColumn} ${style.middleColumn}`}>
       {isLoading ? (
         <PremiumOverviewSkeleton
           className={`${style.section} ${style.premiumCard}`}
@@ -550,7 +550,9 @@ const renderChartView = ({
       )}
     </div>
 
-    <div className={style.dashboardColumn}>
+    <div
+      className={`${style.dashboardColumn} ${style.stackedColumn} ${style.performanceColumn}`}
+    >
       {isLoading ? (
         <QuotePerformanceSkeleton
           className={`${style.section} ${style.trendCard}`}
@@ -955,7 +957,7 @@ const Dashboard: React.FC = () => {
       });
     } catch (error: unknown) {
       console.error(
-        "Failed to download quote product performance source data",
+        "Failed to download quote volume by product raw data",
         error,
       );
     } finally {
@@ -1025,6 +1027,7 @@ const Dashboard: React.FC = () => {
         menuItems={dashboardMenuItems}
         onReportingPeriodChange={handleReportingPeriodChange}
         reportingPeriod={reportingPeriod}
+        showDownloadControl={false}
         title="Quote Dashboard"
       >
         {renderChartView({
