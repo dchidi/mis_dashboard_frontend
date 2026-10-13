@@ -4,6 +4,11 @@
   gap: 1rem;
 }
 
+.rootCumulative {
+  height: 100%;
+  min-height: 0;
+}
+
 .topline {
   align-items: flex-start;
   display: flex;
@@ -115,6 +120,10 @@
   padding-top: 0.85rem;
 }
 
+.panelBodyCumulative {
+  flex: 1 1 auto;
+}
+
 .panelContent {
   animation: panelEnter 220ms ease;
   display: flex;
@@ -171,6 +180,9 @@
   height: 14rem;
   min-height: 14rem;
   width: 100%;
+}
+.cumulativeChart {
+  min-height: 25.5rem;
 }
 
 .metricsTable {

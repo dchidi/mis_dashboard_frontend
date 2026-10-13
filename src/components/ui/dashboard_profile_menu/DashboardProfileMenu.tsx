@@ -147,7 +147,7 @@ const DashboardProfileMenu: React.FC<DashboardProfileMenuProps> = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isSuperAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -243,7 +243,7 @@ const DashboardProfileMenu: React.FC<DashboardProfileMenuProps> = ({
             </button>
           ) : null}
 
-          {isSuperAdmin ? (
+          {isAdmin ? (
             <button
               className={`${style.actionButton} ${
                 location.pathname === "/role_menu_access"

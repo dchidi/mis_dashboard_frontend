@@ -1559,7 +1559,7 @@ const quoteFlagSelectionInputStyles = createSelectionInputStyles({
 
 const Reports: React.FC = () => {
   const navigate = useNavigate();
-  const { isAdmin, logout, user } = useAuth();
+  const { canRunEtl, isAdmin, logout, user } = useAuth();
   const [isFreePolicyTypeModalOpen, setIsFreePolicyTypeModalOpen] =
     useState(false);
   const [isPolicyTypeModalOpen, setIsPolicyTypeModalOpen] = useState(false);
@@ -3558,7 +3558,7 @@ const Reports: React.FC = () => {
             selectedPetTypes={[]}
             showFilterControls={false}
             showManageUsersControl={isAdmin}
-            showRunEtlControl={isAdmin}
+            showRunEtlControl={canRunEtl}
           />
         }
         menuItems={dashboardMenuItems}
@@ -4629,5 +4629,4 @@ const Reports: React.FC = () => {
 };
 
 export default Reports;
-
 

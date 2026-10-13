@@ -6,13 +6,14 @@ export type AuthUserRole =
   | "biz_dev"
   | "exec_user";
 
-export type AuthMenuKey = "quote" | "policy" | "renewals" | "reports";
+export type AuthMenuKey = "quote" | "policy" | "renewals" | "reports" | "dsr";
 
 export interface RoleMenuPermissions {
   allowed_menus: AuthMenuKey[];
   role: AuthUserRole;
 }
 export interface AuthUser {
+  can_run_etl: boolean;
   created_at: string;
   email: string;
   full_name: string;
@@ -44,6 +45,7 @@ interface LoginPayload {
 }
 
 export interface CreateUserPayload {
+  can_run_etl: boolean;
   email: string;
   full_name: string;
   password: string;
@@ -51,6 +53,7 @@ export interface CreateUserPayload {
 }
 
 export interface UpdateUserPayload {
+  can_run_etl: boolean;
   email: string;
   full_name: string;
   role: AuthUserRole;

@@ -75,10 +75,6 @@ interface SkeletonCardProps {
 
 const defaultDashboardEndDate = dayjs().subtract(1, "day");
 const defaultReportingPeriod: DashboardDateRange = [
-  defaultDashboardEndDate.format("YYYY-MM-DD"),
-  defaultDashboardEndDate.format("YYYY-MM-DD"),
-];
-const defaultQuotePerformancePeriod: DashboardDateRange = [
   defaultDashboardEndDate.startOf("month").format("YYYY-MM-DD"),
   defaultDashboardEndDate.format("YYYY-MM-DD"),
 ];
@@ -599,7 +595,7 @@ const renderChartView = ({
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { isAdmin, logout, user } = useAuth();
+  const { canRunEtl, isAdmin, logout, user } = useAuth();
   const etlRunner = useV2EtlRunner();
   const quoteEtlDataRevision = useV2EtlDataRevision("quote");
   const [activeTrendSeriesKey, setActiveTrendSeriesKey] =
@@ -608,8 +604,6 @@ const Dashboard: React.FC = () => {
     useState<PremiumCurrencyCode>("GBP");
   const [reportingPeriod, setReportingPeriod] =
     useState<DashboardDateRange>(defaultReportingPeriod);
-  const [isReportingPeriodCustomized, setIsReportingPeriodCustomized] =
-    useState(false);
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedPetTypes, setSelectedPetTypes] = useState<string[]>([]);
@@ -693,16 +687,7 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const [startDate, endDate] = reportingPeriod;
-    const [performanceStartDate, performanceEndDate] =
-      isReportingPeriodCustomized
-        ? reportingPeriod
-        : defaultQuotePerformancePeriod;
-    if (
-      !startDate ||
-      !endDate ||
-      !performanceStartDate ||
-      !performanceEndDate
-    ) {
+    if (!startDate || !endDate) {
       return;
     }
 
@@ -716,8 +701,6 @@ const Dashboard: React.FC = () => {
       brands: selectedBrands,
       countryCodes: selectedCountries,
       endDate,
-      performanceEndDate,
-      performanceStartDate,
       petTypes: selectedPetTypes,
       signal: abortController.signal,
       startDate,
@@ -756,7 +739,6 @@ const Dashboard: React.FC = () => {
       abortController.abort();
     };
   }, [
-    isReportingPeriodCustomized,
     reportingPeriod,
     selectedBrands,
     selectedCountries,
@@ -891,7 +873,6 @@ const Dashboard: React.FC = () => {
 
   const handleReportingPeriodChange = (nextReportingPeriod: DashboardDateRange) => {
     setIsDashboardLoading(true);
-    setIsReportingPeriodCustomized(true);
     setReportingPeriod(nextReportingPeriod);
   };
 
@@ -1021,7 +1002,7 @@ const Dashboard: React.FC = () => {
             selectedCountries={selectedCountries}
             selectedPetTypes={selectedPetTypes}
             showManageUsersControl={isAdmin}
-            showRunEtlControl={isAdmin}
+            showRunEtlControl={canRunEtl}
           />
         }
         menuItems={dashboardMenuItems}

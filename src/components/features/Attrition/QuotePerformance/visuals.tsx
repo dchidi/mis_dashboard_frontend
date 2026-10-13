@@ -221,7 +221,11 @@ export const CumulativeTrendVisual: React.FC<{
     <>
       <DoubleLineGraph
         chartMargin={{ top: 8, right: 16, left: 10, bottom: 28 }}
-        className={expanded ? style.analysisAreaChart : style.chart}
+        className={
+          expanded
+            ? style.analysisAreaChart
+            : joinClassNames(style.chart, style.cumulativeChart)
+        }
         data={trendData}
         lines={[
           {

@@ -13,13 +13,19 @@
   position: relative;
 }
 
-.eyebrow {
+.statusBanner {
+  background: rgba(214, 101, 78, 0.12);
+  border: 1px solid rgba(226, 128, 106, 0.28);
+  border-radius: 999px;
   color: #d8b6af;
+  display: inline-flex;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.14em;
   margin-bottom: 0.75rem;
+  padding: 0.46rem 0.72rem;
   text-transform: uppercase;
+  width: fit-content;
 }
 
 .heroTitle {

@@ -18,6 +18,7 @@ import {
 
 interface AuthContextValue {
   allowedMenuKeys: AuthMenuKey[];
+  canRunEtl: boolean;
   canAccessMenu: (menuKey: AuthMenuKey) => boolean;
   cancelRequiredPasswordChange: () => void;
   completeRequiredPasswordChange: (
@@ -129,7 +130,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           requestedPath,
           permissions,
           isAdmin,
-          authenticatedUser.role === "super_admin",
         ),
     );
     const destination =
@@ -228,6 +228,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     <AuthContext.Provider
       value={{
         allowedMenuKeys,
+        canRunEtl: Boolean(user?.can_run_etl),
         canAccessMenu: (menuKey) => allowedMenuKeys.includes(menuKey),
         cancelRequiredPasswordChange,
         completeRequiredPasswordChange,

@@ -5,13 +5,14 @@ export const MENU_PATHS: Record<AuthMenuKey, string> = {
   policy: "/policy",
   renewals: "/renewals",
   reports: "/reports",
+  dsr: "/dsr",
 };
 
 export const getFirstAllowedMenuPath = (
   allowedMenuKeys: AuthMenuKey[],
 ): string | null => {
   const firstMenuKey = (
-    ["quote", "policy", "renewals", "reports"] as AuthMenuKey[]
+    ["dsr", "quote", "policy", "renewals", "reports"] as AuthMenuKey[]
   ).find((key) => allowedMenuKeys.includes(key));
   return firstMenuKey ? MENU_PATHS[firstMenuKey] : null;
 };
@@ -20,13 +21,12 @@ export const canAccessPath = (
   path: string,
   allowedMenuKeys: AuthMenuKey[],
   isAdmin: boolean,
-  isSuperAdmin = false,
 ): boolean => {
   const pathname = path.split(/[?#]/, 1)[0];
   if (isAdmin && pathname === "/manage_users") {
     return true;
   }
-  if (isSuperAdmin && pathname === "/role_menu_access") {
+  if (isAdmin && pathname === "/role_menu_access") {
     return true;
   }
 

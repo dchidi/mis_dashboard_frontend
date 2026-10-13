@@ -5,6 +5,7 @@ import { RiAlertLine } from "react-icons/ri";
 import Card from "../components/ui/card/Card";
 import DashboardLayout from "../components/layout/DashboardLayout/DashboardLayout";
 import DashboardProfileMenu from "../components/ui/dashboard_profile_menu/DashboardProfileMenu";
+import V2EtlModal from "../components/ui/etl_modal/V2EtlModal";
 import { dashboardMenuItems } from "../config/dashboardMenu";
 import {
   brandFilterOptions,
@@ -16,6 +17,7 @@ import {
 import type { PremiumCurrencyCode } from "../components/features/Attrition/data";
 import type { TrendSeriesKey } from "../components/features/Attrition/QuotePerformance/types";
 import { useAuth } from "../context/AuthContext";
+import { useV2EtlRunner } from "../features/etl/useV2EtlRunner";
 import {
   authService,
   type AuthMenuKey,
@@ -33,10 +35,16 @@ const roleLabels: Record<AuthUserRole, string> = {
   exec_user: "ExecUser",
 };
 
-const roleOptions: AuthUserRole[] = [
+const allRoleOptions: AuthUserRole[] = [
   "mis",
   "admin",
   "super_admin",
+  "marketing",
+  "biz_dev",
+  "exec_user",
+];
+const adminRoleOptions: AuthUserRole[] = [
+  "mis",
   "marketing",
   "biz_dev",
   "exec_user",
@@ -47,11 +55,20 @@ const menuOptions: Array<{ key: AuthMenuKey; label: string }> = [
   { key: "policy", label: "Policy" },
   { key: "renewals", label: "Renewals" },
   { key: "reports", label: "Reports" },
+  { key: "dsr", label: "Daily Sales Report" },
 ];
 
 const RoleMenuAccess: React.FC = () => {
   const navigate = useNavigate();
-  const { isAdmin, logout, refreshMenuPermissions, user } = useAuth();
+  const {
+    canRunEtl,
+    isAdmin,
+    isSuperAdmin,
+    logout,
+    refreshMenuPermissions,
+    user,
+  } = useAuth();
+  const etlRunner = useV2EtlRunner();
   const [permissions, setPermissions] = useState<
     Partial<Record<AuthUserRole, AuthMenuKey[]>>
   >({});
@@ -60,6 +77,7 @@ const RoleMenuAccess: React.FC = () => {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const { firstName, lastName } = getUserNameParts(user);
+  const roleOptions = isSuperAdmin ? allRoleOptions : adminRoleOptions;
 
   useEffect(() => {
     let isActive = true;
@@ -138,7 +156,8 @@ const RoleMenuAccess: React.FC = () => {
   };
 
   return (
-    <DashboardLayout
+    <>
+      <DashboardLayout
       headerProfile={
         <DashboardProfileMenu
           activeCurrencyCode={"GBP" as PremiumCurrencyCode}
@@ -149,6 +168,7 @@ const RoleMenuAccess: React.FC = () => {
           availableMetrics={metricFilterOptions}
           availablePetTypes={petTypeFilterOptions}
           firstName={firstName}
+          isEtlRunning={etlRunner.isEtlRunning}
           lastName={lastName}
           onActiveCurrencyChange={() => undefined}
           onActiveMetricChange={() => undefined}
@@ -157,13 +177,13 @@ const RoleMenuAccess: React.FC = () => {
           onManageUsers={() => navigate("/manage_users")}
           onLogout={logout}
           onPetTypesChange={() => undefined}
-          onRunEtl={() => undefined}
+          onRunEtl={etlRunner.openModal}
           selectedBrands={[]}
           selectedCountries={[]}
           selectedPetTypes={[]}
           showFilterControls={false}
           showManageUsersControl={isAdmin}
-          showRunEtlControl={false}
+          showRunEtlControl={canRunEtl}
         />
       }
       menuItems={dashboardMenuItems}
@@ -195,7 +215,7 @@ const RoleMenuAccess: React.FC = () => {
               </p>
             </div>
             <span className={style.statusText}>
-              {isLoading ? "Loading access..." : "SuperAdmin only"}
+              {isLoading ? "Loading access..." : "Admin access"}
             </span>
           </div>
 
@@ -243,7 +263,31 @@ const RoleMenuAccess: React.FC = () => {
           </div>
         </Card>
       </div>
-    </DashboardLayout>
+      </DashboardLayout>
+
+      <V2EtlModal
+        activeRouteOption={etlRunner.activeRouteOption}
+        completedAt={etlRunner.completedAt}
+        dateRange={etlRunner.dateRange}
+        etlEvents={etlRunner.etlEvents}
+        etlHeadline={etlRunner.etlHeadline}
+        etlJobs={etlRunner.etlJobs}
+        isOpen={etlRunner.isEtlModalOpen}
+        isRunning={etlRunner.isEtlRunning}
+        isStatusLoading={etlRunner.isStatusLoading}
+        onClose={etlRunner.closeModal}
+        onDateRangeChange={etlRunner.setDateRange}
+        onResetDateRange={etlRunner.resetDateRange}
+        onResetState={etlRunner.resetEtlState}
+        onRun={() => void etlRunner.runSelectedEtl()}
+        onSelectRoute={etlRunner.setSelectedRouteKey}
+        routeOptions={etlRunner.routeOptions}
+        selectedRouteKey={etlRunner.selectedRouteKey}
+        startedAt={etlRunner.startedAt}
+        statusError={etlRunner.statusError}
+        statusSummary={etlRunner.statusSummary}
+      />
+    </>
   );
 };
 

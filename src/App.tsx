@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { Anchor, Center, Loader, Paper, Stack, Text, Title } from "@mantine/core";
 import { BrowserRouter, Link, Navigate, Route, Routes } from "react-router-dom";
 import AttritionDashboard from "./pages/QuoteDashboard";
+import DailySalesReport from "./pages/DailySalesReport";
 import FeaturePlaceholderDashboard from "./pages/FeaturePlaceholderDashboard";
 import Login from "./pages/Login";
 import ManageUsers from "./pages/ManageUsers";
@@ -134,38 +135,6 @@ function AdminRoute({ children }: { children: ReactElement }) {
   return children;
 }
 
-function SuperAdminRoute({ children }: { children: ReactElement }) {
-  const {
-    allowedMenuKeys,
-    isAdmin,
-    isAuthenticated,
-    isLoading,
-    isSuperAdmin,
-  } = useAuth();
-
-  if (isLoading) {
-    return <LoadingPage />;
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate replace to="/" />;
-  }
-
-  if (!isSuperAdmin) {
-    return (
-      <Navigate
-        replace
-        to={
-          getFirstAllowedMenuPath(allowedMenuKeys) ??
-          (isAdmin ? "/manage_users" : "/access-denied")
-        }
-      />
-    );
-  }
-
-  return children;
-}
-
 function PublicOnlyRoute({ children }: { children: ReactElement }) {
   const { allowedMenuKeys, isAdmin, isAuthenticated, isLoading } = useAuth();
 
@@ -249,11 +218,19 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/dsr"
+        element={
+          <MenuRoute menuKey="dsr">
+            <DailySalesReport />
+          </MenuRoute>
+        }
+      />
+      <Route
         path="/role_menu_access"
         element={
-          <SuperAdminRoute>
+          <AdminRoute>
             <RoleMenuAccess />
-          </SuperAdminRoute>
+          </AdminRoute>
         }
       />
       <Route

@@ -1614,6 +1614,67 @@ const buildCumulativeMetricsTableData = (
   };
 };
 
+const buildTrendPeriodSummary = (
+  trendRows: QuoteTrendDatum[],
+): QuoteTrendDatum => {
+  const firstRow = trendRows[0];
+  const lastRow = trendRows[trendRows.length - 1];
+
+  if (!firstRow || !lastRow) {
+    return {
+      averageTimeToConvertDays: 0,
+      conversionRate: 0,
+      month: "",
+      previousYearConversionRate: 0,
+      previousYearMonth: "",
+      previousYearTotalQuote: 0,
+      previousYearTotalSales: 0,
+      totalQuote: 0,
+      totalSales: 0,
+    };
+  }
+
+  const totalQuote = trendRows.reduce((sum, row) => sum + row.totalQuote, 0);
+  const totalSales = trendRows.reduce((sum, row) => sum + row.totalSales, 0);
+  const previousYearTotalQuote = trendRows.reduce(
+    (sum, row) => sum + row.previousYearTotalQuote,
+    0,
+  );
+  const previousYearTotalSales = trendRows.reduce(
+    (sum, row) => sum + row.previousYearTotalSales,
+    0,
+  );
+  const weightedConversionDays = trendRows.reduce(
+    (sum, row) => sum + row.averageTimeToConvertDays * row.totalSales,
+    0,
+  );
+  const periodLabel =
+    firstRow.month === lastRow.month
+      ? firstRow.month
+      : `${firstRow.month} to ${lastRow.month}`;
+  const previousPeriodLabel =
+    firstRow.previousYearMonth === lastRow.previousYearMonth
+      ? firstRow.previousYearMonth
+      : `${firstRow.previousYearMonth} to ${lastRow.previousYearMonth}`;
+
+  return {
+    averageTimeToConvertDays: totalSales
+      ? Math.round(weightedConversionDays / totalSales)
+      : 0,
+    conversionRate: calculateConversionRate(totalSales, totalQuote),
+    month: periodLabel,
+    previousYearConversionRate: calculateConversionRate(
+      previousYearTotalSales,
+      previousYearTotalQuote,
+    ),
+    previousYearMonth: previousPeriodLabel,
+    previousYearTotalQuote,
+    previousYearTotalSales,
+    totalQuote,
+    totalSales,
+  };
+};
+
 const buildTrendSignal = (
   seriesKey: TrendSeriesKey,
   trendRows: QuoteTrendDatum[],
@@ -1626,7 +1687,7 @@ const buildTrendSignal = (
   const activeTrendSeries =
     trendSeriesOptions.find((series) => series.key === seriesKey) ??
     trendSeriesOptions[0];
-  const currentMonth = trendRows[trendRows.length - 1];
+  const currentMonth = buildTrendPeriodSummary(trendRows);
   const currentTrendValue = readTrendMetric(currentMonth, activeTrendSeries.key);
   const previousYearTrendValue = readTrendMetric(
     currentMonth,
@@ -1637,31 +1698,40 @@ const buildTrendSignal = (
       ? 0
       : ((currentTrendValue - previousYearTrendValue) / previousYearTrendValue) *
           100;
+  const conversionPointGap = Number(
+    (currentTrendValue - previousYearTrendValue).toFixed(1),
+  );
+  const comparisonValue =
+    seriesKey === "conversionRate" ? conversionPointGap : percentChange;
   const changeDirection =
-    percentChange > 0 ? "up" : percentChange < 0 ? "down" : "flat";
+    comparisonValue > 0 ? "up" : comparisonValue < 0 ? "down" : "flat";
   const changeDescription =
     changeDirection === "up"
       ? `${activeTrendSeries.description} increased`
       : changeDirection === "down"
         ? `${activeTrendSeries.description} declined`
         : `${activeTrendSeries.description} unchanged`;
+  const signalValue =
+    seriesKey === "conversionRate"
+      ? formatPointGap(conversionPointGap)
+      : formatDeltaPercent(percentChange);
 
   return {
     changeDirection,
     currentMonth,
     percentChange,
     signal: {
-      ariaLabel: `${changeDescription} by ${formatDeltaPercent(percentChange)} year over year for ${activeTrendSeries.label}.`,
+      ariaLabel: `${changeDescription} by ${signalValue} year over year for the selected period.`,
       direction: changeDirection,
       kind: "trend",
-      label: "YoY",
+      label: seriesKey === "conversionRate" ? "Gap" : "YoY",
       tone:
         changeDirection === "up"
           ? "positive"
           : changeDirection === "down"
             ? "negative"
             : "neutral",
-      value: formatDeltaPercent(percentChange),
+      value: signalValue,
     },
   };
 };

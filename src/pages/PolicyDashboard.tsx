@@ -76,7 +76,7 @@ const renderChartView = ({
 
 const PolicyDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { isAdmin, logout, user } = useAuth();
+  const { canRunEtl, isAdmin, logout, user } = useAuth();
   const [activeTrendSeriesKey, setActiveTrendSeriesKey] =
     useState<TrendSeriesKey>("totalQuote");
   const [activeCurrencyCode, setActiveCurrencyCode] =
@@ -123,7 +123,7 @@ const PolicyDashboard: React.FC = () => {
             selectedCountries={selectedCountries}
             selectedPetTypes={selectedPetTypes}
             showManageUsersControl={isAdmin}
-            showRunEtlControl={isAdmin}
+            showRunEtlControl={canRunEtl}
           />
         }
         menuItems={dashboardMenuItems}

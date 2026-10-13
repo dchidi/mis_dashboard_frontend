@@ -208,6 +208,8 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
     activeTabData.kind === "quote-trend" ||
     activeTabData.kind === "cumulative-trend" ||
     activeTabData.kind === "conversion-trend";
+  const isCumulativeTrendActive =
+    activeTabData.kind === "cumulative-trend";
   const signalClassName = joinClassNames(
     style.signal,
     toneClassMap[activeTabData.signal.tone],
@@ -361,7 +363,12 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
   return (
     <>
       <Card className={className}>
-        <div className={style.root}>
+        <div
+          className={joinClassNames(
+            style.root,
+            isCumulativeTrendActive && style.rootCumulative,
+          )}
+        >
           <div className={style.topline}>
             <div className={`cardTitle ${style.outerTitle}`}>
               {activeTabData.kind === "quote-trend"
@@ -451,6 +458,7 @@ const QuotePerformance: React.FC<QuotePerformanceProps> = ({
             className={joinClassNames(
               style.panelBody,
               isTrendTabActive && style.panelBodyQuoteTrend,
+              isCumulativeTrendActive && style.panelBodyCumulative,
             )}
             id={`quote-panel-${activeTabData.key}`}
             key={activeTabData.key}

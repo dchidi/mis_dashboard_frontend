@@ -6,6 +6,7 @@ import Card from "../components/ui/card/Card";
 import Table, { type TableColumn } from "../components/ui/table/Table";
 import DashboardLayout from "../components/layout/DashboardLayout/DashboardLayout";
 import DashboardProfileMenu from "../components/ui/dashboard_profile_menu/DashboardProfileMenu";
+import V2EtlModal from "../components/ui/etl_modal/V2EtlModal";
 import { dashboardMenuItems } from "../config/dashboardMenu";
 import {
   brandFilterOptions,
@@ -17,6 +18,7 @@ import {
 import type { PremiumCurrencyCode } from "../components/features/Attrition/data";
 import type { TrendSeriesKey } from "../components/features/Attrition/QuotePerformance/types";
 import { useAuth } from "../context/AuthContext";
+import { useV2EtlRunner } from "../features/etl/useV2EtlRunner";
 import {
   authService,
   type AuthUser,
@@ -44,11 +46,13 @@ const allRoleOptions: AuthUserRole[] = [
 ];
 const adminVisibleRoleOptions: AuthUserRole[] = [
   "mis",
-  "admin",
   "marketing",
   "biz_dev",
   "exec_user",
 ];
+
+const roleHasDefaultEtlAccess = (role: AuthUserRole) =>
+  role === "admin" || role === "super_admin";
 
 const passwordStyles = {
   input: {
@@ -90,7 +94,14 @@ const sortUsers = (users: AuthUser[]) =>
 
 const ManageUsers: React.FC = () => {
   const navigate = useNavigate();
-  const { isAdmin, isSuperAdmin, logout, user } = useAuth();
+  const {
+    canRunEtl: currentUserCanRunEtl,
+    isAdmin,
+    isSuperAdmin,
+    logout,
+    user,
+  } = useAuth();
+  const etlRunner = useV2EtlRunner();
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState("");
@@ -102,6 +113,7 @@ const ManageUsers: React.FC = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState<AuthUserRole>("exec_user");
+  const [canRunEtl, setCanRunEtl] = useState(false);
   const [formError, setFormError] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
@@ -109,16 +121,15 @@ const ManageUsers: React.FC = () => {
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState<AuthUserRole>("exec_user");
+  const [editCanRunEtl, setEditCanRunEtl] = useState(false);
   const [editError, setEditError] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [deletingUser, setDeletingUser] = useState<AuthUser | null>(null);
 
 
   const roleOptions = isSuperAdmin ? allRoleOptions : adminVisibleRoleOptions;
-  const privilegedUsers = useMemo(
-    () =>
-      users.filter((entry) => ["admin", "super_admin"].includes(entry.role))
-        .length,
+  const etlUsers = useMemo(
+    () => users.filter((entry) => entry.can_run_etl).length,
     [users],
   );
   const passwordRequests = useMemo(
@@ -204,6 +215,7 @@ const ManageUsers: React.FC = () => {
     setIsCreating(true);
     try {
       const createdUser = await authService.createUser({
+        can_run_etl: canRunEtl,
         email: normalizedEmail,
         full_name: normalizedName,
         password,
@@ -215,6 +227,7 @@ const ManageUsers: React.FC = () => {
       setPassword("");
       setConfirmPassword("");
       setRole("exec_user");
+      setCanRunEtl(false);
       setNotice(
         `${createdUser.full_name} was created and must change their password at first sign-in.`,
       );
@@ -232,6 +245,7 @@ const ManageUsers: React.FC = () => {
     setEditName(target.full_name);
     setEditEmail(target.email);
     setEditRole(target.role);
+    setEditCanRunEtl(target.can_run_etl);
     setEditError("");
   };
 
@@ -246,6 +260,7 @@ const ManageUsers: React.FC = () => {
     setIsUpdating(true);
     try {
       const updatedUser = await authService.updateUser(editingUser.id, {
+        can_run_etl: editCanRunEtl,
         email: editEmail.trim().toLowerCase(),
         full_name: editName.trim(),
         role: editRole,
@@ -322,7 +337,7 @@ const ManageUsers: React.FC = () => {
           <span className={style.userEmail}>{row.email}</span>
         </div>
       ),
-      width: "25%",
+      width: "21%",
     },
     {
       header: "Role",
@@ -336,7 +351,21 @@ const ManageUsers: React.FC = () => {
           {roleLabels[row.role]}
         </span>
       ),
-      width: "12%",
+      width: "10%",
+    },
+    {
+      header: "RUN ETL",
+      key: "etl",
+      render: (row) => (
+        <span
+          className={`${style.statusBadge} ${
+            row.can_run_etl ? style.statusActive : style.statusMuted
+          }`}
+        >
+          {row.can_run_etl ? "Allowed" : "Not allowed"}
+        </span>
+      ),
+      width: "10%",
     },
     {
       header: "Password Status",
@@ -350,7 +379,7 @@ const ManageUsers: React.FC = () => {
           {row.must_change_password ? "Change required" : "Current"}
         </span>
       ),
-      width: "16%",
+      width: "14%",
     },
     {
       header: "Created",
@@ -358,7 +387,7 @@ const ManageUsers: React.FC = () => {
       render: (row) => (
         <span className={style.dateCell}>{formatDate(row.created_at)}</span>
       ),
-      width: "11%",
+      width: "10%",
     },
     {
       header: "Last Updated",
@@ -368,7 +397,7 @@ const ManageUsers: React.FC = () => {
           {formatDate(row.updated_at ?? row.password_changed_at)}
         </span>
       ),
-      width: "11%",
+      width: "10%",
     },
     {
       header: "Actions",
@@ -418,7 +447,8 @@ const ManageUsers: React.FC = () => {
   ];
 
   return (
-    <DashboardLayout
+    <>
+      <DashboardLayout
       headerProfile={
         <DashboardProfileMenu
           activeCurrencyCode={"GBP" as PremiumCurrencyCode}
@@ -429,6 +459,7 @@ const ManageUsers: React.FC = () => {
           availableMetrics={metricFilterOptions}
           availablePetTypes={petTypeFilterOptions}
           firstName={firstName}
+          isEtlRunning={etlRunner.isEtlRunning}
           lastName={lastName}
           onActiveCurrencyChange={() => undefined}
           onActiveMetricChange={() => undefined}
@@ -437,13 +468,13 @@ const ManageUsers: React.FC = () => {
           onManageUsers={() => navigate("/manage_users")}
           onLogout={logout}
           onPetTypesChange={() => undefined}
-          onRunEtl={() => undefined}
+          onRunEtl={etlRunner.openModal}
           selectedBrands={[]}
           selectedCountries={[]}
           selectedPetTypes={[]}
           showFilterControls={false}
           showManageUsersControl={isAdmin}
-          showRunEtlControl={false}
+          showRunEtlControl={currentUserCanRunEtl}
           userManagementActive
         />
       }
@@ -531,21 +562,33 @@ const ManageUsers: React.FC = () => {
                   <span className={style.fieldLabel}>Role</span>
                   <select
                     className={style.input}
-                    onChange={(event) =>
-                      setRole(event.target.value as AuthUserRole)
-                    }
+                    onChange={(event) => {
+                      const nextRole = event.target.value as AuthUserRole;
+                      setRole(nextRole);
+                      setCanRunEtl(roleHasDefaultEtlAccess(nextRole));
+                    }}
                     value={role}
                   >
                     {roleOptions.map((option) => (
-                      <option
-                        disabled={!isSuperAdmin && option === "admin"}
-                        key={option}
-                        value={option}
-                      >
+                      <option key={option} value={option}>
                         {roleLabels[option]}
                       </option>
                     ))}
                   </select>
+                </label>
+
+                <label className={style.permissionField}>
+                  <input
+                    checked={canRunEtl}
+                    onChange={(event) => setCanRunEtl(event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span>
+                    <strong>RUN ETL</strong>
+                    <small>
+                      Grant or revoke this permission independently of the role.
+                    </small>
+                  </span>
                 </label>
               </div>
 
@@ -581,8 +624,8 @@ const ManageUsers: React.FC = () => {
                 <strong className={style.summaryValue}>{users.length}</strong>
               </div>
               <div className={style.summaryMetric}>
-                <span className={style.summaryLabel}>Privileged Accounts</span>
-                <strong className={style.summaryValue}>{privilegedUsers}</strong>
+                <span className={style.summaryLabel}>ETL Access</span>
+                <strong className={style.summaryValue}>{etlUsers}</strong>
               </div>
               <div className={style.summaryMetric}>
                 <span className={style.summaryLabel}>Password Changes</span>
@@ -658,21 +701,28 @@ const ManageUsers: React.FC = () => {
             <span className={style.fieldLabel}>Role</span>
             <select
               className={style.input}
-              onChange={(event) =>
-                setEditRole(event.target.value as AuthUserRole)
-              }
+              onChange={(event) => setEditRole(event.target.value as AuthUserRole)}
               value={editRole}
             >
               {roleOptions.map((option) => (
-                <option
-                  disabled={!isSuperAdmin && option === "admin"}
-                  key={option}
-                  value={option}
-                >
+                <option key={option} value={option}>
                   {roleLabels[option]}
                 </option>
               ))}
             </select>
+          </label>
+          <label className={style.permissionField}>
+            <input
+              checked={editCanRunEtl}
+              onChange={(event) => setEditCanRunEtl(event.target.checked)}
+              type="checkbox"
+            />
+            <span>
+              <strong>RUN ETL</strong>
+              <small>
+                This user-specific setting can grant or revoke ETL access.
+              </small>
+            </span>
           </label>
           {editError ? <p className={style.formError}>{editError}</p> : null}
           <div className={style.modalActions}>
@@ -730,7 +780,31 @@ const ManageUsers: React.FC = () => {
           </button>
         </div>
       </Modal>
-    </DashboardLayout>
+      </DashboardLayout>
+
+      <V2EtlModal
+        activeRouteOption={etlRunner.activeRouteOption}
+        completedAt={etlRunner.completedAt}
+        dateRange={etlRunner.dateRange}
+        etlEvents={etlRunner.etlEvents}
+        etlHeadline={etlRunner.etlHeadline}
+        etlJobs={etlRunner.etlJobs}
+        isOpen={etlRunner.isEtlModalOpen}
+        isRunning={etlRunner.isEtlRunning}
+        isStatusLoading={etlRunner.isStatusLoading}
+        onClose={etlRunner.closeModal}
+        onDateRangeChange={etlRunner.setDateRange}
+        onResetDateRange={etlRunner.resetDateRange}
+        onResetState={etlRunner.resetEtlState}
+        onRun={() => void etlRunner.runSelectedEtl()}
+        onSelectRoute={etlRunner.setSelectedRouteKey}
+        routeOptions={etlRunner.routeOptions}
+        selectedRouteKey={etlRunner.selectedRouteKey}
+        startedAt={etlRunner.startedAt}
+        statusError={etlRunner.statusError}
+        statusSummary={etlRunner.statusSummary}
+      />
+    </>
   );
 };
 

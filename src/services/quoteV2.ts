@@ -96,8 +96,6 @@ interface FetchQuoteDashboardParams {
   brands?: string[];
   countryCodes?: string[];
   endDate: string;
-  performanceEndDate?: string;
-  performanceStartDate?: string;
   petTypes?: string[];
   signal?: AbortSignal;
   startDate: string;
@@ -353,8 +351,6 @@ export const fetchQuoteDashboard = async ({
   brands = [],
   countryCodes = [],
   endDate,
-  performanceEndDate,
-  performanceStartDate,
   petTypes = [],
   signal,
   startDate,
@@ -363,8 +359,6 @@ export const fetchQuoteDashboard = async ({
     brands: buildCommaSeparatedValue(brands),
     country_codes: buildCommaSeparatedValue(countryCodes),
     end_date: endDate,
-    performance_end_date: performanceEndDate,
-    performance_start_date: performanceStartDate,
     pet_types: buildCommaSeparatedValue(petTypes),
     start_date: startDate,
   });
