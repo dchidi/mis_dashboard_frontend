@@ -1,3 +1,4 @@
+import { API_V2_BASE_URL } from "../config/api";
 import {
   authStorage,
   dispatchSessionExpiredEvent,
@@ -46,9 +47,7 @@ export const claimsPetTypeOptions: ClaimsFilterOption[] = [
   { label: "Exotic", value: "Exotic" },
 ];
 
-const CLAIMS_V2_BASE_URL =
-  import.meta.env.VITE_API_V2_CLAIMS_BASE_URL?.replace(/\/+$/, "") ??
-  "http://127.0.0.1:8000/api/v2/claims";
+const CLAIMS_V2_BASE_URL = `${API_V2_BASE_URL}/claims`;
 
 const allValuesSelected = (
   selectedValues: string[],

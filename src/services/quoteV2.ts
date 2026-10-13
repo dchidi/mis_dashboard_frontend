@@ -1,4 +1,5 @@
 ﻿import type { QuoteDashboardDataBundle } from "../components/features/Attrition/dashboardState";
+import { API_V2_BASE_URL } from "../config/api";
 import {
   dispatchSessionExpiredEvent,
   isAuthenticationErrorStatus,
@@ -182,15 +183,9 @@ interface FetchQuoteReportDataParams {
   startDate: string;
 }
 
-const QUOTE_V2_DASHBOARD_BASE_URL =
-  import.meta.env.VITE_API_V2_QUOTE_DASHBOARD_BASE_URL?.replace(/\/+$/, "") ??
-  "http://127.0.0.1:8000/api/v2/quote/dashboard";
-const QUOTE_V2_REPORTS_BASE_URL =
-  import.meta.env.VITE_API_V2_QUOTE_REPORTS_BASE_URL?.replace(/\/+$/, "") ??
-  "http://127.0.0.1:8000/api/v2/quote/reports";
-const QUOTE_V2_FILTERS_BASE_URL =
-  import.meta.env.VITE_API_V2_FILTERS_BASE_URL?.replace(/\/+$/, "") ??
-  "http://127.0.0.1:8000/api/v2/filters";
+const QUOTE_V2_DASHBOARD_BASE_URL = `${API_V2_BASE_URL}/quote/dashboard`;
+const QUOTE_V2_REPORTS_BASE_URL = `${API_V2_BASE_URL}/quote/reports`;
+const QUOTE_V2_FILTERS_BASE_URL = `${API_V2_BASE_URL}/filters`;
 
 const dedupeOptions = (options: RawQuoteFilterOption[]) => {
   const seen = new Set<string>();

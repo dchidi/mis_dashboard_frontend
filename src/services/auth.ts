@@ -1,3 +1,5 @@
+import { API_V1_BASE_URL } from "../config/api";
+
 export type AuthUserRole =
   | "mis"
   | "admin"
@@ -69,10 +71,6 @@ const AUTH_TOKEN_STORAGE_KEY = "authToken";
 const AUTH_USER_STORAGE_KEY = "authUser";
 const AUTH_RETURN_PATH_STORAGE_KEY = "authReturnPath";
 export const AUTH_SESSION_EXPIRED_EVENT = "auth:session-expired";
-const API_V1_BASE_URL =
-  import.meta.env.VITE_API_V1_BASE_URL?.replace(/\/+$/, "") ??
-  "http://127.0.0.1:8000/api/v1";
-
 export const isAuthenticationErrorStatus = (status: number) => status === 401;
 
 export const dispatchSessionExpiredEvent = () => {

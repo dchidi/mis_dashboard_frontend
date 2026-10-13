@@ -1,3 +1,4 @@
+import { API_V2_BASE_URL } from "../config/api";
 import {
   authStorage,
   dispatchSessionExpiredEvent,
@@ -50,9 +51,7 @@ export const activePolicyPetTypeOptions: ActivePolicyFilterOption[] = [
   { label: "BB Commercial", value: "BBCommercial" },
 ];
 
-const ACTIVE_POLICY_V2_BASE_URL =
-  import.meta.env.VITE_API_V2_ACTIVE_POLICY_BASE_URL?.replace(/\/+$/, "") ??
-  "http://127.0.0.1:8000/api/v2/active-policy";
+const ACTIVE_POLICY_V2_BASE_URL = `${API_V2_BASE_URL}/active-policy`;
 
 const allValuesSelected = (
   selectedValues: string[],

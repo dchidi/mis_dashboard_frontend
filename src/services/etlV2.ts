@@ -1,3 +1,4 @@
+import { API_V2_BASE_URL } from "../config/api";
 import {
   authStorage,
   dispatchSessionExpiredEvent,
@@ -49,9 +50,7 @@ interface V2EtlRequestParams {
   startDate: string;
 }
 
-const V2_ETL_BASE_URL =
-  import.meta.env.VITE_API_V2_ETL_BASE_URL?.replace(/\/+$/, "") ??
-  "http://127.0.0.1:8000/api/v2/etl";
+const V2_ETL_BASE_URL = `${API_V2_BASE_URL}/etl`;
 
 const buildUrl = (
   path: string,

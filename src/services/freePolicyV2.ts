@@ -6,6 +6,7 @@ export type FreePolicyOutputProfile =
   | "cancelled-not-converted"
   | "lapsed-not-converted";
 
+import { API_V2_BASE_URL } from "../config/api";
 import {
   dispatchSessionExpiredEvent,
   isAuthenticationErrorStatus,
@@ -55,9 +56,7 @@ interface DownloadFreePolicyReportParams {
   startDate: string;
 }
 
-const FREE_POLICY_V2_REPORTS_BASE_URL =
-  import.meta.env.VITE_API_V2_FREE_POLICY_BASE_URL?.replace(/\/+$/, "") ??
-  "http://127.0.0.1:8000/api/v2/free-policy";
+const FREE_POLICY_V2_REPORTS_BASE_URL = `${API_V2_BASE_URL}/free-policy`;
 
 const parseTokenFromLocation = () => {
   if (typeof window === "undefined") {
