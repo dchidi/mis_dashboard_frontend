@@ -9,6 +9,7 @@ import ManageUsers from "./pages/ManageUsers";
 import PolicyDashboard from "./pages/PolicyDashboard";
 import Reports from "./pages/Reports";
 import RoleMenuAccess from "./pages/RoleMenuAccess";
+import { APP_BASENAME } from "./config/app";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { getFirstAllowedMenuPath } from "./config/menuAccess";
 import type { AuthMenuKey } from "./services/auth";
@@ -248,7 +249,7 @@ function AppRoutes() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={APP_BASENAME}>
       <AuthProvider>
         <AppRoutes />
       </AuthProvider>

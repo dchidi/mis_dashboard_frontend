@@ -1,4 +1,5 @@
 import { API_V1_BASE_URL } from "../config/api";
+import { stripAppBasename } from "../config/app";
 
 export type AuthUserRole =
   | "mis"
@@ -88,11 +89,12 @@ const getSafeReturnPath = (path: string | null) => {
 
   try {
     const url = new URL(path, window.location.origin);
-    if (url.origin !== window.location.origin || url.pathname === "/") {
+    const pathname = stripAppBasename(url.pathname);
+    if (url.origin !== window.location.origin || pathname === "/") {
       return null;
     }
 
-    return `${url.pathname}${url.search}${url.hash}`;
+    return `${pathname}${url.search}${url.hash}`;
   } catch {
     return null;
   }
